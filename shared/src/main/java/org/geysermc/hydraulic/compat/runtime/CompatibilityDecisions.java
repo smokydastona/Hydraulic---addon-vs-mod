@@ -1,5 +1,7 @@
 package org.geysermc.hydraulic.compat.runtime;
 
+import org.geysermc.hydraulic.compat.adapter.AdapterFeature;
+import org.geysermc.hydraulic.compat.adapter.CapabilityAdapterRegistry;
 import org.geysermc.hydraulic.compat.model.CompatibilityObject;
 import org.geysermc.hydraulic.compat.model.SupportLevel;
 import org.geysermc.hydraulic.compat.model.SupportResult;
@@ -11,74 +13,103 @@ public final class CompatibilityDecisions {
     }
 
     public static boolean supportsBlockItemTextureFallback(@Nullable CompatibilityObject compatibilityObject) {
-        SupportResult presentation = support(compatibilityObject, "presentation");
-        return presentation != null
-            && presentation.level() != SupportLevel.UNSUPPORTED
-            && presentation.level() != SupportLevel.VISUAL_ONLY;
+        return CapabilityAdapterRegistry.supports(AdapterFeature.BLOCK_ITEM_TEXTURE_FALLBACK, compatibilityObject, null);
     }
 
     public static boolean allowsBlockCreativeExposure(@Nullable CompatibilityObject compatibilityObject) {
+        return allowsBlockCreativeExposure(compatibilityObject, null);
+    }
+
+    public static boolean allowsBlockCreativeExposure(@Nullable CompatibilityObject compatibilityObject, @Nullable Object runtimeObject) {
         if (compatibilityObject == null) {
             return true;
         }
-
-        SupportResult content = support(compatibilityObject, "content");
-        SupportResult presentation = support(compatibilityObject, "presentation");
-        SupportResult interaction = support(compatibilityObject, "interaction");
-        SupportResult behavior = support(compatibilityObject, "behavior");
-
-        if (isUnsupported(content) || isUnsupported(presentation) || isUnsupported(behavior)) {
-            return false;
-        }
-
-        return interaction == null || interaction.supportedCapabilities().contains("placement");
+        return CapabilityAdapterRegistry.supports(AdapterFeature.BLOCK_CREATIVE_EXPOSURE, compatibilityObject, runtimeObject);
     }
 
     public static boolean shouldApplyBlockPlacementBridge(@Nullable CompatibilityObject compatibilityObject) {
-        SupportResult interaction = support(compatibilityObject, "interaction");
-        return interaction == null || interaction.supportedCapabilities().contains("placement");
+        return shouldApplyBlockPlacementBridge(compatibilityObject, null);
+    }
+
+    public static boolean shouldApplyBlockPlacementBridge(@Nullable CompatibilityObject compatibilityObject, @Nullable Object runtimeObject) {
+        return compatibilityObject == null || CapabilityAdapterRegistry.supports(AdapterFeature.BLOCK_PLACEMENT, compatibilityObject, runtimeObject);
     }
 
     public static boolean supportsWearableItemPresentation(@Nullable CompatibilityObject compatibilityObject) {
-        return supportsAttachableItemPresentation(compatibilityObject);
+        if (compatibilityObject == null) {
+            return true;
+        }
+        SupportResult content = support(compatibilityObject, "content");
+        SupportResult presentation = support(compatibilityObject, "presentation");
+        return !isUnsupported(content) && !isUnsupported(presentation);
+    }
+
+    public static boolean supportsWearableItemPresentation(@Nullable CompatibilityObject compatibilityObject, @Nullable Object runtimeObject) {
+        if (compatibilityObject == null) {
+            return true;
+        }
+        return CapabilityAdapterRegistry.supports(AdapterFeature.WEARABLE_ITEM_PRESENTATION, compatibilityObject, runtimeObject);
     }
 
     public static boolean supportsAttachableItemPresentation(@Nullable CompatibilityObject compatibilityObject) {
         if (compatibilityObject == null) {
             return true;
         }
-
         SupportResult content = support(compatibilityObject, "content");
         SupportResult presentation = support(compatibilityObject, "presentation");
         return !isUnsupported(content) && !isUnsupported(presentation);
     }
 
-    public static boolean allowsCustomItemRegistration(@Nullable CompatibilityObject compatibilityObject) {
+    public static boolean supportsAttachableItemPresentation(@Nullable CompatibilityObject compatibilityObject, @Nullable Object runtimeObject) {
         if (compatibilityObject == null) {
             return true;
         }
-
         SupportResult content = support(compatibilityObject, "content");
         SupportResult presentation = support(compatibilityObject, "presentation");
-        return !isUnsupported(content) && !isUnsupported(presentation);
+        return !isUnsupported(content)
+            && !isUnsupported(presentation)
+            && (CapabilityAdapterRegistry.supports(AdapterFeature.ATTACHABLE_ITEM_PRESENTATION, compatibilityObject, runtimeObject)
+            || !isUnsupported(support(compatibilityObject, "behavior")));
+    }
+
+    public static boolean allowsCustomItemRegistration(@Nullable CompatibilityObject compatibilityObject) {
+        return allowsCustomItemRegistration(compatibilityObject, null);
+    }
+
+    public static boolean allowsCustomItemRegistration(@Nullable CompatibilityObject compatibilityObject, @Nullable Object runtimeObject) {
+        if (compatibilityObject == null) {
+            return true;
+        }
+        return CapabilityAdapterRegistry.supports(AdapterFeature.CUSTOM_ITEM_REGISTRATION, compatibilityObject, runtimeObject);
     }
 
     public static boolean allowsItemCreativeExposure(@Nullable CompatibilityObject compatibilityObject) {
-        if (!allowsCustomItemRegistration(compatibilityObject)) {
+        return allowsItemCreativeExposure(compatibilityObject, null);
+    }
+
+    public static boolean allowsItemCreativeExposure(@Nullable CompatibilityObject compatibilityObject, @Nullable Object runtimeObject) {
+        if (!allowsCustomItemRegistration(compatibilityObject, runtimeObject)) {
             return false;
         }
 
         SupportResult behavior = support(compatibilityObject, "behavior");
-        return behavior == null || (behavior.level() != SupportLevel.UNSUPPORTED && behavior.level() != SupportLevel.APPROXIMATED);
+        return behavior == null
+            || (behavior.level() != SupportLevel.UNSUPPORTED && behavior.level() != SupportLevel.APPROXIMATED)
+            || CapabilityAdapterRegistry.supports(AdapterFeature.ITEM_CREATIVE_EXPOSURE, compatibilityObject, runtimeObject);
     }
 
     @Nullable
     public static String itemCreativeExposureReason(@Nullable CompatibilityObject compatibilityObject) {
-        if (compatibilityObject == null || allowsItemCreativeExposure(compatibilityObject)) {
+        return itemCreativeExposureReason(compatibilityObject, null);
+    }
+
+    @Nullable
+    public static String itemCreativeExposureReason(@Nullable CompatibilityObject compatibilityObject, @Nullable Object runtimeObject) {
+        if (compatibilityObject == null || allowsItemCreativeExposure(compatibilityObject, runtimeObject)) {
             return null;
         }
 
-        if (!allowsCustomItemRegistration(compatibilityObject)) {
+        if (!allowsCustomItemRegistration(compatibilityObject, runtimeObject)) {
             return "content or presentation support is insufficient";
         }
 
@@ -93,13 +124,7 @@ public final class CompatibilityDecisions {
     }
 
     public static boolean allowsCustomEntityRegistration(@Nullable CompatibilityObject compatibilityObject) {
-        if (compatibilityObject == null) {
-            return false;
-        }
-
-        SupportResult content = support(compatibilityObject, "content");
-        SupportResult presentation = support(compatibilityObject, "presentation");
-        return !isUnsupported(content) && !isUnsupported(presentation);
+        return CapabilityAdapterRegistry.supports(AdapterFeature.CUSTOM_ENTITY_REGISTRATION, compatibilityObject, null);
     }
 
     @Nullable

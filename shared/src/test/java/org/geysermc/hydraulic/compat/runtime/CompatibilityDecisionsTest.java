@@ -136,6 +136,34 @@ class CompatibilityDecisionsTest {
     }
 
     @Test
+    void allowsCreativeExposureForTaggedBowWhenAttachableAdapterApplies() {
+        CompatibilityObject tagged = objectWithFacts(
+            Map.of("behavior_tag", "bow_attachable"),
+            support("content", SupportLevel.AUTOMATIC, List.of("registered"), List.of()),
+            support("presentation", SupportLevel.AUTOMATIC, List.of("item_asset"), List.of()),
+            support("interaction", SupportLevel.AUTOMATIC, List.of("offhand"), List.of()),
+            support("behavior", SupportLevel.APPROXIMATED, List.of(), List.of("runtime_behavior"))
+        );
+
+        assertTrue(CompatibilityDecisions.supportsAttachableItemPresentation(tagged, null));
+        assertTrue(CompatibilityDecisions.allowsItemCreativeExposure(tagged, null));
+    }
+
+    @Test
+    void allowsCreativeExposureForTaggedWearableWhenAdapterTagApplies() {
+        CompatibilityObject tagged = objectWithFacts(
+            Map.of("behavior_tag", "wearable"),
+            support("content", SupportLevel.AUTOMATIC, List.of("registered"), List.of()),
+            support("presentation", SupportLevel.AUTOMATIC, List.of("item_asset"), List.of()),
+            support("interaction", SupportLevel.AUTOMATIC, List.of("offhand"), List.of()),
+            support("behavior", SupportLevel.APPROXIMATED, List.of(), List.of("runtime_behavior"))
+        );
+
+        assertTrue(CompatibilityDecisions.supportsWearableItemPresentation(tagged, null));
+        assertTrue(CompatibilityDecisions.allowsItemCreativeExposure(tagged, null));
+    }
+
+    @Test
     void suppressesCustomEntityRegistrationWhenPresentationIsUnsupported() {
         CompatibilityObject unsupported = blockObject(
             support("content", SupportLevel.AUTOMATIC, List.of("registered"), List.of()),
@@ -149,11 +177,15 @@ class CompatibilityDecisionsTest {
     }
 
     private static CompatibilityObject blockObject(SupportResult content, SupportResult presentation, SupportResult interaction, SupportResult behavior) {
+        return objectWithFacts(Map.of(), content, presentation, interaction, behavior);
+    }
+
+    private static CompatibilityObject objectWithFacts(Map<String, String> inventoryFacts, SupportResult content, SupportResult presentation, SupportResult interaction, SupportResult behavior) {
         return new CompatibilityObject(
             "example:test_block",
             "block",
             "examplemod",
-            Map.of(),
+            inventoryFacts,
             new CapabilityProfile("example:test_block", List.of(), List.of()),
             Map.of(
                 "content", content,

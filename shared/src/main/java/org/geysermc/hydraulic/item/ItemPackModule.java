@@ -160,7 +160,7 @@ public class ItemPackModule extends TexturePackModule<ItemPackModule> {
             CompatibilityObject itemObject = this.compatibilityItemObject(context, itemLocation);
 
             try {
-                if (!CompatibilityDecisions.allowsCustomItemRegistration(itemObject)) {
+                if (!CompatibilityDecisions.allowsCustomItemRegistration(itemObject, item)) {
                     context.logger().info("Skipping custom item registration for {} because compatibility analysis does not support content/presentation", itemLocation);
                     continue;
                 }
@@ -198,14 +198,14 @@ public class ItemPackModule extends TexturePackModule<ItemPackModule> {
                 CompatibilityObject blockObject = item instanceof BlockItem blockItem ? this.compatibilityBlockObject(context, blockItem) : null;
 
                 // Set the creative mappings
-                if (item instanceof BlockItem) {
-                    if (CompatibilityDecisions.allowsBlockCreativeExposure(blockObject)) {
+                if (item instanceof BlockItem blockItemForCreative) {
+                    if (CompatibilityDecisions.allowsBlockCreativeExposure(blockObject, blockItemForCreative.getBlock())) {
                         CreativeMappings.setup(item, customItemOptions);
                     }
-                } else if (CompatibilityDecisions.allowsItemCreativeExposure(itemObject)) {
+                } else if (CompatibilityDecisions.allowsItemCreativeExposure(itemObject, item)) {
                     CreativeMappings.setup(item, customItemOptions);
                 } else {
-                    context.logger().info("Skipping creative exposure for {} because {}", itemLocation, CompatibilityDecisions.itemCreativeExposureReason(itemObject));
+                    context.logger().info("Skipping creative exposure for {} because {}", itemLocation, CompatibilityDecisions.itemCreativeExposureReason(itemObject, item));
                 }
 
                 // Set all bedrock components using what java components we have
@@ -251,7 +251,7 @@ public class ItemPackModule extends TexturePackModule<ItemPackModule> {
                         .mappingResolver()
                         .resolveBlockState(javaBlockIdentifier, block.defaultBlockState());
 
-                    if (CompatibilityDecisions.shouldApplyBlockPlacementBridge(blockObject)) {
+                    if (CompatibilityDecisions.shouldApplyBlockPlacementBridge(blockObject, block)) {
                         customItemDefinition.component(
                                 GeyserItemDataComponents.BLOCK_PLACER,
                             GeyserBlockPlacer.of(HydraulicKey.of(resolvedPlacement.identifier()), !is2d)
@@ -260,7 +260,7 @@ public class ItemPackModule extends TexturePackModule<ItemPackModule> {
                         context.logger().info("Skipping block placement bridge for {} because compatibility analysis does not support placement", itemLocation);
                     }
 
-                    if (CompatibilityDecisions.allowsBlockCreativeExposure(blockObject)) {
+                    if (CompatibilityDecisions.allowsBlockCreativeExposure(blockObject, block)) {
                         CreativeMappings.setupBlock(block, customItemOptions);
                     }
                 }

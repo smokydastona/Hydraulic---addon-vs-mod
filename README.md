@@ -97,7 +97,7 @@ Supported fields today:
 - `geometry`: optional Bedrock geometry override
 - `material`: optional Bedrock material override
 - `behavior_required`: marks content that still needs a runtime bridge or behavior-layer support
-- `behavior_tag`: declares the bridge category Hydraulic should report and eventually route through adapters
+- `behavior_tag`: declares the bridge category Hydraulic should report and route through capability adapters
 
 The same metadata directory also supports simple item, recipe, entity, and menu identifier mappings:
 

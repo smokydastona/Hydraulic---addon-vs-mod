@@ -85,7 +85,7 @@ public class BowPackModule extends TexturePackModule<BowPackModule> {
         for (BowItem bowItem : bowItems) {
             Identifier bowLocation = BuiltInRegistries.ITEM.getKey(bowItem);
             CompatibilityObject compatibilityObject = compatibilityItemObject(context, bowLocation);
-            if (!CompatibilityDecisions.supportsAttachableItemPresentation(compatibilityObject)) {
+            if (!CompatibilityDecisions.supportsAttachableItemPresentation(compatibilityObject, bowItem)) {
                 context.logger().info("Skipping bow attachable generation for {} because item presentation support is insufficient", bowLocation);
                 continue;
             }

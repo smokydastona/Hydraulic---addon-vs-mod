@@ -63,7 +63,7 @@ public class ArmorPackModule extends PackModule<ArmorPackModule> {
             Equippable equippable = armorItem.components().get(DataComponents.EQUIPPABLE);
             Identifier armorItemLocation = BuiltInRegistries.ITEM.getKey(armorItem);
             CompatibilityObject compatibilityObject = compatibilityItemObject(context, armorItemLocation);
-            if (!CompatibilityDecisions.supportsWearableItemPresentation(compatibilityObject)) {
+            if (!CompatibilityDecisions.supportsWearableItemPresentation(compatibilityObject, armorItem)) {
                 context.logger().info("Skipping armor attachable generation for {} because item presentation support is insufficient", armorItemLocation);
                 continue;
             }
