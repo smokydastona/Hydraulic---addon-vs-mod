@@ -14,6 +14,9 @@ import org.geysermc.event.Event;
 import org.geysermc.geyser.api.GeyserApi;
 import org.geysermc.hydraulic.Constants;
 import org.geysermc.hydraulic.HydraulicImpl;
+import org.geysermc.hydraulic.compat.CompatibilityManager;
+import org.geysermc.hydraulic.compat.CompatibilityRegistry;
+import org.geysermc.hydraulic.compat.MappingResolver;
 import org.geysermc.hydraulic.metadata.MetadataIndex;
 import org.geysermc.hydraulic.metadata.MetadataLoader;
 import org.geysermc.hydraulic.pack.context.PackEventContext;
@@ -78,7 +81,8 @@ public class PackManager {
     private final ListMultimap<String, Identifier> modsToBlocks = MultimapBuilder.hashKeys().arrayListValues().build();
     private final ListMultimap<String, Identifier> modsToItems = MultimapBuilder.hashKeys().arrayListValues().build();
 
-    private MetadataIndex metadataIndex = new MetadataIndex(Map.of());
+    private MetadataIndex metadataIndex = MetadataIndex.empty();
+    private CompatibilityRegistry compatibilityRegistry = CompatibilityRegistry.empty();
 
     private List<ConverterPipeline<?, ?>> packConverters;
     private ModelStitcher.Provider modelProvider;
@@ -289,11 +293,26 @@ public class PackManager {
     }
 
     private void loadMetadata() {
-        Path metadataPath = this.hydraulic.dataFolder(Constants.MOD_ID).resolve("metadata");
+        Path dataPath = this.hydraulic.dataFolder(Constants.MOD_ID);
+        Path metadataPath = dataPath.resolve("metadata");
         this.metadataIndex = new MetadataLoader(LOGGER).load(metadataPath);
+        this.compatibilityRegistry = new CompatibilityManager(LOGGER, dataPath).initialize(
+            this.hydraulic.mods(),
+            this.namespacesToMods,
+            this.modsToBlocks,
+            this.modsToItems,
+            this.metadataIndex,
+            this::shouldIgnoreMod
+        );
 
         if (!this.metadataIndex.isEmpty()) {
-            LOGGER.info("Loaded structural metadata overrides from {}", metadataPath);
+            LOGGER.info(
+                "Loaded structural metadata overrides from {} (files={}, mappings={}, rules={})",
+                metadataPath,
+                this.metadataIndex.summary().fileCount(),
+                this.metadataIndex.summary().blockMappingCount(),
+                this.metadataIndex.summary().ruleCount()
+            );
         }
     }
 
@@ -353,5 +372,15 @@ public class PackManager {
     @NotNull
     public MetadataIndex metadataIndex() {
         return this.metadataIndex;
+    }
+
+    @NotNull
+    public CompatibilityRegistry compatibilityRegistry() {
+        return this.compatibilityRegistry;
+    }
+
+    @NotNull
+    public MappingResolver mappingResolver() {
+        return this.compatibilityRegistry.mappingResolver();
     }
 }

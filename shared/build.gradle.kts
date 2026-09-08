@@ -20,6 +20,14 @@ dependencies {
     annotationProcessor(libs.configurate.`interface`.ap)
     compileOnly(libs.bundles.configurate)
 
+    testImplementation("org.junit.jupiter:junit-jupiter:5.12.2")
+    testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:5.12.2")
+    testRuntimeOnly("org.junit.platform:junit-platform-launcher:1.12.2")
+
     // Only here to suppress "unknown enum constant EnvType.CLIENT" warnings.
     compileOnly(libs.fabric.loader)
+}
+
+tasks.test {
+    useJUnitPlatform()
 }

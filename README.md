@@ -41,6 +41,20 @@ Metadata files are loaded from Hydraulic's metadata directory:
 
 `config/hydraulic/metadata`
 
+The loader now walks this directory recursively. The intended layout is:
+
+- `config/hydraulic/metadata/builtin`
+- `config/hydraulic/metadata/mods`
+- `config/hydraulic/metadata/server`
+- `config/hydraulic/metadata/user`
+
+Higher-priority folders win when rules overlap:
+
+- `builtin` = 0
+- `mods` = 100
+- `server` = 500
+- `user` = 1000
+
 In the Fabric dev environment used by this repo, that resolves to:
 
 `fabric/run/config/hydraulic/metadata`
@@ -80,6 +94,14 @@ Supported fields today:
 - `material`: optional Bedrock material override
 - `behavior_required`: reserved for future behavior-pack work
 - `behavior_tag`: reserved for future behavior-pack work
+
+## Compatibility Inventory And Report
+On startup, this fork now writes two early compatibility artifacts under Hydraulic's data folder:
+
+- `config/hydraulic/reports/content-inventory.json`
+- `config/hydraulic/reports/compatibility-report.json`
+
+These files are meant to give you a machine-readable view of what Hydraulic discovered before deeper compatibility analyzers exist. The current report is inventory-backed, so it is useful for regression tracking and metadata coverage, but it is not yet a full gameplay compatibility verdict.
 
 ## Contributing
 Any contributions are appreciated. Please feel free to reach out to us on [Discord](https://discord.gg/geysermc) if

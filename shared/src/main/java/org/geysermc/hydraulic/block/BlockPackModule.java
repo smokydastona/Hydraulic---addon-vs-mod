@@ -36,6 +36,7 @@ import org.geysermc.geyser.level.physics.PistonBehavior;
 import org.geysermc.geyser.util.MathUtils;
 import org.geysermc.hydraulic.Constants;
 import org.geysermc.hydraulic.HydraulicImpl;
+import org.geysermc.hydraulic.compat.MappingResolver;
 import org.geysermc.hydraulic.item.CreativeMappings;
 import org.geysermc.hydraulic.metadata.BlockMapping;
 import org.geysermc.hydraulic.metadata.BlockStateRule;
@@ -194,9 +195,9 @@ public class BlockPackModule extends PackModule<BlockPackModule> {
         DefaultedRegistry<Block> registry = BuiltInRegistries.BLOCK;
         for (Block block : blocks) {
             Identifier blockLocation = registry.getKey(block);
-            BlockMapping blockMapping = context.hydraulic().getPackManager().metadataIndex().blockMapping(blockLocation);
+            BlockMapping blockMapping = context.hydraulic().getPackManager().mappingResolver().blockMapping(blockLocation);
             Map<String, StatePropertyDefinition> stateDefinitions = stateDefinitions(context, blockLocation, block.getStateDefinition().getProperties(), blockMapping);
-            Identifier customBlockIdentifier = overrideIdentifier(context, blockLocation);
+            Identifier customBlockIdentifier = overrideIdentifier(context, block, blockLocation);
             CustomBlockData.Builder builder = NonVanillaCustomBlockData.builder()
                     .name(customBlockIdentifier.getPath())
                     .namespace(customBlockIdentifier.getNamespace())
@@ -320,14 +321,14 @@ public class BlockPackModule extends PackModule<BlockPackModule> {
                         }
                     } else {
                         for (Map.Entry<String, String> entry : material.textures().entrySet()) {
-                            String materialKey = entry.getKey();
+                            String materialInstanceKey = entry.getKey();
 
                             // Bedrock uses "*" for the particle texture
-                            if ("particle".equals(materialKey)) {
-                                materialKey = "*";
+                            if ("particle".equals(materialInstanceKey)) {
+                                materialInstanceKey = "*";
                             }
 
-                            componentsBuilder.materialInstance(materialKey, MaterialInstance.builder()
+                            componentsBuilder.materialInstance(materialInstanceKey, MaterialInstance.builder()
                                     .texture(PackUtil.getTextureName(entry.getValue()))
                                     .renderMethod(renderMethod)
                                     .faceDimming(true)
@@ -456,35 +457,20 @@ public class BlockPackModule extends PackModule<BlockPackModule> {
     }
 
     @NotNull
-    private Identifier overrideIdentifier(@NotNull PackContext<?> context, @NotNull Identifier blockLocation) {
-        BlockMapping mapping = context.hydraulic().getPackManager().metadataIndex().blockMapping(blockLocation);
-        if (mapping == null) {
-            return blockLocation;
+    private Identifier overrideIdentifier(@NotNull PackContext<?> context, @NotNull Block block, @NotNull Identifier blockLocation) {
+        MappingResolver.ResolvedIdentifier resolved = context.hydraulic()
+            .getPackManager()
+            .mappingResolver()
+            .resolveBlockIdentifier(blockLocation, block.getStateDefinition().getPossibleStates());
+        if (resolved.conflicting()) {
+            context.logger().warn("Ignoring conflicting block identifier overrides for {}", blockLocation);
         }
-
-        Identifier override = null;
-        for (BlockStateRule rule : mapping.rules()) {
-            if (rule.bedrockIdentifier() == null) {
-                continue;
-            }
-
-            if (override == null) {
-                override = rule.bedrockIdentifier();
-                continue;
-            }
-
-            if (!override.equals(rule.bedrockIdentifier())) {
-                context.logger().warn("Ignoring conflicting block identifier overrides for {}", blockLocation);
-                return blockLocation;
-            }
-        }
-
-        return override != null ? override : blockLocation;
+        return resolved.identifier();
     }
 
     @Nullable
     private BlockStateRule metadataRule(@NotNull PackContext<?> context, @NotNull Identifier blockLocation, @NotNull BlockState state) {
-        return context.hydraulic().getPackManager().metadataIndex().blockRule(blockLocation, state);
+        return context.hydraulic().getPackManager().mappingResolver().blockRule(blockLocation, state);
     }
 
     @NotNull
@@ -660,7 +646,7 @@ public class BlockPackModule extends PackModule<BlockPackModule> {
                     } catch (NumberFormatException ignored) {
                         yield false;
                     }
-                };
+                }
                 case BOOLEAN -> "true".equalsIgnoreCase(value) || "false".equalsIgnoreCase(value);
                 case STRING -> true;
             };

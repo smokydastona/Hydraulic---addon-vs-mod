@@ -5,6 +5,7 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import net.minecraft.resources.Identifier;
 import org.geysermc.hydraulic.Constants;
+import org.geysermc.hydraulic.compat.MappingOwnership;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
@@ -14,7 +15,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.HashMap;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -30,57 +31,112 @@ public final class MetadataLoader {
     @NotNull
     public MetadataIndex load(@NotNull Path directory) {
         if (Files.notExists(directory)) {
-            return new MetadataIndex(Map.of());
+            return MetadataIndex.empty();
         }
 
-        Map<Identifier, BlockMapping> blockMappings = new HashMap<>();
+        Map<Identifier, List<BlockStateRule>> blockMappings = new LinkedHashMap<>();
+        Map<String, Integer> ownershipFileCounts = new LinkedHashMap<>();
+        int fileCount = 0;
+        int blockMappingCount = 0;
+        int ruleCount = 0;
 
-        try (Stream<Path> stream = Files.list(directory)) {
-            for (Path path : stream.filter(Files::isRegularFile).filter(file -> file.toString().endsWith(".json")).toList()) {
-                this.loadFile(path, blockMappings);
+        try (Stream<Path> stream = Files.walk(directory)) {
+            List<Path> files = stream
+                .filter(Files::isRegularFile)
+                .filter(file -> file.toString().endsWith(".json"))
+                .sorted(Comparator.comparing(path -> normalize(directory.relativize(path))))
+                .toList();
+
+            for (Path path : files) {
+                LoadStats stats = this.loadFile(directory, path, blockMappings, ownershipFileCounts);
+                fileCount += stats.fileCount();
+                blockMappingCount += stats.blockMappingCount();
+                ruleCount += stats.ruleCount();
             }
         } catch (IOException e) {
             this.logger.error("Failed to list metadata directory {}", directory, e);
         }
 
-        return new MetadataIndex(Map.copyOf(blockMappings));
+        Map<Identifier, BlockMapping> finalizedMappings = new LinkedHashMap<>();
+        for (Map.Entry<Identifier, List<BlockStateRule>> entry : blockMappings.entrySet()) {
+            List<BlockStateRule> rules = new ArrayList<>(entry.getValue());
+            rules.sort(
+                Comparator.comparingInt(BlockStateRule::priority).reversed()
+                    .thenComparing(Comparator.comparingInt(BlockStateRule::specificity).reversed())
+                    .thenComparing(BlockStateRule::sourcePath)
+                    .thenComparingInt(BlockStateRule::order)
+            );
+            finalizedMappings.put(entry.getKey(), new BlockMapping(entry.getKey(), List.copyOf(rules)));
+        }
+
+        return new MetadataIndex(
+            finalizedMappings,
+            new MetadataIndex.Summary(fileCount, blockMappingCount, ruleCount, ownershipFileCounts)
+        );
     }
 
-    private void loadFile(@NotNull Path path, @NotNull Map<Identifier, BlockMapping> blockMappings) {
+    @NotNull
+    private LoadStats loadFile(
+        @NotNull Path rootDirectory,
+        @NotNull Path path,
+        @NotNull Map<Identifier, List<BlockStateRule>> blockMappings,
+        @NotNull Map<String, Integer> ownershipFileCounts
+    ) {
+        Path relativePath = rootDirectory.relativize(path);
+        String sourcePath = normalize(relativePath);
+        MappingOwnership ownership = MappingOwnership.fromRelativePath(relativePath);
+
         try (BufferedReader reader = Files.newBufferedReader(path)) {
-            JsonObject root = Constants.GSON.fromJson(reader, JsonObject.class);
-            if (root == null) {
+            JsonObject jsonRoot = Constants.GSON.fromJson(reader, JsonObject.class);
+            if (jsonRoot == null) {
                 this.logger.warn("Ignoring empty metadata file {}", path);
-                return;
+                return LoadStats.empty();
             }
 
-            JsonArray blocks = root.getAsJsonArray("blocks");
-            if (blocks == null) {
-                return;
-            }
-
-            for (JsonElement element : blocks) {
-                if (!element.isJsonObject()) {
-                    continue;
+            List<JsonObject> blockObjects = new ArrayList<>();
+            JsonArray blocks = jsonRoot.getAsJsonArray("blocks");
+            if (blocks != null) {
+                for (JsonElement element : blocks) {
+                    if (element.isJsonObject()) {
+                        blockObjects.add(element.getAsJsonObject());
+                    }
                 }
+            } else if (jsonRoot.has("java_id")) {
+                blockObjects.add(jsonRoot);
+            } else {
+                this.logger.warn("Ignoring metadata file without blocks or java_id in {}", path);
+                return LoadStats.empty();
+            }
 
-                BlockMapping mapping = this.parseBlockMapping(element.getAsJsonObject(), path);
+            int mappingCount = 0;
+            int ruleCount = 0;
+            for (int index = 0; index < blockObjects.size(); index++) {
+                BlockMapping mapping = this.parseBlockMapping(blockObjects.get(index), path, ownership, sourcePath, index);
                 if (mapping == null) {
                     continue;
                 }
 
-                BlockMapping previous = blockMappings.put(mapping.javaIdentifier(), mapping);
-                if (previous != null) {
-                    this.logger.warn("Replacing metadata mapping for {} from {}", mapping.javaIdentifier(), path);
-                }
+                blockMappings.computeIfAbsent(mapping.javaIdentifier(), ignored -> new ArrayList<>()).addAll(mapping.rules());
+                mappingCount++;
+                ruleCount += mapping.rules().size();
             }
+
+            ownershipFileCounts.merge(ownership.name().toLowerCase(), 1, Integer::sum);
+            return new LoadStats(1, mappingCount, ruleCount);
         } catch (Exception e) {
             this.logger.error("Failed to load metadata file {}", path, e);
+            return LoadStats.empty();
         }
     }
 
     @Nullable
-    private BlockMapping parseBlockMapping(@NotNull JsonObject object, @NotNull Path path) {
+    private BlockMapping parseBlockMapping(
+        @NotNull JsonObject object,
+        @NotNull Path path,
+        @NotNull MappingOwnership ownership,
+        @NotNull String sourcePath,
+        int mappingIndex
+    ) {
         Identifier javaIdentifier = this.parseIdentifier(object, "java_id", path, true);
         if (javaIdentifier == null) {
             return null;
@@ -93,22 +149,42 @@ public final class MetadataLoader {
         }
 
         List<BlockStateRule> rules = new ArrayList<>();
+        int basePriority = ownership.priority();
         for (JsonElement ruleElement : rulesArray) {
             if (!ruleElement.isJsonObject()) {
                 continue;
             }
 
-            BlockStateRule rule = this.parseRule(ruleElement.getAsJsonObject(), path);
+            BlockStateRule rule = this.parseRule(
+                ruleElement.getAsJsonObject(),
+                path,
+                ownership,
+                sourcePath,
+                basePriority,
+                (mappingIndex * 10_000) + rules.size()
+            );
             if (rule != null) {
                 rules.add(rule);
             }
+        }
+
+        if (rules.isEmpty()) {
+            this.logger.warn("Ignoring block metadata without valid rules for {} in {}", javaIdentifier, path);
+            return null;
         }
 
         return new BlockMapping(javaIdentifier, List.copyOf(rules));
     }
 
     @Nullable
-    private BlockStateRule parseRule(@NotNull JsonObject object, @NotNull Path path) {
+    private BlockStateRule parseRule(
+        @NotNull JsonObject object,
+        @NotNull Path path,
+        @NotNull MappingOwnership ownership,
+        @NotNull String sourcePath,
+        int priority,
+        int order
+    ) {
         Map<String, String> javaWhen = this.parseStringMap(object.getAsJsonObject("java_when"));
         Identifier bedrockIdentifier = this.parseIdentifier(object, "bedrock_identifier", path, false);
         Map<String, String> bedrockState = this.parseStringMap(object.getAsJsonObject("bedrock_state"));
@@ -124,8 +200,17 @@ public final class MetadataLoader {
             geometryId,
             materialId,
             behaviorRequired,
-            behaviorTag
+            behaviorTag,
+            ownership,
+            sourcePath,
+            priority,
+            order
         );
+    }
+
+    @NotNull
+    private static String normalize(@NotNull Path path) {
+        return path.toString().replace('\\', '/');
     }
 
     @NotNull
@@ -166,5 +251,12 @@ public final class MetadataLoader {
             return null;
         }
         return object.get(key).getAsString();
+    }
+
+    private record LoadStats(int fileCount, int blockMappingCount, int ruleCount) {
+        @NotNull
+        private static LoadStats empty() {
+            return new LoadStats(0, 0, 0);
+        }
     }
 }

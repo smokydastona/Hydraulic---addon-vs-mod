@@ -3,6 +3,7 @@ package org.geysermc.hydraulic.metadata;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.Property;
+import org.geysermc.hydraulic.compat.MappingOwnership;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -16,6 +17,10 @@ public final class BlockStateRule {
     private final String materialId;
     private final boolean behaviorRequired;
     private final String behaviorTag;
+    private final MappingOwnership ownership;
+    private final String sourcePath;
+    private final int priority;
+    private final int order;
 
     public BlockStateRule(
         @NotNull Map<String, String> javaWhen,
@@ -24,7 +29,11 @@ public final class BlockStateRule {
         @Nullable String geometryId,
         @Nullable String materialId,
         boolean behaviorRequired,
-        @Nullable String behaviorTag
+        @Nullable String behaviorTag,
+        @NotNull MappingOwnership ownership,
+        @NotNull String sourcePath,
+        int priority,
+        int order
     ) {
         this.javaWhen = javaWhen;
         this.bedrockIdentifier = bedrockIdentifier;
@@ -33,6 +42,10 @@ public final class BlockStateRule {
         this.materialId = materialId;
         this.behaviorRequired = behaviorRequired;
         this.behaviorTag = behaviorTag;
+        this.ownership = ownership;
+        this.sourcePath = sourcePath;
+        this.priority = priority;
+        this.order = order;
     }
 
     public boolean matches(@NotNull BlockState state) {
@@ -92,5 +105,27 @@ public final class BlockStateRule {
     @Nullable
     public String behaviorTag() {
         return this.behaviorTag;
+    }
+
+    @NotNull
+    public MappingOwnership ownership() {
+        return this.ownership;
+    }
+
+    @NotNull
+    public String sourcePath() {
+        return this.sourcePath;
+    }
+
+    public int priority() {
+        return this.priority;
+    }
+
+    public int order() {
+        return this.order;
+    }
+
+    public int specificity() {
+        return this.javaWhen.size();
     }
 }
