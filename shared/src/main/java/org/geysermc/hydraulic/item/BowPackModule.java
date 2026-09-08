@@ -5,6 +5,9 @@ import net.kyori.adventure.key.Key;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.BowItem;
+import org.geysermc.hydraulic.compat.CompatibilityRegistry;
+import org.geysermc.hydraulic.compat.model.CompatibilityObject;
+import org.geysermc.hydraulic.compat.runtime.CompatibilityDecisions;
 import org.geysermc.hydraulic.pack.PackModule;
 import org.geysermc.hydraulic.pack.TexturePackModule;
 import org.geysermc.hydraulic.pack.context.PackPostProcessContext;
@@ -81,6 +84,12 @@ public class BowPackModule extends TexturePackModule<BowPackModule> {
 
         for (BowItem bowItem : bowItems) {
             Identifier bowLocation = BuiltInRegistries.ITEM.getKey(bowItem);
+            CompatibilityObject compatibilityObject = compatibilityItemObject(context, bowLocation);
+            if (!CompatibilityDecisions.supportsAttachableItemPresentation(compatibilityObject)) {
+                context.logger().info("Skipping bow attachable generation for {} because item presentation support is insufficient", bowLocation);
+                continue;
+            }
+
             Map<String, String> textures = new HashMap<>() {
                 {
                     put("enchanted", "textures/misc/enchanted_item_glint");
@@ -154,6 +163,7 @@ public class BowPackModule extends TexturePackModule<BowPackModule> {
             armorAttachable.attachable(attachable);
 
             bedrockPack.addAttachable(armorAttachable, "attachables/" + bowLocation.getPath() + ".json");
+            context.logger().info("Generated bow attachable for {}", bowLocation);
         }
 
         RenderControllers renderController = new RenderControllers();
@@ -190,5 +200,10 @@ public class BowPackModule extends TexturePackModule<BowPackModule> {
     @Override
     public boolean test(@NotNull PackPostProcessContext<BowPackModule> context) {
         return context.registryValues(BuiltInRegistries.ITEM).stream().anyMatch(item -> item instanceof BowItem);
+    }
+
+    private static CompatibilityObject compatibilityItemObject(@NotNull PackPostProcessContext<BowPackModule> context, @NotNull Identifier itemLocation) {
+        CompatibilityRegistry compatibilityRegistry = context.hydraulic().getPackManager().compatibilityRegistry();
+        return compatibilityRegistry.report().object(context.mod().id(), itemLocation.toString(), "item");
     }
 }

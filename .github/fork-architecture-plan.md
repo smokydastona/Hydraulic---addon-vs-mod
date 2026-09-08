@@ -162,6 +162,8 @@ This separation is fundamental, not just a reporting refinement. A converted mod
 - `MappingResolver` already has state-aware block resolution and groups block states by resolved Bedrock identifier.
 - `BlockPackModule` already consumes resolved state-aware block definitions during custom block registration.
 - `ItemPackModule` already uses compatibility-aware block placement for block items and continues to translate modern item components through `ComponentConverter`.
+- `ArmorPackModule` now generates humanoid armor attachables from direct equipment-asset loading and gates them through compatibility decisions.
+- `BowPackModule` now consumes compatibility-driven item presentation decisions before generating bow attachables.
 - Focused tests already exist for loader precedence and resolver behavior.
 - The local Fabric runtime has already produced report artifacts and logged metadata/report initialization successfully.
 
@@ -179,6 +181,7 @@ This separation is fundamental, not just a reporting refinement. A converted mod
 - `behavior_required` and `behavior_tag` are parsed but not consumed.
 - There is no behavior-pack generator.
 - There are no runtime interaction bridges for menus, block entities, fluids, machines, or entity logic.
+- Runtime consumption of compatibility decisions exists for selected item and block pack-generation paths, but broad interaction and behavior bridges still do not.
 - There is no typed capability model or compatibility knowledge layer.
 - Compatibility status is still coarse: `COMPLETE`, `PARTIAL`, `NONE`, `UNKNOWN`.
 - The system does not yet capture confidence, provenance, or reasons for its decisions.
@@ -580,10 +583,10 @@ The loader already supports recursive discovery and ownership precedence. That p
 
 ```text
 config/hydraulic/metadata/
-    builtin/
-    mods/
-    server/
-    user/
+  builtin/
+  mods/
+  server/
+  user/
 ```
 
 ### Metadata as patch system
@@ -595,9 +598,9 @@ Example direction:
 {
   "target": "create:andesite_casing",
   "patch": {
-    "visual.geometry": "...",
-    "state.facing": "...",
-    "interaction.use": "create:casing_use"
+  "visual.geometry": "...",
+  "state.facing": "...",
+  "interaction.use": "create:casing_use"
   }
 }
 ```
@@ -608,12 +611,12 @@ This lets automatic translation provide the baseline while metadata modifies onl
 
 ```text
 config/hydraulic/
-    generated/
-    metadata/
-        builtin/
-        mods/
-        server/
-        user/
+  generated/
+  metadata/
+    builtin/
+    mods/
+    server/
+    user/
 ```
 
 Generated compatibility suggestions should never overwrite manual server or user overrides.
@@ -623,22 +626,22 @@ Every generated result should carry provenance:
 
 ```text
 source:
-    AUTOMATIC_ANALYZER
+  AUTOMATIC_ANALYZER
 
 analyzer:
-    BlockModelAnalyzer
+  BlockModelAnalyzer
 
 confidence:
-    0.97
+  0.97
 
 generated_at:
-    timestamp
+  timestamp
 
 hydraulic_version:
-    ...
+  ...
 
 overridden:
-    false
+  false
 ```
 
 ### Metadata design rules
@@ -670,11 +673,11 @@ The architecture should be:
 
 ```text
 Geyser Knowledge
-       +
+     +
 Hydraulic Conversion
-       +
+     +
 Hydraulic Compatibility Engine
-       +
+     +
 Mod-specific knowledge
 ```
 
@@ -762,10 +765,10 @@ Example direction:
 
 ```text
 CreateAdapter
-    +-- KineticCapability
-    +-- ContraptionCapability
-    +-- StressCapability
-    +-- BasinCapability
+  +-- KineticCapability
+  +-- ContraptionCapability
+  +-- StressCapability
+  +-- BasinCapability
 ```
 
 This makes reusable logic possible across mod families.

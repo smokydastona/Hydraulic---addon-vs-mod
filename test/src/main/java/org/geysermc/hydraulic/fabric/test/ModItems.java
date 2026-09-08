@@ -72,6 +72,13 @@ public class ModItems {
             new Item.Properties()
                     .rarity(Rarity.EPIC)
     );
+    public static final Item BARREL_BOW = register(
+            "barrel_bow",
+            BowItem::new,
+            new Item.Properties()
+                    .durability(512)
+                    .rarity(Rarity.EPIC)
+    );
 
     public static final ResourceKey<EquipmentAsset> BARREL_ARMOR_MATERIAL_KEY = ResourceKey.create(
             EquipmentAssets.ROOT_ID, Identifier.fromNamespaceAndPath(HydraulicTestMod.MOD_ID, "barrel")

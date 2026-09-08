@@ -76,6 +76,25 @@ class CompatibilityDecisionsTest {
         assertFalse(CompatibilityDecisions.supportsWearableItemPresentation(unsupported));
     }
 
+    @Test
+    void attachablePresentationRejectsUnsupportedPresentation() {
+        CompatibilityObject supported = blockObject(
+            support("content", SupportLevel.AUTOMATIC, List.of("registered"), List.of()),
+            support("presentation", SupportLevel.AUTOMATIC, List.of("item_asset"), List.of()),
+            support("interaction", SupportLevel.AUTOMATIC, List.of("offhand"), List.of()),
+            support("behavior", SupportLevel.AUTOMATIC, List.of("runtime_behavior"), List.of())
+        );
+        CompatibilityObject unsupported = blockObject(
+            support("content", SupportLevel.AUTOMATIC, List.of("registered"), List.of()),
+            support("presentation", SupportLevel.UNSUPPORTED, List.of(), List.of("item_asset")),
+            support("interaction", SupportLevel.AUTOMATIC, List.of("offhand"), List.of()),
+            support("behavior", SupportLevel.AUTOMATIC, List.of("runtime_behavior"), List.of())
+        );
+
+        assertTrue(CompatibilityDecisions.supportsAttachableItemPresentation(supported));
+        assertFalse(CompatibilityDecisions.supportsAttachableItemPresentation(unsupported));
+    }
+
     private static CompatibilityObject blockObject(SupportResult content, SupportResult presentation, SupportResult interaction, SupportResult behavior) {
         return new CompatibilityObject(
             "example:test_block",

@@ -40,6 +40,10 @@ public final class CompatibilityDecisions {
     }
 
     public static boolean supportsWearableItemPresentation(@Nullable CompatibilityObject compatibilityObject) {
+        return supportsAttachableItemPresentation(compatibilityObject);
+    }
+
+    public static boolean supportsAttachableItemPresentation(@Nullable CompatibilityObject compatibilityObject) {
         if (compatibilityObject == null) {
             return true;
         }
