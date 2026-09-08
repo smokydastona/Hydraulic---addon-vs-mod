@@ -8,6 +8,8 @@ architectury {
 fabricApi {
     configureDataGeneration() {
         client = true
+        outputDirectory.set(layout.buildDirectory.file("generated/datagen"))
+        addToResources.set(false)
     }
 }
 
@@ -21,21 +23,31 @@ configurations {
 }
 
 tasks {
+    val stagedGeneratedResources = layout.buildDirectory.dir("generated/runtimeResources")
+
     val syncGeneratedResources = register<Copy>("syncGeneratedResources") {
+        from(layout.buildDirectory.dir("generated/datagen"))
+        into(stagedGeneratedResources)
+        mustRunAfter(named("runDatagen"))
+    }
+
+    val prepareGeneratedResources = register("prepareGeneratedResources") {
         dependsOn(named("runDatagen"))
-        from("src/main/generated")
-        into(layout.buildDirectory.dir("resources/main"))
+        dependsOn(syncGeneratedResources)
     }
 
     sourcesJar {
-        dependsOn(named("runDatagen")) // Make sure the sources jar gets our generated files
+        dependsOn(prepareGeneratedResources) // Make sure the sources jar gets our generated files
+        from(stagedGeneratedResources)
     }
 
     named<Jar>("jar") {
         dependsOn(syncGeneratedResources)
+        from(stagedGeneratedResources)
     }
 
     named<Jar>("mergeShadowAndJarJar") {
+        dependsOn(prepareGeneratedResources)
         from (
             zipTree( shadowJar.map { it.outputs.files.singleFile } ).matching {
                 exclude("fabric.mod.json")
@@ -57,18 +69,10 @@ tasks {
     jar {
         archiveClassifier.set("dev")
     }
-
-    named("runServer") {
-        dependsOn(syncGeneratedResources)
-    }
-
-    named("runClient") {
-        dependsOn(syncGeneratedResources)
-    }
 }
 
 // Always ensure datagen is up to date before building
-tasks.named("build") { dependsOn(tasks.named("runDatagen")) }
+tasks.named("build") { dependsOn(tasks.named("prepareGeneratedResources")) }
 
 dependencies {
     implementation(libs.fabric.loader)
