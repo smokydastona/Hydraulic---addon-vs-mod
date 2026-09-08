@@ -173,10 +173,11 @@ Supported patch paths today:
 Unsupported patch data is still preserved in the metadata index and compatibility report, but only the fields above are synthesized into the current runtime mapping layer.
 
 ## Compatibility Inventory And Report
-On startup, this fork now writes two compatibility artifacts under Hydraulic's data folder:
+On startup, this fork now writes three compatibility artifacts under Hydraulic's data folder:
 
 - `config/hydraulic/reports/content-inventory.json`
 - `config/hydraulic/reports/compatibility-report.json`
+- `config/hydraulic/reports/performance-report.json`
 
 `content-inventory.json` records the per-mod discovery inventory, including registry entries, discovered assets, metadata targets, patch targets, and a mod fingerprint.
 
@@ -187,6 +188,8 @@ On startup, this fork now writes two compatibility artifacts under Hydraulic's d
 - patch-derived facts such as `behavior_required` and `behavior_tag` when present
 - confidence, provenance, and structured findings
 - metadata validation issues emitted during Metadata V2 loading
+
+`performance-report.json` records the measured startup and conversion costs for the current run, including resource indexing time, metadata load time, compatibility initialization time, resource-pack/model indexing time, and the last pack-conversion batch with per-mod outcomes. This is the report to inspect when checking whether cache/indexing changes actually moved the cost profile.
 
 The current report is still conservative. It is intended to answer "what do we know right now from registries, assets, metadata, and patches?" not "is this mod fully playable end-to-end on Bedrock?" Behavior-heavy entities, fluids, menus, and block entities will still show low support until dedicated runtime bridges are implemented. For items, behavior-tagged patches already affect runtime exposure decisions, so unsupported behavior can now suppress Bedrock creative exposure even when the item is still registered. For entities, metadata-backed identifier mappings now drive custom entity registration, but that is still not full interaction or behavior translation.
 

@@ -80,6 +80,7 @@ public class PackManager {
 
     private final HydraulicImpl hydraulic;
     private final Path vanillaPath;
+    private final PerformanceReportTracker performanceTracker;
     private final List<PackModule<?>> modules = new ArrayList<>();
 
     private final ListMultimap<String, ModInfo> namespacesToMods = MultimapBuilder.hashKeys().arrayListValues(1).build();
@@ -96,16 +97,27 @@ public class PackManager {
     public PackManager(HydraulicImpl hydraulic) {
         this.hydraulic = hydraulic;
         this.vanillaPath = hydraulic.dataFolder(Constants.MOD_ID).resolve("cache/vanilla-assets.zip");
+        this.performanceTracker = new PerformanceReportTracker(LOGGER, hydraulic.dataFolder(Constants.MOD_ID).resolve("reports/performance-report.json"));
     }
 
     /**
      * Initializes the pack manager.
      */
     public void initialize() {
-        initializeModLookups();
-        loadMetadata();
+        long resourceIndexStarted = System.nanoTime();
+        LookupSummary lookupSummary = initializeModLookups();
+        long indexedResourcesMillis = nanosToMillis(System.nanoTime() - resourceIndexStarted);
+
+        long metadataLoadStarted = System.nanoTime();
+        this.metadataIndex = new MetadataLoader(LOGGER).load(this.hydraulic.dataFolder(Constants.MOD_ID).resolve("metadata"));
+        long metadataLoadMillis = nanosToMillis(System.nanoTime() - metadataLoadStarted);
+
+        long compatibilityStarted = System.nanoTime();
+        initializeCompatibilityRegistry();
+        long compatibilityInitializationMillis = nanosToMillis(System.nanoTime() - compatibilityStarted);
 
         final Collection<ModInfo> mods = this.hydraulic.mods();
+        long resourcePackReadStarted = System.nanoTime();
         final Map<String, List<ResourcePack>> modPacks = Maps.newHashMapWithExpectedSize(mods.size());
         for (final ModInfo mod : mods) {
             modPacks.put(
@@ -116,6 +128,7 @@ public class PackManager {
                     .toList()
             );
         }
+                long resourcePackReadMillis = nanosToMillis(System.nanoTime() - resourcePackReadStarted);
 
         try {
             Files.createDirectories(this.getVanillaPath().getParent());
@@ -129,7 +142,30 @@ public class PackManager {
                 new PackLogListener(LOGGER)
         );
 
+        long modelProviderStarted = System.nanoTime();
         modelProvider = createModelProvider(mods, modPacks, this.getVanillaPath());
+        long modelIndexBuildMillis = nanosToMillis(System.nanoTime() - modelProviderStarted);
+
+        this.performanceTracker.recordStartup(new PerformanceReport.StartupMetrics(
+            indexedResourcesMillis,
+            metadataLoadMillis,
+            compatibilityInitializationMillis,
+            resourcePackReadMillis,
+            modelIndexBuildMillis,
+            mods.size(),
+            lookupSummary.modsWithAssetFiles(),
+            lookupSummary.modsWithoutAssetFiles(),
+            lookupSummary.namespaces(),
+            lookupSummary.blockMatches(),
+            lookupSummary.skippedBlocks(),
+            lookupSummary.itemMatches(),
+            lookupSummary.skippedItems(),
+            lookupSummary.missingItemModelComponents(),
+            this.metadataIndex.summary().fileCount(),
+            this.metadataIndex.summary().ruleCount(),
+            this.metadataIndex.summary().patchCount(),
+            this.metadataIndex.summary().validationIssueCount()
+        ));
 
         this.packConverters = new ArrayList<>(AssetConverters.converters(hydraulic.isDev()));
         this.packConverters.remove(AssetConverters.MODEL);
@@ -245,9 +281,11 @@ public class PackManager {
         }
     }
 
-    private void initializeModLookups() {
+    private LookupSummary initializeModLookups() {
         Map<String, ModResourceIndex> modResourceIndexes = this.modResourceIndexes;
         modResourceIndexes.clear();
+        int modsWithAssetFiles = 0;
+        int modsWithoutAssetFiles = 0;
 
         // Step 1: Index each mod's resource roots once, then map namespaces to owning mods
         final Multimap<String, ModInfo> namespacesToMods = this.namespacesToMods;
@@ -255,6 +293,11 @@ public class PackManager {
         for (final ModInfo mod : hydraulic.mods()) {
             ModResourceIndex resourceIndex = ModResourceIndex.create(mod, LOGGER);
             modResourceIndexes.put(mod.id(), resourceIndex);
+            if (resourceIndex.hasAssetFiles()) {
+                modsWithAssetFiles++;
+            } else {
+                modsWithoutAssetFiles++;
+            }
             for (String namespace : resourceIndex.namespaces()) {
                 if (!namespace.equals("minecraft")) {
                     namespacesToMods.put(namespace, mod);
@@ -322,12 +365,23 @@ public class PackManager {
             skippedItems,
             missingItemModelComponents
         );
+
+        return new LookupSummary(
+            modResourceIndexes.size(),
+            modsWithAssetFiles,
+            modsWithoutAssetFiles,
+            namespacesToMods.keySet().size(),
+            modsToBlocks.size(),
+            skippedBlocks,
+            modsToItems.size(),
+            skippedItems,
+            missingItemModelComponents
+        );
     }
 
-    private void loadMetadata() {
+    private void initializeCompatibilityRegistry() {
         Path dataPath = this.hydraulic.dataFolder(Constants.MOD_ID);
         Path metadataPath = dataPath.resolve("metadata");
-        this.metadataIndex = new MetadataLoader(LOGGER).load(metadataPath);
         this.compatibilityRegistry = new CompatibilityManager(LOGGER, dataPath).initialize(
             this.hydraulic.mods(),
             this.namespacesToMods,
@@ -352,6 +406,32 @@ public class PackManager {
                 this.metadataIndex.summary().validationIssueCount()
             );
         }
+    }
+
+    void recordPackConversionMetrics(@NotNull PerformanceReport.PackConversionMetrics metrics) {
+        this.performanceTracker.recordPackConversion(metrics);
+    }
+
+    @NotNull
+    PerformanceReport performanceReport() {
+        return this.performanceTracker.snapshot();
+    }
+
+    private static long nanosToMillis(long nanos) {
+        return nanos / 1_000_000L;
+    }
+
+    private record LookupSummary(
+        int indexedMods,
+        int modsWithAssetFiles,
+        int modsWithoutAssetFiles,
+        int namespaces,
+        int blockMatches,
+        int skippedBlocks,
+        int itemMatches,
+        int skippedItems,
+        int missingItemModelComponents
+    ) {
     }
 
     /**

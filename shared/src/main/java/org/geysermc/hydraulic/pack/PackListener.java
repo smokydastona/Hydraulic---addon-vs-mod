@@ -24,12 +24,16 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.zip.ZipFile;
 
 /**
@@ -75,14 +79,19 @@ public class PackListener {
 
         // Go over all mods and load the pack or mark them for conversion
         Map<String, Pair<ModInfo, Path>> packsToLoad = new HashMap<>();
+        int ignoredMods = 0;
+        int generatedMods = 0;
         int skippedWithoutAssets = 0;
+        int registeredFromCache = 0;
         for (ModInfo mod : this.hydraulic.mods()) {
             if (this.manager.shouldIgnoreMod(mod)) {
+                ignoredMods++;
                 continue;
             }
 
             // Ignore generated mods
             if (mod.id().startsWith("generated_")) {
+                generatedMods++;
                 continue;
             }
 
@@ -100,10 +109,24 @@ public class PackListener {
                 // We don't need to convert the pack, just register it
                 LOGGER.info("Registering already converted pack for mod {}", mod.id());
                 event.register(ResourcePack.create(PackCodec.path(packPath)), PriorityOption.NORMAL);
+                registeredFromCache++;
             }
         }
 
+        long start = System.currentTimeMillis();
         if (packsToLoad.isEmpty()) {
+            this.manager.recordPackConversionMetrics(new PerformanceReport.PackConversionMetrics(
+                System.currentTimeMillis() - start,
+                this.hydraulic.mods().size(),
+                ignoredMods,
+                generatedMods,
+                skippedWithoutAssets,
+                0,
+                registeredFromCache,
+                0,
+                0,
+                Map.of()
+            ));
             if (skippedWithoutAssets > 0) {
                 LOGGER.info("Skipped {} mods with no asset-pack files requiring Hydraulic conversion", skippedWithoutAssets);
             }
@@ -115,17 +138,27 @@ public class PackListener {
             LOGGER.info("Skipped {} mods with no asset-pack files requiring Hydraulic conversion", skippedWithoutAssets);
         }
 
-        long start = System.currentTimeMillis();
+        AtomicInteger convertedPacks = new AtomicInteger();
+        AtomicInteger failedPacks = new AtomicInteger();
+        ConcurrentMap<String, PerformanceReport.ModConversionMetrics> perModMetrics = new ConcurrentHashMap<>();
 
         List<CompletableFuture<Void>> futures = new ArrayList<>();
         for (var entry : packsToLoad.entrySet()) {
             futures.add(CompletableFuture.runAsync(() -> {
                 LOGGER.info("Converting pack for mod {}", entry.getKey());
+                long modStart = System.currentTimeMillis();
                 try {
                     if (this.manager.createPack(entry.getValue().getLeft(), entry.getValue().getRight())) {
                         event.register(ResourcePack.create(PackCodec.path(entry.getValue().getRight())), PriorityOption.NORMAL);
+                        convertedPacks.incrementAndGet();
+                        perModMetrics.put(entry.getKey(), new PerformanceReport.ModConversionMetrics("converted", System.currentTimeMillis() - modStart));
+                    } else {
+                        failedPacks.incrementAndGet();
+                        perModMetrics.put(entry.getKey(), new PerformanceReport.ModConversionMetrics("failed", System.currentTimeMillis() - modStart));
                     }
                 } catch (Throwable t) {
+                    failedPacks.incrementAndGet();
+                    perModMetrics.put(entry.getKey(), new PerformanceReport.ModConversionMetrics("failed", System.currentTimeMillis() - modStart));
                     LOGGER.error("Failed to convert pack for mod {}", entry.getKey(), t);
                 }
             }, THREAD_POOL));
@@ -134,7 +167,21 @@ public class PackListener {
         // Wait for all futures to complete
         CompletableFuture.allOf(futures.toArray(new CompletableFuture<?>[0])).join();
 
-        LOGGER.info("Converted {} packs for mods in {}", packsToLoad.size(), FormatUtil.humanReadableFormat(System.currentTimeMillis() - start));
+        long totalMillis = System.currentTimeMillis() - start;
+        this.manager.recordPackConversionMetrics(new PerformanceReport.PackConversionMetrics(
+            totalMillis,
+            this.hydraulic.mods().size(),
+            ignoredMods,
+            generatedMods,
+            skippedWithoutAssets,
+            packsToLoad.size(),
+            registeredFromCache,
+            convertedPacks.get(),
+            failedPacks.get(),
+            new LinkedHashMap<>(perModMetrics)
+        ));
+
+        LOGGER.info("Converted {} packs for mods in {}", packsToLoad.size(), FormatUtil.humanReadableFormat(totalMillis));
     }
 
     /**
