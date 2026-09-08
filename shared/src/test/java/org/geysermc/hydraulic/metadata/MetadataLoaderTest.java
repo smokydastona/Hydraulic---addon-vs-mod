@@ -10,10 +10,13 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class MetadataLoaderTest {
     @Test
@@ -191,6 +194,14 @@ class MetadataLoaderTest {
         assertEquals(1, index.contentPatches(Identifier.fromNamespaceAndPath("example", "test_block")).size());
         ContentPatch blockPatch = index.contentPatches(Identifier.fromNamespaceAndPath("example", "test_block")).getFirst();
         assertEquals("example:geometry.test", blockPatch.operations().get("visual.geometry"));
+        assertTrue(index.namespaces().contains("example"));
+        assertEquals(List.of(Identifier.fromNamespaceAndPath("example", "test_block")), index.blockMappings("example"));
+        assertEquals(List.of(Identifier.fromNamespaceAndPath("example", "test_item")), index.itemMappings("example"));
+        assertEquals(2, index.contentPatches("example").size());
+        assertTrue(index.contentPatches("example").containsKey(Identifier.fromNamespaceAndPath("example", "test_block")));
+        assertTrue(index.contentPatches("example").containsKey(Identifier.fromNamespaceAndPath("example", "test_item")));
+        assertTrue(index.hasNamespaceEntries("example"));
+        assertFalse(index.hasNamespaceEntries("missing"));
         assertNotNull(index.blockMapping(Identifier.fromNamespaceAndPath("example", "test_block")));
         assertNotNull(index.itemMapping(Identifier.fromNamespaceAndPath("example", "test_item")));
     }

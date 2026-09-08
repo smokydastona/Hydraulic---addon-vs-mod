@@ -108,55 +108,29 @@ public final class CompatibilityManager {
             inventory.assetKeys.computeIfAbsent("item_assets", key -> new LinkedHashSet<>()).addAll(modsToItems.get(inventory.mod.id()).stream().map(Identifier::toString).toList());
         }
 
-        for (Identifier javaId : metadataIndex.blockMappings().keySet()) {
-            for (ModInfo mod : namespacesToMods.get(javaId.getNamespace())) {
+        for (String namespace : metadataIndex.namespaces()) {
+            for (ModInfo mod : namespacesToMods.get(namespace)) {
                 MutableInventory inventory = inventories.get(mod.id());
-                if (inventory != null) {
+                if (inventory == null) {
+                    continue;
+                }
+
+                for (Identifier javaId : metadataIndex.blockMappings(namespace)) {
                     inventory.addMetadata("blocks", javaId.toString());
                 }
-            }
-        }
-
-        for (Identifier javaId : metadataIndex.itemMappings().keySet()) {
-            for (ModInfo mod : namespacesToMods.get(javaId.getNamespace())) {
-                MutableInventory inventory = inventories.get(mod.id());
-                if (inventory != null) {
+                for (Identifier javaId : metadataIndex.itemMappings(namespace)) {
                     inventory.addMetadata("items", javaId.toString());
                 }
-            }
-        }
-
-        for (Identifier javaId : metadataIndex.recipeMappings().keySet()) {
-            for (ModInfo mod : namespacesToMods.get(javaId.getNamespace())) {
-                MutableInventory inventory = inventories.get(mod.id());
-                if (inventory != null) {
+                for (Identifier javaId : metadataIndex.recipeMappings(namespace)) {
                     inventory.addMetadata("recipes", javaId.toString());
                 }
-            }
-        }
-
-        for (Identifier javaId : metadataIndex.entityMappings().keySet()) {
-            for (ModInfo mod : namespacesToMods.get(javaId.getNamespace())) {
-                MutableInventory inventory = inventories.get(mod.id());
-                if (inventory != null) {
+                for (Identifier javaId : metadataIndex.entityMappings(namespace)) {
                     inventory.addMetadata("entities", javaId.toString());
                 }
-            }
-        }
-
-        for (Identifier javaId : metadataIndex.menuMappings().keySet()) {
-            for (ModInfo mod : namespacesToMods.get(javaId.getNamespace())) {
-                MutableInventory inventory = inventories.get(mod.id());
-                if (inventory != null) {
+                for (Identifier javaId : metadataIndex.menuMappings(namespace)) {
                     inventory.addMetadata("menus", javaId.toString());
                 }
-            }
-        }
-
-        for (Map.Entry<Identifier, List<ContentPatch>> entry : metadataIndex.contentPatches().entrySet()) {
-            for (ModInfo mod : namespacesToMods.get(entry.getKey().getNamespace())) {
-                MutableInventory inventory = inventories.get(mod.id());
-                if (inventory != null) {
+                for (Map.Entry<Identifier, List<ContentPatch>> entry : metadataIndex.contentPatches(namespace).entrySet()) {
                     String kind = this.inferPatchKind(inventory, entry.getKey(), entry.getValue());
                     inventory.addPatch(kind, entry.getKey().toString());
                 }

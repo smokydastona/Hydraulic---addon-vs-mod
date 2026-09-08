@@ -20,17 +20,20 @@ final class ModResourceIndex {
     private final Map<Identifier, Path> blockStates;
     private final Map<Identifier, Path> itemDefinitions;
     private final Map<Identifier, Path> legacyItemModels;
+    private final boolean hasAssetFiles;
 
     private ModResourceIndex(
         @NotNull Set<String> namespaces,
         @NotNull Map<Identifier, Path> blockStates,
         @NotNull Map<Identifier, Path> itemDefinitions,
-        @NotNull Map<Identifier, Path> legacyItemModels
+        @NotNull Map<Identifier, Path> legacyItemModels,
+        boolean hasAssetFiles
     ) {
         this.namespaces = Set.copyOf(namespaces);
         this.blockStates = Map.copyOf(blockStates);
         this.itemDefinitions = Map.copyOf(itemDefinitions);
         this.legacyItemModels = Map.copyOf(legacyItemModels);
+        this.hasAssetFiles = hasAssetFiles;
     }
 
     @NotNull
@@ -39,6 +42,7 @@ final class ModResourceIndex {
         Map<Identifier, Path> blockStates = new LinkedHashMap<>();
         Map<Identifier, Path> itemDefinitions = new LinkedHashMap<>();
         Map<Identifier, Path> legacyItemModels = new LinkedHashMap<>();
+        boolean hasAssetFiles = false;
 
         for (Path root : mod.roots()) {
             Path assets = root.resolve("assets");
@@ -47,7 +51,11 @@ final class ModResourceIndex {
             }
 
             try (Stream<Path> stream = Files.walk(assets)) {
-                stream.filter(Files::isRegularFile)
+                java.util.List<Path> assetFiles = stream.filter(Files::isRegularFile).toList();
+                if (!assetFiles.isEmpty()) {
+                    hasAssetFiles = true;
+                }
+                assetFiles.stream()
                     .filter(path -> path.getFileName().toString().endsWith(".json"))
                     .forEach(path -> indexFile(path, assets, namespaces, blockStates, itemDefinitions, legacyItemModels));
             } catch (IOException e) {
@@ -55,12 +63,16 @@ final class ModResourceIndex {
             }
         }
 
-        return new ModResourceIndex(namespaces, blockStates, itemDefinitions, legacyItemModels);
+        return new ModResourceIndex(namespaces, blockStates, itemDefinitions, legacyItemModels, hasAssetFiles);
     }
 
     @NotNull
     Set<String> namespaces() {
         return this.namespaces;
+    }
+
+    boolean hasAssetFiles() {
+        return this.hasAssetFiles;
     }
 
     boolean hasBlockState(@NotNull Identifier block) {

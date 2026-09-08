@@ -38,6 +38,7 @@ class ModResourceIndexTest {
         ModInfo mod = new ModInfo("examplemod", "examplemod", "Example Mod", "1.0.0", null, List.of(firstRoot, secondRoot));
         ModResourceIndex index = ModResourceIndex.create(mod, LoggerFactory.getLogger("ModResourceIndexTest"));
 
+        assertTrue(index.hasAssetFiles());
         assertTrue(index.namespaces().contains("examplemod"));
         assertTrue(index.hasBlockState(Identifier.fromNamespaceAndPath("examplemod", "machines/crusher")));
         assertEquals(modernItem, index.resolveItemAssetPath(Identifier.fromNamespaceAndPath("examplemod", "tools/wrench")));
@@ -62,5 +63,16 @@ class ModResourceIndexTest {
         Path resolved = index.resolveItemAssetPath(Identifier.fromNamespaceAndPath("examplemod", "test_item"));
         assertNotNull(resolved);
         assertEquals(firstItem, resolved);
+    }
+
+    @Test
+    void reportsWhenModHasNoAssetFiles() {
+        ModInfo mod = new ModInfo("examplemod", "examplemod", "Example Mod", "1.0.0", null, List.of(this.tempDir));
+
+        ModResourceIndex index = ModResourceIndex.create(mod, LoggerFactory.getLogger("ModResourceIndexTest"));
+
+        assertTrue(index.namespaces().isEmpty());
+        assertNull(index.resolveItemAssetPath(Identifier.fromNamespaceAndPath("examplemod", "test_item")));
+        assertEquals(false, index.hasAssetFiles());
     }
 }

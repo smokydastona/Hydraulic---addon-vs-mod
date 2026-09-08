@@ -75,6 +75,7 @@ public class PackListener {
 
         // Go over all mods and load the pack or mark them for conversion
         Map<String, Pair<ModInfo, Path>> packsToLoad = new HashMap<>();
+        int skippedWithoutAssets = 0;
         for (ModInfo mod : this.hydraulic.mods()) {
             if (this.manager.shouldIgnoreMod(mod)) {
                 continue;
@@ -82,6 +83,11 @@ public class PackListener {
 
             // Ignore generated mods
             if (mod.id().startsWith("generated_")) {
+                continue;
+            }
+
+            if (!this.manager.shouldConvertModAssets(mod)) {
+                skippedWithoutAssets++;
                 continue;
             }
 
@@ -98,10 +104,16 @@ public class PackListener {
         }
 
         if (packsToLoad.isEmpty()) {
+            if (skippedWithoutAssets > 0) {
+                LOGGER.info("Skipped {} mods with no asset-pack files requiring Hydraulic conversion", skippedWithoutAssets);
+            }
             return;
         }
 
         LOGGER.info("Found {} packs to convert!", packsToLoad.size());
+        if (skippedWithoutAssets > 0) {
+            LOGGER.info("Skipped {} mods with no asset-pack files requiring Hydraulic conversion", skippedWithoutAssets);
+        }
 
         long start = System.currentTimeMillis();
 

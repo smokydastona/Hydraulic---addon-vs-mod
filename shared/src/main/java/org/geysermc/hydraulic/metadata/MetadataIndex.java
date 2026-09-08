@@ -17,6 +17,12 @@ public final class MetadataIndex {
     private final Map<Identifier, IdentifierMapping> entityMappings;
     private final Map<Identifier, IdentifierMapping> menuMappings;
     private final Map<Identifier, java.util.List<ContentPatch>> contentPatches;
+    private final Map<String, java.util.List<Identifier>> blockMappingsByNamespace;
+    private final Map<String, java.util.List<Identifier>> itemMappingsByNamespace;
+    private final Map<String, java.util.List<Identifier>> recipeMappingsByNamespace;
+    private final Map<String, java.util.List<Identifier>> entityMappingsByNamespace;
+    private final Map<String, java.util.List<Identifier>> menuMappingsByNamespace;
+    private final Map<String, Map<Identifier, java.util.List<ContentPatch>>> contentPatchesByNamespace;
     private final java.util.List<MetadataValidationIssue> validationIssues;
     private final Summary summary;
 
@@ -40,6 +46,12 @@ public final class MetadataIndex {
             patchCopy.put(entry.getKey(), java.util.List.copyOf(entry.getValue()));
         }
         this.contentPatches = Collections.unmodifiableMap(patchCopy);
+        this.blockMappingsByNamespace = indexIdentifiersByNamespace(this.blockMappings.keySet());
+        this.itemMappingsByNamespace = indexIdentifiersByNamespace(this.itemMappings.keySet());
+        this.recipeMappingsByNamespace = indexIdentifiersByNamespace(this.recipeMappings.keySet());
+        this.entityMappingsByNamespace = indexIdentifiersByNamespace(this.entityMappings.keySet());
+        this.menuMappingsByNamespace = indexIdentifiersByNamespace(this.menuMappings.keySet());
+        this.contentPatchesByNamespace = indexPatchesByNamespace(this.contentPatches);
         this.validationIssues = java.util.List.copyOf(validationIssues);
         this.summary = summary;
     }
@@ -105,6 +117,57 @@ public final class MetadataIndex {
     }
 
     @NotNull
+    public java.util.Set<String> namespaces() {
+        java.util.LinkedHashSet<String> namespaces = new java.util.LinkedHashSet<>();
+        namespaces.addAll(this.blockMappingsByNamespace.keySet());
+        namespaces.addAll(this.itemMappingsByNamespace.keySet());
+        namespaces.addAll(this.recipeMappingsByNamespace.keySet());
+        namespaces.addAll(this.entityMappingsByNamespace.keySet());
+        namespaces.addAll(this.menuMappingsByNamespace.keySet());
+        namespaces.addAll(this.contentPatchesByNamespace.keySet());
+        return java.util.Set.copyOf(namespaces);
+    }
+
+    @NotNull
+    public java.util.List<Identifier> blockMappings(@NotNull String namespace) {
+        return this.blockMappingsByNamespace.getOrDefault(namespace, java.util.List.of());
+    }
+
+    @NotNull
+    public java.util.List<Identifier> itemMappings(@NotNull String namespace) {
+        return this.itemMappingsByNamespace.getOrDefault(namespace, java.util.List.of());
+    }
+
+    @NotNull
+    public java.util.List<Identifier> recipeMappings(@NotNull String namespace) {
+        return this.recipeMappingsByNamespace.getOrDefault(namespace, java.util.List.of());
+    }
+
+    @NotNull
+    public java.util.List<Identifier> entityMappings(@NotNull String namespace) {
+        return this.entityMappingsByNamespace.getOrDefault(namespace, java.util.List.of());
+    }
+
+    @NotNull
+    public java.util.List<Identifier> menuMappings(@NotNull String namespace) {
+        return this.menuMappingsByNamespace.getOrDefault(namespace, java.util.List.of());
+    }
+
+    @NotNull
+    public Map<Identifier, java.util.List<ContentPatch>> contentPatches(@NotNull String namespace) {
+        return this.contentPatchesByNamespace.getOrDefault(namespace, Map.of());
+    }
+
+    public boolean hasNamespaceEntries(@NotNull String namespace) {
+        return this.blockMappingsByNamespace.containsKey(namespace)
+            || this.itemMappingsByNamespace.containsKey(namespace)
+            || this.recipeMappingsByNamespace.containsKey(namespace)
+            || this.entityMappingsByNamespace.containsKey(namespace)
+            || this.menuMappingsByNamespace.containsKey(namespace)
+            || this.contentPatchesByNamespace.containsKey(namespace);
+    }
+
+    @NotNull
     public java.util.List<ContentPatch> contentPatches(@NotNull Identifier javaIdentifier) {
         return this.contentPatches.getOrDefault(javaIdentifier, java.util.List.of());
     }
@@ -135,6 +198,34 @@ public final class MetadataIndex {
     @NotNull
     public Summary summary() {
         return this.summary;
+    }
+
+    @NotNull
+    private static Map<String, java.util.List<Identifier>> indexIdentifiersByNamespace(@NotNull java.util.Set<Identifier> identifiers) {
+        Map<String, java.util.List<Identifier>> byNamespace = new LinkedHashMap<>();
+        for (Identifier identifier : identifiers) {
+            byNamespace.computeIfAbsent(identifier.getNamespace(), ignored -> new java.util.ArrayList<>()).add(identifier);
+        }
+
+        Map<String, java.util.List<Identifier>> finalized = new LinkedHashMap<>();
+        for (Map.Entry<String, java.util.List<Identifier>> entry : byNamespace.entrySet()) {
+            finalized.put(entry.getKey(), java.util.List.copyOf(entry.getValue()));
+        }
+        return Collections.unmodifiableMap(finalized);
+    }
+
+    @NotNull
+    private static Map<String, Map<Identifier, java.util.List<ContentPatch>>> indexPatchesByNamespace(@NotNull Map<Identifier, java.util.List<ContentPatch>> contentPatches) {
+        Map<String, Map<Identifier, java.util.List<ContentPatch>>> byNamespace = new LinkedHashMap<>();
+        for (Map.Entry<Identifier, java.util.List<ContentPatch>> entry : contentPatches.entrySet()) {
+            byNamespace.computeIfAbsent(entry.getKey().getNamespace(), ignored -> new LinkedHashMap<>()).put(entry.getKey(), entry.getValue());
+        }
+
+        Map<String, Map<Identifier, java.util.List<ContentPatch>>> finalized = new LinkedHashMap<>();
+        for (Map.Entry<String, Map<Identifier, java.util.List<ContentPatch>>> entry : byNamespace.entrySet()) {
+            finalized.put(entry.getKey(), Collections.unmodifiableMap(new LinkedHashMap<>(entry.getValue())));
+        }
+        return Collections.unmodifiableMap(finalized);
     }
 
     public record Summary(

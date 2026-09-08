@@ -153,6 +153,10 @@ public class PackManager {
                     continue;
                 }
 
+                if (!this.shouldConvertModAssets(mod)) {
+                    continue;
+                }
+
                 if (module.hasPreProcessors()) {
                     try {
                         this.preProcessModule(module, mod, modPacks.get(mod.id()));
@@ -385,6 +389,11 @@ public class PackManager {
 
     public boolean shouldIgnoreMod(ModInfo mod) {
         return IGNORED_MODS.contains(mod.id()) || hydraulic.getConfig().ignoredMods().contains(mod.id());
+    }
+
+    boolean shouldConvertModAssets(@NotNull ModInfo mod) {
+        ModResourceIndex resourceIndex = this.modResourceIndexes.get(mod.id());
+        return resourceIndex != null && resourceIndex.hasAssetFiles();
     }
 
     public ListMultimap<String, ModInfo> getNamespacesToMods() {
