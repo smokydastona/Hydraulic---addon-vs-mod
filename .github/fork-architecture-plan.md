@@ -164,6 +164,7 @@ This separation is fundamental, not just a reporting refinement. A converted mod
 - `ItemPackModule` already uses compatibility-aware block placement for block items and continues to translate modern item components through `ComponentConverter`.
 - `ArmorPackModule` now generates humanoid armor attachables from direct equipment-asset loading and gates them through compatibility decisions.
 - `BowPackModule` now consumes compatibility-driven item presentation decisions before generating bow attachables.
+- Item discovery now falls back from modern `assets/<ns>/items/*.json` definitions to legacy `models/item/*.json` assets for compatibility inventory and conversion indexing.
 - Focused tests already exist for loader precedence and resolver behavior.
 - The local Fabric runtime has already produced report artifacts and logged metadata/report initialization successfully.
 

@@ -271,7 +271,7 @@ public class PackManager {
             }
         }
 
-        // Step 3: Use namespace information to lookup which mods contains what item models
+        // Step 3: Use namespace information to lookup which mods contain item definitions or legacy item models
         // There's no ordering requirement between this and Step 2.
         final Multimap<String, Identifier> modsToItems = this.modsToItems;
         modsToItems.clear();
@@ -286,14 +286,18 @@ public class PackManager {
                 continue;
             }
 
+            boolean found = false;
             for (final ModInfo mod : namespacesToMods.get(itemId.getNamespace())) {
-                final Path checkFile = mod.resolveFile("assets/" + itemModel.getNamespace() + "/items/" + itemModel.getPath() + ".json");
+                final Path checkFile = ItemAssetLocator.resolveItemAssetPath(mod, itemModel);
                 if (checkFile != null) {
                     modsToItems.put(mod.id(), itemId);
+                    found = true;
                     break;
-                } else {
-                    LOGGER.warn("Failed to find path for item {}, skipping", item);
                 }
+            }
+
+            if (!found) {
+                LOGGER.warn("Failed to find path for item {}, skipping", item);
             }
         }
     }
