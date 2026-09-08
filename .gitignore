@@ -218,6 +218,9 @@ nbdist/
 # Local History for Visual Studio Code
 .history/
 
+# Local Copilot instruction files
+.github/copilot-instructions*.md
+
 # Built Visual Studio Code Extensions
 *.vsix
 
