@@ -6,6 +6,7 @@ import org.geysermc.hydraulic.compat.model.ModFingerprint;
 import org.geysermc.hydraulic.compat.model.SupportLevel;
 import org.geysermc.hydraulic.compat.model.SupportResult;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -30,5 +31,15 @@ public record CompatibilityProfile(
         objects = List.copyOf(objects);
         findings = List.copyOf(findings);
         notes = List.copyOf(notes);
+    }
+
+    @Nullable
+    public CompatibilityObject object(@NotNull String javaIdentifier, @NotNull String contentType) {
+        for (CompatibilityObject object : this.objects) {
+            if (object.javaIdentifier().equals(javaIdentifier) && object.contentType().equals(contentType)) {
+                return object;
+            }
+        }
+        return null;
     }
 }

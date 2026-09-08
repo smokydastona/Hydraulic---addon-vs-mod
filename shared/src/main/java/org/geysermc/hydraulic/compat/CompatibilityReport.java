@@ -1,8 +1,10 @@
 package org.geysermc.hydraulic.compat;
 
 import org.geysermc.hydraulic.compat.model.CompatibilityFinding;
+import org.geysermc.hydraulic.compat.model.CompatibilityObject;
 import org.geysermc.hydraulic.metadata.MetadataIndex;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -50,5 +52,16 @@ public final class CompatibilityReport {
     @NotNull
     public Map<String, CompatibilityProfile> mods() {
         return this.mods;
+    }
+
+    @Nullable
+    public CompatibilityProfile profile(@NotNull String modId) {
+        return this.mods.get(modId);
+    }
+
+    @Nullable
+    public CompatibilityObject object(@NotNull String modId, @NotNull String javaIdentifier, @NotNull String contentType) {
+        CompatibilityProfile profile = this.mods.get(modId);
+        return profile != null ? profile.object(javaIdentifier, contentType) : null;
     }
 }
