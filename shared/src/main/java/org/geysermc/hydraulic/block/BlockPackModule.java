@@ -36,7 +36,10 @@ import org.geysermc.geyser.level.physics.PistonBehavior;
 import org.geysermc.geyser.util.MathUtils;
 import org.geysermc.hydraulic.Constants;
 import org.geysermc.hydraulic.HydraulicImpl;
+import org.geysermc.hydraulic.compat.CompatibilityRegistry;
 import org.geysermc.hydraulic.compat.MappingResolver;
+import org.geysermc.hydraulic.compat.model.CompatibilityObject;
+import org.geysermc.hydraulic.compat.runtime.CompatibilityDecisions;
 import org.geysermc.hydraulic.item.CreativeMappings;
 import org.geysermc.hydraulic.metadata.BlockMapping;
 import org.geysermc.hydraulic.metadata.BlockStateRule;
@@ -198,6 +201,7 @@ public class BlockPackModule extends PackModule<BlockPackModule> {
         DefaultedRegistry<Block> registry = BuiltInRegistries.BLOCK;
         for (Block block : blocks) {
             Identifier blockLocation = registry.getKey(block);
+            CompatibilityObject blockObject = compatibilityBlockObject(context, blockLocation);
             MappingResolver mappingResolver = context.hydraulic().getPackManager().mappingResolver();
             BlockMapping blockMapping = mappingResolver.blockMapping(blockLocation);
             Map<String, StatePropertyDefinition> stateDefinitions = stateDefinitions(context, blockLocation, block.getStateDefinition().getProperties(), blockMapping);
@@ -212,7 +216,12 @@ public class BlockPackModule extends PackModule<BlockPackModule> {
                 CustomBlockData.Builder builder = NonVanillaCustomBlockData.builder()
                         .name(customBlockIdentifier.getPath())
                         .namespace(customBlockIdentifier.getNamespace())
-                        .includedInCreativeInventory(true);
+                        .includedInCreativeInventory(CompatibilityDecisions.allowsBlockCreativeExposure(blockObject));
+
+                String creativeSuppressionReason = CompatibilityDecisions.creativeExposureReason(blockObject);
+                if (creativeSuppressionReason != null) {
+                    context.logger().info("Registering block {} as runtime-only for Bedrock because {}", blockLocation, creativeSuppressionReason);
+                }
 
                 CreativeMappings.setupBlock(block, builder);
 
@@ -827,6 +836,12 @@ public class BlockPackModule extends PackModule<BlockPackModule> {
         }
 
         return textures;
+    }
+
+    @Nullable
+    private static CompatibilityObject compatibilityBlockObject(@NotNull PackContext<?> context, @NotNull Identifier blockLocation) {
+        CompatibilityRegistry compatibilityRegistry = context.hydraulic().getPackManager().compatibilityRegistry();
+        return compatibilityRegistry.report().object(context.mod().id(), blockLocation.toString(), "block");
     }
 
     private boolean isUnitCube(Key parent) {

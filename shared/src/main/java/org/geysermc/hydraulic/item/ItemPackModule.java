@@ -17,8 +17,7 @@ import org.geysermc.geyser.api.item.custom.v2.component.geyser.GeyserItemDataCom
 import org.geysermc.hydraulic.compat.CompatibilityRegistry;
 import org.geysermc.hydraulic.compat.MappingResolver;
 import org.geysermc.hydraulic.compat.model.CompatibilityObject;
-import org.geysermc.hydraulic.compat.model.SupportLevel;
-import org.geysermc.hydraulic.compat.model.SupportResult;
+import org.geysermc.hydraulic.compat.runtime.CompatibilityDecisions;
 import org.geysermc.hydraulic.pack.PackLogListener;
 import org.geysermc.hydraulic.pack.PackModule;
 import org.geysermc.hydraulic.pack.TexturePackModule;
@@ -190,8 +189,12 @@ public class ItemPackModule extends TexturePackModule<ItemPackModule> {
                     customItemOptions.displayHandheld(true);
                 }
 
+                CompatibilityObject blockObject = item instanceof BlockItem blockItem ? this.compatibilityBlockObject(context, blockItem) : null;
+
                 // Set the creative mappings
-                CreativeMappings.setup(item, customItemOptions);
+                if (!(item instanceof BlockItem) || CompatibilityDecisions.allowsBlockCreativeExposure(blockObject)) {
+                    CreativeMappings.setup(item, customItemOptions);
+                }
 
                 // Set all bedrock components using what java components we have
                 ComponentConverter.setGeyserComponents(
@@ -236,12 +239,18 @@ public class ItemPackModule extends TexturePackModule<ItemPackModule> {
                         .mappingResolver()
                         .resolveBlockState(javaBlockIdentifier, block.defaultBlockState());
 
-                    customItemDefinition.component(
-                            GeyserItemDataComponents.BLOCK_PLACER,
-                        GeyserBlockPlacer.of(HydraulicKey.of(resolvedPlacement.identifier()), !is2d)
-                    );
+                    if (CompatibilityDecisions.shouldApplyBlockPlacementBridge(blockObject)) {
+                        customItemDefinition.component(
+                                GeyserItemDataComponents.BLOCK_PLACER,
+                            GeyserBlockPlacer.of(HydraulicKey.of(resolvedPlacement.identifier()), !is2d)
+                        );
+                    } else {
+                        context.logger().info("Skipping block placement bridge for {} because compatibility analysis does not support placement", itemLocation);
+                    }
 
-                    CreativeMappings.setupBlock(block, customItemOptions);
+                    if (CompatibilityDecisions.allowsBlockCreativeExposure(blockObject)) {
+                        CreativeMappings.setupBlock(block, customItemOptions);
+                    }
                 }
 
                 customItemDefinition.bedrockOptions(customItemOptions);
@@ -281,7 +290,7 @@ public class ItemPackModule extends TexturePackModule<ItemPackModule> {
         }
 
         CompatibilityObject compatibilityObject = this.compatibilityBlockObject(context, blockItem);
-        if (!supportsBlockItemTextureBridge(compatibilityObject)) {
+        if (!CompatibilityDecisions.supportsBlockItemTextureFallback(compatibilityObject)) {
             context.logger().warn("Item {} has no item model and no compatibility-backed block fallback, skipping", itemLocation);
             return null;
         }
@@ -303,7 +312,7 @@ public class ItemPackModule extends TexturePackModule<ItemPackModule> {
     }
 
     private boolean shouldUseBlockItemTextureBridge(@NotNull PackEventContext<GeyserDefineCustomItemsEvent, ItemPackModule> context, @NotNull BlockItem blockItem) {
-        return supportsBlockItemTextureBridge(this.compatibilityBlockObject(context, blockItem));
+        return CompatibilityDecisions.supportsBlockItemTextureFallback(this.compatibilityBlockObject(context, blockItem));
     }
 
     @Nullable
@@ -311,17 +320,6 @@ public class ItemPackModule extends TexturePackModule<ItemPackModule> {
         CompatibilityRegistry compatibilityRegistry = context.hydraulic().getPackManager().compatibilityRegistry();
         Identifier blockLocation = BuiltInRegistries.BLOCK.getKey(blockItem.getBlock());
         return compatibilityRegistry.report().object(context.mod().id(), blockLocation.toString(), "block");
-    }
-
-    private static boolean supportsBlockItemTextureBridge(@Nullable CompatibilityObject compatibilityObject) {
-        if (compatibilityObject == null) {
-            return false;
-        }
-
-        SupportResult presentation = compatibilityObject.supportResults().get("presentation");
-        return presentation != null
-            && presentation.level() != SupportLevel.UNSUPPORTED
-            && presentation.level() != SupportLevel.VISUAL_ONLY;
     }
 
     @Nullable
