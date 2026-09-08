@@ -25,4 +25,13 @@ public record ContentPatch(
     public boolean hasOperationPrefix(@NotNull String prefix) {
         return this.operations.keySet().stream().anyMatch(key -> key.startsWith(prefix));
     }
+
+    public boolean booleanOperation(@NotNull String key) {
+        return Boolean.parseBoolean(this.operations.getOrDefault(key, "false"));
+    }
+
+    @Nullable
+    public String operation(@NotNull String key) {
+        return this.operations.get(key);
+    }
 }

@@ -117,7 +117,22 @@ class CompatibilityDecisionsTest {
         );
 
         assertFalse(CompatibilityDecisions.allowsItemCreativeExposure(approximated));
-        assertEquals("behavior domain is approximated", CompatibilityDecisions.itemCreativeExposureReason(approximated));
+        CompatibilityObject tagged = new CompatibilityObject(
+            approximated.javaIdentifier(),
+            approximated.contentType(),
+            approximated.modId(),
+            java.util.Map.of("behavior_tag", "custom_pack_behavior"),
+            approximated.capabilityProfile(),
+            approximated.supportResults(),
+            approximated.overallLevel(),
+            approximated.overallStatus(),
+            approximated.overallScore(),
+            approximated.confidence(),
+            approximated.provenance(),
+            approximated.findings()
+        );
+
+        assertEquals("behavior domain is approximated (tag: custom_pack_behavior)", CompatibilityDecisions.itemCreativeExposureReason(tagged));
     }
 
     private static CompatibilityObject blockObject(SupportResult content, SupportResult presentation, SupportResult interaction, SupportResult behavior) {

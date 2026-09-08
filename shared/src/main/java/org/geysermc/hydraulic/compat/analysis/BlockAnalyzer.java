@@ -35,6 +35,10 @@ public final class BlockAnalyzer implements CompatibilityAnalyzer {
         BlockMapping mapping = metadataIndex.blockMapping(identifier);
         List<ContentPatch> patches = metadataIndex.contentPatches(identifier);
         boolean behaviorRequired = mapping != null && mapping.rules().stream().anyMatch(rule -> rule.behaviorRequired()) || patches.stream().anyMatch(patch -> patch.hasOperationPrefix("behavior.") || patch.hasOperationPrefix("interaction."));
+        String behaviorTag = mapping != null ? mapping.rules().stream().map(rule -> rule.behaviorTag()).filter(tag -> tag != null && !tag.isBlank()).findFirst().orElse(null) : null;
+        if (behaviorTag == null) {
+            behaviorTag = patches.stream().map(patch -> patch.operation("behavior.tag")).filter(tag -> tag != null && !tag.isBlank()).findFirst().orElse(null);
+        }
         boolean visualPatch = patches.stream().anyMatch(patch -> patch.hasOperationPrefix("visual.") || patch.hasOperationPrefix("bedrock."));
 
         Capability registered = AnalyzerSupport.capability(CapabilityDomain.CONTENT, "registered", "Block exists in the Java registry.");
@@ -78,7 +82,7 @@ public final class BlockAnalyzer implements CompatibilityAnalyzer {
             findings.add(new CompatibilityFinding("block.asset.missing", CompatibilityFinding.Severity.WARNING, "presentation", "Block asset discovery failed for " + descriptor.javaIdentifier(), "The block does not currently have a discovered blockstate asset in this mod root.", "Add a blockstate asset or metadata patch for this block.", null));
         }
         if (behaviorRequired) {
-            findings.add(new CompatibilityFinding("block.behavior.required", CompatibilityFinding.Severity.WARNING, "behavior", "Block declares behavior requirements that Hydraulic cannot satisfy yet.", "Metadata or patch data flagged behavior-dependent handling.", "Implement a behavior bridge or adapter for this block family.", null));
+            findings.add(new CompatibilityFinding("block.behavior.required", CompatibilityFinding.Severity.WARNING, "behavior", "Block declares behavior requirements that Hydraulic cannot satisfy yet.", behaviorTag != null ? "Metadata or patch data flagged behavior tag '" + behaviorTag + "'." : "Metadata or patch data flagged behavior-dependent handling.", "Implement a behavior bridge or adapter for this block family.", null));
         }
 
         List<String> metadataSources = new ArrayList<>();
@@ -86,11 +90,17 @@ public final class BlockAnalyzer implements CompatibilityAnalyzer {
             mapping.rules().stream().map(rule -> rule.sourcePath()).distinct().forEach(metadataSources::add);
         }
 
+        Map<String, String> inventoryFacts = AnalyzerSupport.inventoryFacts(descriptor.registered(), descriptor.assetPresent(), mapping != null ? 1 : 0, patches.size());
+        inventoryFacts.put("behavior_required", Boolean.toString(behaviorRequired));
+        if (behaviorTag != null) {
+            inventoryFacts.put("behavior_tag", behaviorTag);
+        }
+
         return AnalyzerSupport.object(
             descriptor.javaIdentifier(),
             descriptor.kind(),
             descriptor.modId(),
-            AnalyzerSupport.inventoryFacts(descriptor.registered(), descriptor.assetPresent(), mapping != null ? 1 : 0, patches.size()),
+            inventoryFacts,
             profile,
             supportResults,
             new Confidence(mapping != null || !patches.isEmpty() ? (descriptor.assetPresent() ? 0.92D : 0.68D) : (descriptor.assetPresent() ? 0.78D : 0.35D), "Inventory-backed block analyzer with metadata and patch signals."),

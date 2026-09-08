@@ -95,8 +95,8 @@ Supported fields today:
 - `bedrock_state`: optional Bedrock state values to inject into the generated custom block state
 - `geometry`: optional Bedrock geometry override
 - `material`: optional Bedrock material override
-- `behavior_required`: reserved for future behavior-pack work
-- `behavior_tag`: reserved for future behavior-pack work
+- `behavior_required`: marks content that still needs a runtime bridge or behavior-layer support
+- `behavior_tag`: declares the bridge category Hydraulic should report and eventually route through adapters
 
 The same metadata directory also supports simple item, recipe, entity, and menu identifier mappings:
 
@@ -183,10 +183,11 @@ On startup, this fork now writes two compatibility artifacts under Hydraulic's d
 - support levels: `NATIVE`, `AUTOMATIC`, `ADAPTED`, `APPROXIMATED`, `VISUAL_ONLY`, `UNSUPPORTED`
 - the five compatibility domains: content, presentation, state/data, interaction, behavior
 - capability requirements and analyzer results
+- patch-derived facts such as `behavior_required` and `behavior_tag` when present
 - confidence, provenance, and structured findings
 - metadata validation issues emitted during Metadata V2 loading
 
-The current report is still conservative. It is intended to answer "what do we know right now from registries, assets, metadata, and patches?" not "is this mod fully playable end-to-end on Bedrock?" Behavior-heavy entities, fluids, menus, and block entities will still show low support until dedicated runtime bridges are implemented.
+The current report is still conservative. It is intended to answer "what do we know right now from registries, assets, metadata, and patches?" not "is this mod fully playable end-to-end on Bedrock?" Behavior-heavy entities, fluids, menus, and block entities will still show low support until dedicated runtime bridges are implemented. For items, behavior-tagged patches already affect runtime exposure decisions, so unsupported behavior can now suppress Bedrock creative exposure even when the item is still registered.
 
 ## Contributing
 Any contributions are appreciated. Please feel free to reach out to us on [Discord](https://discord.gg/geysermc) if

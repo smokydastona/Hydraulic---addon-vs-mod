@@ -34,6 +34,12 @@ public final class ItemAnalyzer implements CompatibilityAnalyzer {
         IdentifierMapping mapping = metadataIndex.itemMapping(identifier);
         List<ContentPatch> patches = metadataIndex.contentPatches(identifier);
         boolean patched = !patches.isEmpty();
+        boolean behaviorRequired = patches.stream().anyMatch(patch -> patch.booleanOperation("behavior.required") || patch.hasOperationPrefix("behavior."));
+        String behaviorTag = patches.stream()
+            .map(patch -> patch.operation("behavior.tag"))
+            .filter(tag -> tag != null && !tag.isBlank())
+            .findFirst()
+            .orElse(null);
 
         Capability registered = AnalyzerSupport.capability(CapabilityDomain.CONTENT, "registered", "Item exists in the Java registry.");
         Capability icon = AnalyzerSupport.capability(CapabilityDomain.PRESENTATION, "item_asset", "Item has discoverable item-model assets.");
@@ -56,7 +62,7 @@ public final class ItemAnalyzer implements CompatibilityAnalyzer {
             AnalyzerSupport.result(componentTranslation, true, "ItemPackModule already routes item components through ComponentConverter."),
             AnalyzerSupport.result(mappingCapability, mapping != null || patched || descriptor.assetPresent(), "Items can use discovered models, explicit mappings, or patches."),
             AnalyzerSupport.result(offhand, true, "ItemPackModule currently sets allowOffhand(true) for custom item options."),
-            AnalyzerSupport.result(behavior, !patched || patches.stream().noneMatch(patch -> patch.hasOperationPrefix("behavior.")), "Behavior-oriented item patches still require future runtime support.")
+            AnalyzerSupport.result(behavior, !behaviorRequired, "Behavior-oriented item patches still require future runtime support.")
         );
 
         CapabilityProfile profile = new CapabilityProfile(descriptor.javaIdentifier(), requirements, results);
@@ -71,17 +77,34 @@ public final class ItemAnalyzer implements CompatibilityAnalyzer {
         if (!descriptor.assetPresent()) {
             findings.add(new CompatibilityFinding("item.asset.missing", CompatibilityFinding.Severity.WARNING, "presentation", "Item asset discovery failed for " + descriptor.javaIdentifier(), "The item does not currently have a discovered item-model asset in this mod root.", "Add an item model or metadata patch for this item.", null));
         }
+        if (behaviorRequired) {
+            findings.add(new CompatibilityFinding(
+                "item.behavior.required",
+                CompatibilityFinding.Severity.WARNING,
+                "behavior",
+                "Item declares behavior requirements that Hydraulic cannot fully satisfy yet.",
+                behaviorTag != null ? "Metadata or patch data flagged behavior tag '" + behaviorTag + "' for this item." : "Metadata or patch data flagged behavior-dependent handling for this item.",
+                "Implement a generic capability adapter or mod-specific bridge for this item family.",
+                null
+            ));
+        }
 
         List<String> metadataSources = new ArrayList<>();
         if (mapping != null) {
             metadataSources.add(mapping.sourcePath());
         }
 
+        Map<String, String> inventoryFacts = AnalyzerSupport.inventoryFacts(descriptor.registered(), descriptor.assetPresent(), mapping != null ? 1 : 0, patches.size());
+        inventoryFacts.put("behavior_required", Boolean.toString(behaviorRequired));
+        if (behaviorTag != null) {
+            inventoryFacts.put("behavior_tag", behaviorTag);
+        }
+
         return AnalyzerSupport.object(
             descriptor.javaIdentifier(),
             descriptor.kind(),
             descriptor.modId(),
-            AnalyzerSupport.inventoryFacts(descriptor.registered(), descriptor.assetPresent(), mapping != null ? 1 : 0, patches.size()),
+            inventoryFacts,
             profile,
             supportResults,
             new Confidence(descriptor.assetPresent() ? (mapping != null || patched ? 0.94D : 0.87D) : 0.52D, "Inventory-backed item analyzer with component translation signals."),

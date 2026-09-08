@@ -156,16 +156,34 @@ This separation is fundamental, not just a reporting refinement. A converted mod
   - recipe identifier mappings
   - entity identifier mappings
   - menu identifier mappings
+  - typed content patches
 - `CompatibilityManager` already emits early artifacts under `config/hydraulic/reports/`:
   - `content-inventory.json`
   - `compatibility-report.json`
+- Typed compatibility data is now implemented and emitted:
+  - `CompatibilityObject`
+  - `CapabilityProfile`
+  - `SupportResult`
+  - `CompatibilityFinding`
+  - `Confidence`
+  - `Provenance`
+  - `ModFingerprint`
+- Analyzer-backed compatibility reporting now exists for:
+  - blocks
+  - items
+  - recipes
+  - entities
+  - menus
+  - fluids
+  - block entities
 - `MappingResolver` already has state-aware block resolution and groups block states by resolved Bedrock identifier.
 - `BlockPackModule` already consumes resolved state-aware block definitions during custom block registration.
-- `ItemPackModule` already uses compatibility-aware block placement for block items and continues to translate modern item components through `ComponentConverter`.
+- `ItemPackModule` already uses compatibility-aware block placement for block items, consults item compatibility objects for non-block custom item registration, suppresses creative exposure when item behavior is only approximated, and continues to translate modern item components through `ComponentConverter`.
 - `ArmorPackModule` now generates humanoid armor attachables from direct equipment-asset loading and gates them through compatibility decisions.
 - `BowPackModule` now consumes compatibility-driven item presentation decisions before generating bow attachables.
+- Patch-declared behavior requirements and tags now flow into compatibility objects, structured findings, and runtime suppression reasons.
 - Item discovery now falls back from modern `assets/<ns>/items/*.json` definitions to legacy `models/item/*.json` assets for compatibility inventory and conversion indexing.
-- Focused tests already exist for loader precedence and resolver behavior.
+- Focused tests already exist for loader precedence, resolver behavior, compatibility decisions, equipment asset loading, item asset lookup, and report generation.
 - The local Fabric runtime has already produced report artifacts and logged metadata/report initialization successfully.
 
 ### What is materially better than the earlier fork assessment
@@ -176,16 +194,13 @@ This separation is fundamental, not just a reporting refinement. A converted mod
 - Item, recipe, entity, and menu metadata hooks already exist, even though they are still shallow.
 
 ### What is still too narrow
-- Automatic analyzers do not exist yet. Current reporting is inventory-backed, not capability-backed.
-- Non-block metadata is still identifier-only and does not describe behavior, rendering, components, slots, recipes, fluids, or interactions.
-- The block path is still the only genuinely rich compatibility path.
-- `behavior_required` and `behavior_tag` are parsed but not consumed.
+- Non-block metadata is still shallow compared to the block path. It can now express typed patches and behavior requirements, but it still does not model full rendering, slots, recipes, fluids, or rich interactions.
+- The block path remains the richest end-to-end compatibility path.
 - There is no behavior-pack generator.
 - There are no runtime interaction bridges for menus, block entities, fluids, machines, or entity logic.
-- Runtime consumption of compatibility decisions exists for selected item and block pack-generation paths, but broad interaction and behavior bridges still do not.
-- There is no typed capability model or compatibility knowledge layer.
-- Compatibility status is still coarse: `COMPLETE`, `PARTIAL`, `NONE`, `UNKNOWN`.
-- The system does not yet capture confidence, provenance, or reasons for its decisions.
+- Runtime consumption of compatibility decisions now exists for block custom registration, block item texture fallback, item custom registration, item creative exposure, armor attachables, and bow attachables, but broad interaction and behavior bridges still do not.
+- There is no compatibility knowledge layer or capability-adapter framework yet.
+- Runtime consumers still act on support outcomes and structured facts, not full adapter bindings.
 
 ## Actual Current Control Flow
 
@@ -197,13 +212,16 @@ PackManager.initialize
   -> MetadataLoader.load(config/hydraulic/metadata)
   -> CompatibilityManager.initialize(...)
     -> build ContentInventory
+    -> run analyzers
     -> build CompatibilityReport
     -> write reports/content-inventory.json
     -> write reports/compatibility-report.json
     -> create CompatibilityRegistry + MappingResolver
   -> normal pack conversion pipeline
   -> BlockPackModule consumes resolved block mappings during custom block registration
-  -> ItemPackModule consumes compatibility-aware block placement mapping for block items
+  -> ItemPackModule consumes compatibility-aware block placement mapping for block items and item compatibility decisions for non-block registration/exposure
+  -> ArmorPackModule consumes compatibility decisions for attachable generation
+  -> BowPackModule consumes compatibility decisions for bow attachable generation
 ```
 
 This remains the correct insertion point. The architecture change is not to move the compatibility layer. The change is to deepen what the layer knows and how it decides.
@@ -849,7 +867,7 @@ Delivered:
 This phase is complete enough to build on and should not be re-done.
 
 ## Phase 1: Compatibility Data Model
-Priority: next
+Priority: completed baseline
 
 Build:
 - `CompatibilityObject`
@@ -860,10 +878,10 @@ Build:
 - `Provenance`
 - `ModFingerprint`
 
-This is the immediate engineering target.
+This phase is implemented and in active use by the analyzer and reporting pipeline.
 
 ## Phase 2: Analyzer Engine
-Priority: critical
+Priority: implemented initial slice
 
 Build:
 - `RegistryAnalyzer`
@@ -877,6 +895,8 @@ Build:
 - `MenuAnalyzer`
 - `BlockEntityAnalyzer`
 
+This phase is partially complete. The analyzer set exists and produces per-domain support results, confidence, provenance, and findings, but deeper capability inference remains limited for several content types.
+
 ## Phase 3: Automatic Translators
 Priority: critical
 
@@ -889,7 +909,7 @@ Build:
 - `ContainerTranslator`
 
 ## Phase 4: Reporting
-Priority: high
+Priority: implemented initial slice
 
 Produce detailed compatibility output before trying to make every behavior functional.
 
@@ -899,8 +919,10 @@ Deliverables:
 - confidence and provenance
 - per-mod and per-object scores
 
+This phase is partially complete. The compatibility report already carries multidimensional support results, findings, confidence, provenance, and scores, but downstream consumers and higher-level summaries are still incomplete.
+
 ## Phase 5: Metadata V2
-Priority: high
+Priority: implemented initial slice
 
 Metadata becomes a patch and override system rather than the main source of truth.
 
@@ -909,6 +931,8 @@ Deliverables:
 - generated/manual separation
 - structured diagnostics
 - conflict reporting
+
+This phase is partially complete. Typed patch schemas, synthesized mappings, and validation are present, but ownership-specific directory structure and generated suggestion workflows are still incomplete.
 
 ## Phase 6: Runtime Compatibility
 Priority: very high
@@ -919,6 +943,15 @@ Build:
 - `BlockEntityBridge`
 - `FluidBridge`
 - `EntityBridge`
+
+Current verified runtime consumers:
+- block creative exposure and placement gating
+- block item texture fallback
+- non-block item registration and creative exposure gating
+- armor attachable generation gating
+- bow attachable generation gating
+
+This phase is still early. Generic interaction, container, fluid, entity, and block-entity bridges are not implemented.
 
 ## Phase 7: Behavior Generation
 Priority: very high
@@ -956,14 +989,12 @@ Test real representative modpacks rather than only isolated toy examples.
 
 The best next implementation slice from the current repo state is:
 
-1. add `CompatibilityObject`, `CapabilityProfile`, `SupportResult`, `CompatibilityFinding`, `Confidence`, `Provenance`, and `ModFingerprint`
-2. add analyzer interfaces under `org.geysermc.hydraulic.compat.analysis`
-3. add `org.geysermc.hydraulic.compat.capability`
-4. expand `ContentInventory` toward typed facts instead of only count buckets
-5. teach `CompatibilityReport` to represent per-domain results, reasons, and scores even before all analyzers exist
-6. keep the current block path working unchanged while the new model layers are introduced
+1. add the first real generic container or menu bridge on top of the existing menu analyzer and metadata mapping surface
+2. add the first real entity or block-entity runtime bridge using the existing compatibility report and Geyser lifecycle hooks
+3. promote runtime validation from log-only checks into committed regression coverage for compatibility-driven runtime consumers
+4. begin a capability-adapter layer that can consume `behavior_tag` signals instead of only support levels
 
-This is the smallest next slice that materially moves the fork from inventory-backed override handling to a real compatibility decision engine.
+This is the smallest next slice that materially moves the fork from compatibility-aware pack generation into broader runtime bridge execution.
 
 ## What Not To Do
 - Do not keep extending `BlockStateRule` with every future concern.
@@ -977,7 +1008,7 @@ This is the smallest next slice that materially moves the fork from inventory-ba
 ## Bottom Line
 The fork is pointed in the right direction and is further along than the earlier assessment implied.
 
-The architecture should no longer be described primarily as a future analyzer plus metadata expansion problem. The correct next step is to formalize the compatibility domains, capability model, support results, provenance, and knowledge layer so later analyzers, bridges, and adapters all share the same decision model.
+The architecture should no longer be described primarily as a future analyzer plus metadata expansion problem. The compatibility domains, capability model, support results, provenance, confidence, score, fingerprint, and typed patch system now exist in code. The correct next step is to convert those decisions into broader runtime bridges and capability-driven adapters without regressing the current pack pipeline.
 
 The scaling strategy remains:
 

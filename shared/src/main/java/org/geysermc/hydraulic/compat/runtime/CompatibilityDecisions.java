@@ -84,10 +84,10 @@ public final class CompatibilityDecisions {
 
         SupportResult behavior = support(compatibilityObject, "behavior");
         if (behavior != null && behavior.level() == SupportLevel.UNSUPPORTED) {
-            return "behavior domain is unsupported";
+            return behaviorReason("behavior domain is unsupported", compatibilityObject);
         }
         if (behavior != null && behavior.level() == SupportLevel.APPROXIMATED) {
-            return "behavior domain is approximated";
+            return behaviorReason("behavior domain is approximated", compatibilityObject);
         }
         return "compatibility evidence is insufficient";
     }
@@ -100,7 +100,7 @@ public final class CompatibilityDecisions {
 
         SupportResult behavior = support(compatibilityObject, "behavior");
         if (isUnsupported(behavior)) {
-            return "behavior domain is unsupported";
+            return behaviorReason("behavior domain is unsupported", compatibilityObject);
         }
 
         SupportResult presentation = support(compatibilityObject, "presentation");
@@ -122,6 +122,15 @@ public final class CompatibilityDecisions {
 
     private static boolean isUnsupported(@Nullable SupportResult supportResult) {
         return supportResult != null && supportResult.level() == SupportLevel.UNSUPPORTED;
+    }
+
+    @NotNull
+    private static String behaviorReason(@NotNull String baseReason, @NotNull CompatibilityObject compatibilityObject) {
+        String behaviorTag = compatibilityObject.inventoryFacts().get("behavior_tag");
+        if (behaviorTag == null || behaviorTag.isBlank()) {
+            return baseReason;
+        }
+        return baseReason + " (tag: " + behaviorTag + ")";
     }
 
     @Nullable
