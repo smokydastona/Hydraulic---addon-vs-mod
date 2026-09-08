@@ -1,8 +1,11 @@
 package org.geysermc.hydraulic.compat;
 
+import com.google.gson.JsonArray;
+import com.google.gson.JsonObject;
 import org.geysermc.hydraulic.compat.adapter.AdapterFeature;
 import org.geysermc.hydraulic.compat.model.CompatibilityObject;
 import org.geysermc.hydraulic.compat.model.SupportLevel;
+import org.geysermc.hydraulic.Constants;
 import org.geysermc.hydraulic.metadata.MetadataLoader;
 import org.geysermc.hydraulic.metadata.MetadataIndex;
 import org.geysermc.hydraulic.platform.mod.ModInfo;
@@ -148,5 +151,57 @@ class CompatibilityManagerTest {
                 assertTrue(item.adapterBindings().stream().anyMatch(binding -> binding.adapterId().equals("item.custom_registration")));
                 assertTrue(item.adapterBindings().stream().anyMatch(binding -> binding.adapterId().equals("item.bow_attachable") && binding.feature() == AdapterFeature.ATTACHABLE_ITEM_PRESENTATION));
                 assertTrue(item.adapterBindings().stream().anyMatch(binding -> binding.adapterId().equals("item.bow_attachable") && binding.feature() == AdapterFeature.ITEM_CREATIVE_EXPOSURE));
+        }
+
+        @Test
+        void serializesAdapterBindingsIntoCompatibilityReportJson(@TempDir Path tempDir) throws IOException {
+                ContentInventory.ModContentInventory inventory = new ContentInventory.ModContentInventory(
+                        "examplemod",
+                        "example",
+                        "Example Mod",
+                        "1.0.0",
+                        List.of(tempDir.toString()),
+                        new org.geysermc.hydraulic.compat.model.ModFingerprint("examplemod", "example", "1.0.0", "unknown", "test", 0, 1, 0, 0, 0, 0, 0, false, false, false, true, false, false, false, false),
+                        Map.of("items", 1),
+                        Map.of("items", List.of("example:test_bow")),
+                        Map.of("item_assets", 1),
+                        Map.of("item_assets", List.of("example:test_bow")),
+                        Map.of("items", 1),
+                        Map.of("items", List.of("example:test_bow")),
+                        Map.of(),
+                        Map.of()
+                );
+                ContentInventory inventoryRoot = new ContentInventory(Map.of("examplemod", inventory));
+
+                Files.writeString(tempDir.resolve("compat.json"), """
+                        {
+                            "patches": [
+                                {
+                                    "target": "example:test_bow",
+                                    "content_type": "item",
+                                    "patch": {
+                                        "behavior": {
+                                            "required": true,
+                                            "tag": "bow_attachable"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                        """);
+                MetadataIndex metadataIndex = new MetadataLoader(LoggerFactory.getLogger("CompatibilityManagerTest")).load(tempDir);
+
+                CompatibilityReport report = new CompatibilityManager(LoggerFactory.getLogger("CompatibilityManagerTest"), tempDir).buildReport(inventoryRoot, metadataIndex);
+                JsonObject root = Constants.GSON.toJsonTree(report).getAsJsonObject();
+                JsonObject mod = root.getAsJsonObject("mods").getAsJsonObject("examplemod");
+                JsonArray objects = mod.getAsJsonArray("objects");
+                JsonObject item = objects.get(0).getAsJsonObject();
+                JsonArray bindings = item.getAsJsonArray("adapterBindings");
+
+                assertEquals("bow_attachable", item.getAsJsonObject("inventoryFacts").get("behavior_tag").getAsString());
+                assertTrue(bindings.asList().stream()
+                    .map(element -> element.getAsJsonObject())
+                    .anyMatch(binding -> binding.get("adapterId").getAsString().equals("item.bow_attachable")
+                        && binding.get("feature").getAsString().equals(AdapterFeature.ITEM_CREATIVE_EXPOSURE.name())));
         }
 }
