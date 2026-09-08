@@ -14,6 +14,8 @@ import org.geysermc.event.Event;
 import org.geysermc.geyser.api.GeyserApi;
 import org.geysermc.hydraulic.Constants;
 import org.geysermc.hydraulic.HydraulicImpl;
+import org.geysermc.hydraulic.metadata.MetadataIndex;
+import org.geysermc.hydraulic.metadata.MetadataLoader;
 import org.geysermc.hydraulic.pack.context.PackEventContext;
 import org.geysermc.hydraulic.pack.context.PackPostProcessContext;
 import org.geysermc.hydraulic.pack.context.PackPreProcessContext;
@@ -76,6 +78,8 @@ public class PackManager {
     private final ListMultimap<String, Identifier> modsToBlocks = MultimapBuilder.hashKeys().arrayListValues().build();
     private final ListMultimap<String, Identifier> modsToItems = MultimapBuilder.hashKeys().arrayListValues().build();
 
+    private MetadataIndex metadataIndex = new MetadataIndex(Map.of());
+
     private List<ConverterPipeline<?, ?>> packConverters;
     private ModelStitcher.Provider modelProvider;
 
@@ -89,6 +93,7 @@ public class PackManager {
      */
     public void initialize() {
         initializeModLookups();
+        loadMetadata();
 
         final Collection<ModInfo> mods = this.hydraulic.mods();
         final Map<String, List<ResourcePack>> modPacks = Maps.newHashMapWithExpectedSize(mods.size());
@@ -283,6 +288,15 @@ public class PackManager {
         }
     }
 
+    private void loadMetadata() {
+        Path metadataPath = this.hydraulic.dataFolder(Constants.MOD_ID).resolve("metadata");
+        this.metadataIndex = new MetadataLoader(LOGGER).load(metadataPath);
+
+        if (!this.metadataIndex.isEmpty()) {
+            LOGGER.info("Loaded structural metadata overrides from {}", metadataPath);
+        }
+    }
+
     /**
      * Creates a {@link ModelStitcher.Provider} that first searches mods, then the Vanilla pack.
      *
@@ -334,5 +348,10 @@ public class PackManager {
 
     public Path getVanillaPath() {
         return vanillaPath;
+    }
+
+    @NotNull
+    public MetadataIndex metadataIndex() {
+        return this.metadataIndex;
     }
 }

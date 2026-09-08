@@ -37,6 +37,8 @@ import org.geysermc.geyser.util.MathUtils;
 import org.geysermc.hydraulic.Constants;
 import org.geysermc.hydraulic.HydraulicImpl;
 import org.geysermc.hydraulic.item.CreativeMappings;
+import org.geysermc.hydraulic.metadata.BlockMapping;
+import org.geysermc.hydraulic.metadata.BlockStateRule;
 import org.geysermc.hydraulic.pack.PackLogListener;
 import org.geysermc.hydraulic.pack.PackModule;
 import org.geysermc.hydraulic.pack.context.PackContext;
@@ -65,6 +67,9 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Collection;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -189,23 +194,18 @@ public class BlockPackModule extends PackModule<BlockPackModule> {
         DefaultedRegistry<Block> registry = BuiltInRegistries.BLOCK;
         for (Block block : blocks) {
             Identifier blockLocation = registry.getKey(block);
+            BlockMapping blockMapping = context.hydraulic().getPackManager().metadataIndex().blockMapping(blockLocation);
+            Map<String, StatePropertyDefinition> stateDefinitions = stateDefinitions(context, blockLocation, block.getStateDefinition().getProperties(), blockMapping);
+            Identifier customBlockIdentifier = overrideIdentifier(context, blockLocation);
             CustomBlockData.Builder builder = NonVanillaCustomBlockData.builder()
-                    .name(blockLocation.getPath())
-                    .namespace(blockLocation.getNamespace())
+                    .name(customBlockIdentifier.getPath())
+                    .namespace(customBlockIdentifier.getNamespace())
                     .includedInCreativeInventory(true);
 
             CreativeMappings.setupBlock(block, builder);
 
-            for (Property<?> property : block.getStateDefinition().getProperties()) {
-                if (property instanceof IntegerProperty intProperty) {
-                    builder.intProperty(property.getName(), List.copyOf(intProperty.getPossibleValues()));
-                } else if (property instanceof BooleanProperty) {
-                    builder.booleanProperty(property.getName());
-                } else if (property instanceof EnumProperty<?> enumProperty) {
-                    builder.stringProperty(enumProperty.getName(), enumProperty.getPossibleValues().stream().map(StringRepresentable::getSerializedName).toList());
-                } else {
-                    throw new IllegalArgumentException("Unknown property type: " + property.getClass().getName());
-                }
+            for (StatePropertyDefinition definition : stateDefinitions.values()) {
+                addStateProperty(builder, definition);
             }
 
             List<CustomBlockPermutation> permutations = new ArrayList<>();
@@ -218,6 +218,8 @@ public class BlockPackModule extends PackModule<BlockPackModule> {
 
                 Model model = definition.model();
                 Key key = model.key();
+                BlockStateRule metadataRule = metadataRule(context, blockLocation, state);
+        Map<String, String> stateValues = customStateValues(context, blockLocation, stateDefinitions, state, metadataRule);
 
                 CustomBlockComponents.Builder componentsBuilder = CustomBlockComponents.builder()
                         .transformation(new TransformationComponent(
@@ -242,6 +244,10 @@ public class BlockPackModule extends PackModule<BlockPackModule> {
                     if (emptyModels.contains(key.toString())) {
                         context.logger().warn("Missing block model for block {}", blockLocation);
                         geoName = "geometry." + Constants.MOD_ID + ".empty";
+                    }
+
+                    if (metadataRule != null && metadataRule.geometryId() != null) {
+                        geoName = metadataRule.geometryId();
                     }
 
                     componentsBuilder.geometry(GeometryComponent.builder()
@@ -277,7 +283,12 @@ public class BlockPackModule extends PackModule<BlockPackModule> {
                 }
 
                 Materials materials = context.storage().materials();
-                Materials.Material material = materials.material(key.toString());
+                String materialKey = key.toString();
+                if (metadataRule != null && metadataRule.materialId() != null) {
+                    materialKey = metadataRule.materialId();
+                }
+
+                Materials.Material material = materials.material(materialKey);
                 if (material != null) {
                     // Add a default texture, can be replaced by the below (I think)
                     Map.Entry<String, String> firstEntry = material.textures().entrySet().iterator().next();
@@ -333,7 +344,7 @@ public class BlockPackModule extends PackModule<BlockPackModule> {
                             .ambientOcclusion(model.ambientOcclusion())
                             .tintMethod(tintMethod)
                             .build());
-                    context.logger().warn("Could not find material for block {}", key);
+                        context.logger().warn("Could not find material for block {}", materialKey);
                 }
 
                 // No properties exist on this state, so there's only one
@@ -346,13 +357,13 @@ public class BlockPackModule extends PackModule<BlockPackModule> {
                 }
 
                 List<String> conditions = new ArrayList<>();
-                for (Property<?> property : state.getProperties()) {
-                    String propValue = state.getValue(property).toString();
-                    if (property instanceof EnumProperty<?>) {
-                        propValue = "'" + propValue.toLowerCase() + "'";
+                for (StatePropertyDefinition property : stateDefinitions.values()) {
+                    String propValue = stateValues.get(property.name());
+                    if (propValue == null) {
+                        continue;
                     }
 
-                    conditions.add(String.format(STATE_CONDITION, property.getName(), propValue));
+                    conditions.add(String.format(STATE_CONDITION, property.name(), conditionValue(property, propValue)));
                 }
 
                 String condition = String.join(" && ", conditions);
@@ -385,17 +396,16 @@ public class BlockPackModule extends PackModule<BlockPackModule> {
 
             int blockId = registry.getId(block);
             for (BlockState state : block.getStateDefinition().getPossibleStates()) {
+                BlockStateRule metadataRule = metadataRule(context, blockLocation, state);
+                Map<String, String> stateValues = customStateValues(context, blockLocation, stateDefinitions, state, metadataRule);
                 CustomBlockState.Builder stateBuilder = blockData.blockStateBuilder();
-                for (Property<?> property : state.getProperties()) {
-                    if (property instanceof IntegerProperty intProperty) {
-                        stateBuilder.intProperty(property.getName(), state.getValue(intProperty));
-                    } else if (property instanceof BooleanProperty booleanProperty) {
-                        stateBuilder.booleanProperty(property.getName(), state.getValue(booleanProperty));
-                    } else if (property instanceof EnumProperty<?> enumProperty) {
-                        stateBuilder.stringProperty(enumProperty.getName(), state.getValue(enumProperty).getSerializedName());
-                    } else {
-                        throw new IllegalArgumentException("Unknown property type: " + property.getClass().getName());
+                for (StatePropertyDefinition property : stateDefinitions.values()) {
+                    String value = stateValues.get(property.name());
+                    if (value == null) {
+                        continue;
                     }
+
+                    applyStateProperty(stateBuilder, property, value);
                 }
 
                 PistonBehavior pistonBehavior = switch (state.getPistonPushReaction()) {
@@ -442,6 +452,233 @@ public class BlockPackModule extends PackModule<BlockPackModule> {
 
                 event.registerOverride(javaBlockStateBuilder.build(), customBlockState);
             }
+        }
+    }
+
+    @NotNull
+    private Identifier overrideIdentifier(@NotNull PackContext<?> context, @NotNull Identifier blockLocation) {
+        BlockMapping mapping = context.hydraulic().getPackManager().metadataIndex().blockMapping(blockLocation);
+        if (mapping == null) {
+            return blockLocation;
+        }
+
+        Identifier override = null;
+        for (BlockStateRule rule : mapping.rules()) {
+            if (rule.bedrockIdentifier() == null) {
+                continue;
+            }
+
+            if (override == null) {
+                override = rule.bedrockIdentifier();
+                continue;
+            }
+
+            if (!override.equals(rule.bedrockIdentifier())) {
+                context.logger().warn("Ignoring conflicting block identifier overrides for {}", blockLocation);
+                return blockLocation;
+            }
+        }
+
+        return override != null ? override : blockLocation;
+    }
+
+    @Nullable
+    private BlockStateRule metadataRule(@NotNull PackContext<?> context, @NotNull Identifier blockLocation, @NotNull BlockState state) {
+        return context.hydraulic().getPackManager().metadataIndex().blockRule(blockLocation, state);
+    }
+
+    @NotNull
+    private Map<String, StatePropertyDefinition> stateDefinitions(
+        @NotNull PackContext<?> context,
+        @NotNull Identifier blockLocation,
+        @NotNull Collection<Property<?>> properties,
+        @Nullable BlockMapping blockMapping
+    ) {
+        Map<String, StatePropertyDefinition> definitions = new LinkedHashMap<>();
+        for (Property<?> property : properties) {
+            StatePropertyDefinition definition = StatePropertyDefinition.of(property);
+            definitions.put(definition.name(), definition);
+        }
+
+        if (blockMapping == null) {
+            return definitions;
+        }
+
+        for (BlockStateRule rule : blockMapping.rules()) {
+            if (rule.bedrockState() == null) {
+                continue;
+            }
+
+            for (Map.Entry<String, String> entry : rule.bedrockState().entrySet()) {
+                StatePropertyDefinition overrideDefinition = StatePropertyDefinition.of(entry.getKey(), entry.getValue());
+                StatePropertyDefinition definition = definitions.get(entry.getKey());
+                if (definition == null) {
+                    definitions.put(entry.getKey(), overrideDefinition);
+                    continue;
+                }
+
+                if (definition.type() != overrideDefinition.type()) {
+                    context.logger().warn("Ignoring metadata state override with incompatible type for {} property {}", blockLocation, entry.getKey());
+                    continue;
+                }
+
+                definition.values().addAll(overrideDefinition.values());
+            }
+        }
+
+        return definitions;
+    }
+
+    @NotNull
+    private Map<String, String> customStateValues(
+        @NotNull PackContext<?> context,
+        @NotNull Identifier blockLocation,
+        @NotNull Map<String, StatePropertyDefinition> stateDefinitions,
+        @NotNull BlockState state,
+        @Nullable BlockStateRule metadataRule
+    ) {
+        Map<String, String> values = new LinkedHashMap<>();
+        for (Property<?> property : state.getProperties()) {
+            values.put(property.getName(), propertyValue(property, state));
+        }
+
+        if (metadataRule == null || metadataRule.bedrockState() == null) {
+            return values;
+        }
+
+        for (Map.Entry<String, String> entry : metadataRule.bedrockState().entrySet()) {
+            StatePropertyDefinition definition = stateDefinitions.get(entry.getKey());
+            if (definition == null) {
+                continue;
+            }
+
+            if (!definition.accepts(entry.getValue())) {
+                context.logger().warn("Ignoring metadata state override for {} property {} with invalid value {}", blockLocation, entry.getKey(), entry.getValue());
+                continue;
+            }
+
+            values.put(entry.getKey(), entry.getValue());
+        }
+
+        return values;
+    }
+
+    private void addStateProperty(@NotNull CustomBlockData.Builder builder, @NotNull StatePropertyDefinition property) {
+        switch (property.type()) {
+            case INTEGER -> builder.intProperty(property.name(), property.values().stream().map(Integer::parseInt).toList());
+            case BOOLEAN -> builder.booleanProperty(property.name());
+            case STRING -> builder.stringProperty(property.name(), List.copyOf(property.values()));
+        }
+    }
+
+    private void applyStateProperty(@NotNull CustomBlockState.Builder builder, @NotNull StatePropertyDefinition property, @NotNull String value) {
+        switch (property.type()) {
+            case INTEGER -> builder.intProperty(property.name(), Integer.parseInt(value));
+            case BOOLEAN -> builder.booleanProperty(property.name(), Boolean.parseBoolean(value));
+            case STRING -> builder.stringProperty(property.name(), value);
+        }
+    }
+
+    @NotNull
+    private String propertyValue(@NotNull Property<?> property, @NotNull BlockState state) {
+        if (property instanceof EnumProperty<?> enumProperty) {
+            return state.getValue(enumProperty).getSerializedName();
+        }
+        return state.getValue(property).toString();
+    }
+
+    @NotNull
+    private String conditionValue(@NotNull StatePropertyDefinition property, @NotNull String value) {
+        return switch (property.type()) {
+            case STRING -> "'" + value + "'";
+            case BOOLEAN, INTEGER -> value;
+        };
+    }
+
+    private enum PropertyType {
+        INTEGER,
+        BOOLEAN,
+        STRING
+    }
+
+    private static final class StatePropertyDefinition {
+        private final String name;
+        private final PropertyType type;
+        private final LinkedHashSet<String> values;
+
+        private StatePropertyDefinition(@NotNull String name, @NotNull PropertyType type, @NotNull LinkedHashSet<String> values) {
+            this.name = name;
+            this.type = type;
+            this.values = values;
+        }
+
+        @NotNull
+        public static StatePropertyDefinition of(@NotNull Property<?> property) {
+            if (property instanceof IntegerProperty intProperty) {
+                LinkedHashSet<String> values = new LinkedHashSet<>();
+                for (Integer value : intProperty.getPossibleValues()) {
+                    values.add(value.toString());
+                }
+                return new StatePropertyDefinition(property.getName(), PropertyType.INTEGER, values);
+            }
+
+            if (property instanceof BooleanProperty) {
+                return new StatePropertyDefinition(property.getName(), PropertyType.BOOLEAN, new LinkedHashSet<>(List.of("false", "true")));
+            }
+
+            if (property instanceof EnumProperty<?> enumProperty) {
+                LinkedHashSet<String> values = new LinkedHashSet<>();
+                for (StringRepresentable value : enumProperty.getPossibleValues()) {
+                    values.add(value.getSerializedName());
+                }
+                return new StatePropertyDefinition(property.getName(), PropertyType.STRING, values);
+            }
+
+            throw new IllegalArgumentException("Unknown property type: " + property.getClass().getName());
+        }
+
+        @NotNull
+        public static StatePropertyDefinition of(@NotNull String name, @NotNull String value) {
+            if ("true".equalsIgnoreCase(value) || "false".equalsIgnoreCase(value)) {
+                return new StatePropertyDefinition(name, PropertyType.BOOLEAN, new LinkedHashSet<>(List.of("false", "true")));
+            }
+
+            try {
+                Integer.parseInt(value);
+                return new StatePropertyDefinition(name, PropertyType.INTEGER, new LinkedHashSet<>(List.of(value)));
+            } catch (NumberFormatException ignored) {
+                return new StatePropertyDefinition(name, PropertyType.STRING, new LinkedHashSet<>(List.of(value)));
+            }
+        }
+
+        public boolean accepts(@NotNull String value) {
+            return switch (this.type) {
+                case INTEGER -> {
+                    try {
+                        Integer.parseInt(value);
+                        yield true;
+                    } catch (NumberFormatException ignored) {
+                        yield false;
+                    }
+                };
+                case BOOLEAN -> "true".equalsIgnoreCase(value) || "false".equalsIgnoreCase(value);
+                case STRING -> true;
+            };
+        }
+
+        @NotNull
+        public String name() {
+            return this.name;
+        }
+
+        @NotNull
+        public PropertyType type() {
+            return this.type;
+        }
+
+        @NotNull
+        public LinkedHashSet<String> values() {
+            return this.values;
         }
     }
 

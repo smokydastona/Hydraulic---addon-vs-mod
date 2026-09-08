@@ -1,0 +1,17 @@
+{
+  "blocks": [
+    {
+      "java_id": "hydraulic_test_mod:golden_barrel",
+      "rules": [
+        {
+          "bedrock_identifier": "hydraulic_test_mod:golden_barrel_override",
+          "bedrock_state": {
+            "variant": "gold"
+          },
+          "geometry": "minecraft:geometry.full_block",
+          "material": "hydraulic_test_mod:block/golden_barrel"
+        }
+      ]
+    }
+  ]
+}
