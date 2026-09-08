@@ -41,6 +41,11 @@ public final class MappingResolver {
         return this.metadataIndex.recipeMapping(javaIdentifier);
     }
 
+    @Nullable
+    public IdentifierMapping entityMapping(@NotNull Identifier javaIdentifier) {
+        return this.metadataIndex.entityMapping(javaIdentifier);
+    }
+
     @NotNull
     public ResolvedBlockState resolveBlockState(@NotNull Identifier javaIdentifier, @NotNull BlockState state) {
         BlockStateRule rule = this.blockRule(javaIdentifier, state);
@@ -100,6 +105,15 @@ public final class MappingResolver {
     @NotNull
     public ResolvedIdentifier resolveRecipeIdentifier(@NotNull Identifier javaIdentifier) {
         IdentifierMapping mapping = this.recipeMapping(javaIdentifier);
+        if (mapping == null) {
+            return new ResolvedIdentifier(javaIdentifier, false, false);
+        }
+        return new ResolvedIdentifier(mapping.bedrockIdentifier(), true, false);
+    }
+
+    @NotNull
+    public ResolvedIdentifier resolveEntityIdentifier(@NotNull Identifier javaIdentifier) {
+        IdentifierMapping mapping = this.entityMapping(javaIdentifier);
         if (mapping == null) {
             return new ResolvedIdentifier(javaIdentifier, false, false);
         }

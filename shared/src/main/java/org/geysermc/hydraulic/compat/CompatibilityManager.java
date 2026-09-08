@@ -106,6 +106,15 @@ public final class CompatibilityManager {
             }
         }
 
+        for (Identifier javaId : metadataIndex.entityMappings().keySet()) {
+            for (ModInfo mod : namespacesToMods.get(javaId.getNamespace())) {
+                MutableInventory inventory = inventories.get(mod.id());
+                if (inventory != null) {
+                    inventory.entityMetadataMappings++;
+                }
+            }
+        }
+
         Map<String, ContentInventory.ModContentInventory> finalized = new LinkedHashMap<>();
         for (MutableInventory inventory : inventories.values()) {
             finalized.put(inventory.mod.id(), inventory.freeze());
@@ -203,7 +212,7 @@ public final class CompatibilityManager {
             Map<String, CompatibilityProfile.CapabilityMetric> metrics = new LinkedHashMap<>();
             metrics.put("blocks", coverageMetric(modInventory.registryCounts().get("blocks"), modInventory.assetCounts().get("blockstates"), "blockstate json present"));
             metrics.put("items", coverageMetric(modInventory.registryCounts().get("items"), Math.max(valueOrZero(modInventory.assetCounts().get("item_models")), modInventory.itemMetadataMappings()), "item model json or item metadata mapping present"));
-            metrics.put("entities", unknownMetric(modInventory.registryCounts().get("entities"), "registry discovered; behavior analyzer not implemented yet"));
+            metrics.put("entities", unknownMetric(modInventory.registryCounts().get("entities"), "registry discovered; automatic entity analyzer not implemented yet"));
             metrics.put("fluids", unknownMetric(modInventory.registryCounts().get("fluids"), "registry discovered; fluid analyzer not implemented yet"));
             metrics.put("recipes", coverageMetric(modInventory.assetCounts().get("recipes"), modInventory.recipeMetadataMappings(), "recipe json present with optional recipe metadata mapping"));
             metrics.put("menus", unknownMetric(modInventory.registryCounts().get("menus"), "registry discovered; menu analyzer not implemented yet"));
@@ -213,6 +222,7 @@ public final class CompatibilityManager {
             metrics.put("metadata_blocks", coverageMetric(modInventory.registryCounts().get("blocks"), modInventory.blockMetadataMappings(), "block metadata mapping present"));
             metrics.put("metadata_items", coverageMetric(modInventory.registryCounts().get("items"), modInventory.itemMetadataMappings(), "item metadata mapping present"));
             metrics.put("metadata_recipes", coverageMetric(modInventory.assetCounts().get("recipes"), modInventory.recipeMetadataMappings(), "recipe metadata mapping present"));
+            metrics.put("metadata_entities", coverageMetric(modInventory.registryCounts().get("entities"), modInventory.entityMetadataMappings(), "entity metadata mapping present; runtime entity conversion is not implemented yet"));
 
             List<String> notes = new ArrayList<>();
             notes.add("Early compatibility profile is inventory-backed and intended for regression tracking before deeper analyzers exist.");
@@ -221,6 +231,9 @@ public final class CompatibilityManager {
             }
             if (modInventory.itemMetadataMappings() == 0) {
                 notes.add("No metadata item mappings discovered for this mod.");
+            }
+            if (valueOrZero(modInventory.registryCounts().get("entities")) > 0 && modInventory.entityMetadataMappings() == 0) {
+                notes.add("Entity registrations were discovered without entity metadata mappings.");
             }
             if (valueOrZero(modInventory.assetCounts().get("recipes")) > 0 && modInventory.recipeMetadataMappings() == 0) {
                 notes.add("Recipe assets were discovered without recipe metadata mappings.");
@@ -319,6 +332,7 @@ public final class CompatibilityManager {
         private int blockMetadataMappings;
         private int itemMetadataMappings;
         private int recipeMetadataMappings;
+        private int entityMetadataMappings;
 
         private MutableInventory(@NotNull ModInfo mod) {
             this.mod = mod;
@@ -359,7 +373,8 @@ public final class CompatibilityManager {
                 assetCounts,
                 this.blockMetadataMappings,
                 this.itemMetadataMappings,
-                this.recipeMetadataMappings
+                this.recipeMetadataMappings,
+                this.entityMetadataMappings
             );
         }
     }

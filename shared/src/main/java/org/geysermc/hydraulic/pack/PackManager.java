@@ -307,12 +307,13 @@ public class PackManager {
 
         if (!this.metadataIndex.isEmpty()) {
             LOGGER.info(
-                "Loaded structural metadata overrides from {} (files={}, blockMappings={}, itemMappings={}, recipeMappings={}, rules={})",
+                "Loaded structural metadata overrides from {} (files={}, blockMappings={}, itemMappings={}, recipeMappings={}, entityMappings={}, rules={})",
                 metadataPath,
                 this.metadataIndex.summary().fileCount(),
                 this.metadataIndex.summary().blockMappingCount(),
                 this.metadataIndex.summary().itemMappingCount(),
                 this.metadataIndex.summary().recipeMappingCount(),
+                this.metadataIndex.summary().entityMappingCount(),
                 this.metadataIndex.summary().ruleCount()
             );
         }

@@ -11,9 +11,8 @@ fabricApi {
     }
 }
 
-val common: Configuration by configurations.creating
-val developmentFabric: Configuration = configurations.getByName("developmentFabric")
-val includeTransitive: Configuration = configurations.getByName("includeTransitive")
+val common = configurations.create("common")
+val developmentFabric = configurations.named("developmentFabric").get()
 
 configurations {
     compileClasspath.get().extendsFrom(configurations["common"])
@@ -22,7 +21,7 @@ configurations {
 }
 
 tasks {
-    val syncGeneratedResources by registering(Copy::class) {
+    val syncGeneratedResources = register<Copy>("syncGeneratedResources") {
         dependsOn(named("runDatagen"))
         from("src/main/generated")
         into(layout.buildDirectory.dir("resources/main"))

@@ -34,7 +34,8 @@ public final class ContentInventory {
         @NotNull Map<String, Integer> assetCounts,
         int blockMetadataMappings,
         int itemMetadataMappings,
-        int recipeMetadataMappings
+        int recipeMetadataMappings,
+        int entityMetadataMappings
     ) {
         public ModContentInventory {
             roots = List.copyOf(roots);

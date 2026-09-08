@@ -65,6 +65,7 @@ class MetadataLoaderTest {
         assertEquals(2, index.summary().blockMappingCount());
         assertEquals(0, index.summary().itemMappingCount());
         assertEquals(0, index.summary().recipeMappingCount());
+        assertEquals(0, index.summary().entityMappingCount());
         assertEquals(3, index.summary().ruleCount());
         assertEquals(Map.of("builtin", 1, "user", 1), index.summary().ownershipFileCounts());
     }
@@ -93,12 +94,13 @@ class MetadataLoaderTest {
         assertEquals(1, index.summary().blockMappingCount());
         assertEquals(0, index.summary().itemMappingCount());
         assertEquals(0, index.summary().recipeMappingCount());
+        assertEquals(0, index.summary().entityMappingCount());
         assertEquals(1, index.summary().ruleCount());
         assertEquals(Map.of("legacy", 1), index.summary().ownershipFileCounts());
     }
 
     @Test
-    void loadsItemAndRecipeMappings(@TempDir Path tempDir) throws IOException {
+    void loadsItemRecipeAndEntityMappings(@TempDir Path tempDir) throws IOException {
         Files.writeString(tempDir.resolve("compat.json"), """
             {
               "items": [
@@ -112,6 +114,12 @@ class MetadataLoaderTest {
                   "java_id": "example:test_recipe",
                   "bedrock_identifier": "example:bedrock_recipe"
                 }
+              ],
+              "entities": [
+                {
+                  "java_id": "example:test_entity",
+                  "bedrock_identifier": "example:bedrock_entity"
+                }
               ]
             }
             """);
@@ -120,7 +128,9 @@ class MetadataLoaderTest {
 
         assertNotNull(index.itemMapping(Identifier.fromNamespaceAndPath("example", "test_item")));
         assertNotNull(index.recipeMapping(Identifier.fromNamespaceAndPath("example", "test_recipe")));
+        assertNotNull(index.entityMapping(Identifier.fromNamespaceAndPath("example", "test_entity")));
         assertEquals(1, index.summary().itemMappingCount());
         assertEquals(1, index.summary().recipeMappingCount());
+        assertEquals(1, index.summary().entityMappingCount());
     }
 }

@@ -37,11 +37,13 @@ public final class MetadataLoader {
         Map<Identifier, List<BlockStateRule>> blockMappings = new LinkedHashMap<>();
         Map<Identifier, IdentifierMapping> itemMappings = new LinkedHashMap<>();
         Map<Identifier, IdentifierMapping> recipeMappings = new LinkedHashMap<>();
+        Map<Identifier, IdentifierMapping> entityMappings = new LinkedHashMap<>();
         Map<String, Integer> ownershipFileCounts = new LinkedHashMap<>();
         int fileCount = 0;
         int blockMappingCount = 0;
         int itemMappingCount = 0;
         int recipeMappingCount = 0;
+        int entityMappingCount = 0;
         int ruleCount = 0;
 
         try (Stream<Path> stream = Files.walk(directory)) {
@@ -52,11 +54,12 @@ public final class MetadataLoader {
                 .toList();
 
             for (Path path : files) {
-                LoadStats stats = this.loadFile(directory, path, blockMappings, itemMappings, recipeMappings, ownershipFileCounts);
+                LoadStats stats = this.loadFile(directory, path, blockMappings, itemMappings, recipeMappings, entityMappings, ownershipFileCounts);
                 fileCount += stats.fileCount();
                 blockMappingCount += stats.blockMappingCount();
                 itemMappingCount += stats.itemMappingCount();
                 recipeMappingCount += stats.recipeMappingCount();
+                entityMappingCount += stats.entityMappingCount();
                 ruleCount += stats.ruleCount();
             }
         } catch (IOException e) {
@@ -79,7 +82,8 @@ public final class MetadataLoader {
             finalizedMappings,
             itemMappings,
             recipeMappings,
-            new MetadataIndex.Summary(fileCount, blockMappingCount, itemMappingCount, recipeMappingCount, ruleCount, ownershipFileCounts)
+            entityMappings,
+            new MetadataIndex.Summary(fileCount, blockMappingCount, itemMappingCount, recipeMappingCount, entityMappingCount, ruleCount, ownershipFileCounts)
         );
     }
 
@@ -90,6 +94,7 @@ public final class MetadataLoader {
         @NotNull Map<Identifier, List<BlockStateRule>> blockMappings,
         @NotNull Map<Identifier, IdentifierMapping> itemMappings,
         @NotNull Map<Identifier, IdentifierMapping> recipeMappings,
+        @NotNull Map<Identifier, IdentifierMapping> entityMappings,
         @NotNull Map<String, Integer> ownershipFileCounts
     ) {
         Path relativePath = rootDirectory.relativize(path);
@@ -117,14 +122,16 @@ public final class MetadataLoader {
 
             JsonArray itemObjects = jsonRoot.getAsJsonArray("items");
             JsonArray recipeObjects = jsonRoot.getAsJsonArray("recipes");
-            if (blockObjects.isEmpty() && itemObjects == null && recipeObjects == null) {
-                this.logger.warn("Ignoring metadata file without blocks, items, recipes, or java_id in {}", path);
+            JsonArray entityObjects = jsonRoot.getAsJsonArray("entities");
+            if (blockObjects.isEmpty() && itemObjects == null && recipeObjects == null && entityObjects == null) {
+                this.logger.warn("Ignoring metadata file without blocks, items, recipes, entities, or java_id in {}", path);
                 return LoadStats.empty();
             }
 
             int blockMappingCount = 0;
             int itemMappingCount = 0;
             int recipeMappingCount = 0;
+            int entityMappingCount = 0;
             int ruleCount = 0;
             for (int index = 0; index < blockObjects.size(); index++) {
                 BlockMapping mapping = this.parseBlockMapping(blockObjects.get(index), path, ownership, sourcePath, index);
@@ -139,9 +146,10 @@ public final class MetadataLoader {
 
             itemMappingCount += this.parseIdentifierMappings(itemObjects, "item", path, ownership, sourcePath, itemMappings);
             recipeMappingCount += this.parseIdentifierMappings(recipeObjects, "recipe", path, ownership, sourcePath, recipeMappings);
+            entityMappingCount += this.parseIdentifierMappings(entityObjects, "entity", path, ownership, sourcePath, entityMappings);
 
             ownershipFileCounts.merge(ownership.name().toLowerCase(), 1, Integer::sum);
-            return new LoadStats(1, blockMappingCount, itemMappingCount, recipeMappingCount, ruleCount);
+            return new LoadStats(1, blockMappingCount, itemMappingCount, recipeMappingCount, entityMappingCount, ruleCount);
         } catch (Exception e) {
             this.logger.error("Failed to load metadata file {}", path, e);
             return LoadStats.empty();
@@ -337,10 +345,10 @@ public final class MetadataLoader {
         return object.get(key).getAsString();
     }
 
-    private record LoadStats(int fileCount, int blockMappingCount, int itemMappingCount, int recipeMappingCount, int ruleCount) {
+    private record LoadStats(int fileCount, int blockMappingCount, int itemMappingCount, int recipeMappingCount, int entityMappingCount, int ruleCount) {
         @NotNull
         private static LoadStats empty() {
-            return new LoadStats(0, 0, 0, 0, 0);
+            return new LoadStats(0, 0, 0, 0, 0, 0);
         }
     }
 }
