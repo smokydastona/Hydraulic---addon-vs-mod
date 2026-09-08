@@ -35,7 +35,8 @@ public final class ContentInventory {
         int blockMetadataMappings,
         int itemMetadataMappings,
         int recipeMetadataMappings,
-        int entityMetadataMappings
+        int entityMetadataMappings,
+        int menuMetadataMappings
     ) {
         public ModContentInventory {
             roots = List.copyOf(roots);

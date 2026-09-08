@@ -8,14 +8,13 @@ Hydraulic is a companion to Geyser which allows for Bedrock players to join modd
 Hydraulic is an open collaboration project by [CubeCraft Games](https://cubecraft.net).
 
 ## About This Fork
-This fork keeps the normal Hydraulic pack pipeline, but adds a metadata layer for block, item, recipe, and early entity compatibility overrides.
+This fork keeps the normal Hydraulic pack pipeline, but adds a metadata layer for block, item, recipe, entity, and menu compatibility overrides.
 
 The goal is simple: when Hydraulic's normal model and material lookup is not enough, you can describe a block override in JSON instead of hardcoding everything in Java.
 
 Right now this fork adds:
 - metadata-based block matching by Java block ID and optional Java state filters
-- item and recipe identifier mapping metadata on the same compatibility/report foundation
-- a first entity metadata mapping path on the same compatibility/report foundation
+- item, recipe, entity, and menu identifier mapping metadata on the same compatibility/report foundation
 - override support for Bedrock block identifier, geometry, and material
 - a first narrow Bedrock state override path for custom block properties and permutations
 - local Fabric dev metadata examples for the test block, item, and recipe surfaces
@@ -97,7 +96,7 @@ Supported fields today:
 - `behavior_required`: reserved for future behavior-pack work
 - `behavior_tag`: reserved for future behavior-pack work
 
-The same metadata directory now also supports simple item, recipe, and entity identifier mappings:
+The same metadata directory now also supports simple item, recipe, entity, and menu identifier mappings:
 
 ```json
 {
@@ -117,6 +116,12 @@ The same metadata directory now also supports simple item, recipe, and entity id
 		{
 			"java_id": "hydraulic_test_mod:barrel_cube",
 			"bedrock_identifier": "hydraulic_test_mod:barrel_cube_override"
+		}
+	],
+	"menus": [
+		{
+			"java_id": "hydraulic_test_mod:barrel_menu",
+			"bedrock_identifier": "hydraulic_test_mod:barrel_menu_override"
 		}
 	]
 }

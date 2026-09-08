@@ -7,6 +7,8 @@ import net.minecraft.resources.Identifier;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import java.util.Objects;
+
 public class HydraulicKey implements org.geysermc.geyser.api.util.Identifier, Key {
     private String namespace;
     private String path;
@@ -108,5 +110,10 @@ public class HydraulicKey implements org.geysermc.geyser.api.util.Identifier, Ke
         }
 
         return false;
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(this.namespace, this.path);
     }
 }

@@ -115,6 +115,15 @@ public final class CompatibilityManager {
             }
         }
 
+        for (Identifier javaId : metadataIndex.menuMappings().keySet()) {
+            for (ModInfo mod : namespacesToMods.get(javaId.getNamespace())) {
+                MutableInventory inventory = inventories.get(mod.id());
+                if (inventory != null) {
+                    inventory.menuMetadataMappings++;
+                }
+            }
+        }
+
         Map<String, ContentInventory.ModContentInventory> finalized = new LinkedHashMap<>();
         for (MutableInventory inventory : inventories.values()) {
             finalized.put(inventory.mod.id(), inventory.freeze());
@@ -212,17 +221,18 @@ public final class CompatibilityManager {
             Map<String, CompatibilityProfile.CapabilityMetric> metrics = new LinkedHashMap<>();
             metrics.put("blocks", coverageMetric(modInventory.registryCounts().get("blocks"), modInventory.assetCounts().get("blockstates"), "blockstate json present"));
             metrics.put("items", coverageMetric(modInventory.registryCounts().get("items"), Math.max(valueOrZero(modInventory.assetCounts().get("item_models")), modInventory.itemMetadataMappings()), "item model json or item metadata mapping present"));
-            metrics.put("entities", unknownMetric(modInventory.registryCounts().get("entities"), "registry discovered; automatic entity analyzer not implemented yet"));
+            metrics.put("entities", coverageMetric(modInventory.registryCounts().get("entities"), modInventory.entityMetadataMappings(), "entity metadata mapping present; runtime entity bridge is not implemented yet"));
             metrics.put("fluids", unknownMetric(modInventory.registryCounts().get("fluids"), "registry discovered; fluid analyzer not implemented yet"));
             metrics.put("recipes", coverageMetric(modInventory.assetCounts().get("recipes"), modInventory.recipeMetadataMappings(), "recipe json present with optional recipe metadata mapping"));
-            metrics.put("menus", unknownMetric(modInventory.registryCounts().get("menus"), "registry discovered; menu analyzer not implemented yet"));
+            metrics.put("menus", coverageMetric(modInventory.registryCounts().get("menus"), modInventory.menuMetadataMappings(), "menu metadata mapping present; runtime menu bridge is not implemented yet"));
             metrics.put("textures", presenceMetric(modInventory.assetCounts().get("textures"), "texture asset present"));
             metrics.put("models", presenceMetric(modInventory.assetCounts().get("models"), "model json present"));
             metrics.put("sounds", presenceMetric(modInventory.assetCounts().get("sounds"), "sound asset present"));
             metrics.put("metadata_blocks", coverageMetric(modInventory.registryCounts().get("blocks"), modInventory.blockMetadataMappings(), "block metadata mapping present"));
             metrics.put("metadata_items", coverageMetric(modInventory.registryCounts().get("items"), modInventory.itemMetadataMappings(), "item metadata mapping present"));
             metrics.put("metadata_recipes", coverageMetric(modInventory.assetCounts().get("recipes"), modInventory.recipeMetadataMappings(), "recipe metadata mapping present"));
-            metrics.put("metadata_entities", coverageMetric(modInventory.registryCounts().get("entities"), modInventory.entityMetadataMappings(), "entity metadata mapping present; runtime entity conversion is not implemented yet"));
+            metrics.put("metadata_entities", coverageMetric(modInventory.registryCounts().get("entities"), modInventory.entityMetadataMappings(), "entity metadata mapping present; runtime entity bridge is not implemented yet"));
+            metrics.put("metadata_menus", coverageMetric(modInventory.registryCounts().get("menus"), modInventory.menuMetadataMappings(), "menu metadata mapping present; runtime menu bridge is not implemented yet"));
 
             List<String> notes = new ArrayList<>();
             notes.add("Early compatibility profile is inventory-backed and intended for regression tracking before deeper analyzers exist.");
@@ -234,6 +244,9 @@ public final class CompatibilityManager {
             }
             if (valueOrZero(modInventory.registryCounts().get("entities")) > 0 && modInventory.entityMetadataMappings() == 0) {
                 notes.add("Entity registrations were discovered without entity metadata mappings.");
+            }
+            if (valueOrZero(modInventory.registryCounts().get("menus")) > 0 && modInventory.menuMetadataMappings() == 0) {
+                notes.add("Menu registrations were discovered without menu metadata mappings.");
             }
             if (valueOrZero(modInventory.assetCounts().get("recipes")) > 0 && modInventory.recipeMetadataMappings() == 0) {
                 notes.add("Recipe assets were discovered without recipe metadata mappings.");
@@ -333,6 +346,7 @@ public final class CompatibilityManager {
         private int itemMetadataMappings;
         private int recipeMetadataMappings;
         private int entityMetadataMappings;
+        private int menuMetadataMappings;
 
         private MutableInventory(@NotNull ModInfo mod) {
             this.mod = mod;
@@ -374,7 +388,8 @@ public final class CompatibilityManager {
                 this.blockMetadataMappings,
                 this.itemMetadataMappings,
                 this.recipeMetadataMappings,
-                this.entityMetadataMappings
+                this.entityMetadataMappings,
+                this.menuMetadataMappings
             );
         }
     }

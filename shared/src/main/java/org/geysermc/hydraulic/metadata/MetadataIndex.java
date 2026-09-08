@@ -14,6 +14,7 @@ public final class MetadataIndex {
     private final Map<Identifier, IdentifierMapping> itemMappings;
     private final Map<Identifier, IdentifierMapping> recipeMappings;
     private final Map<Identifier, IdentifierMapping> entityMappings;
+    private final Map<Identifier, IdentifierMapping> menuMappings;
     private final Summary summary;
 
     public MetadataIndex(
@@ -21,18 +22,20 @@ public final class MetadataIndex {
         @NotNull Map<Identifier, IdentifierMapping> itemMappings,
         @NotNull Map<Identifier, IdentifierMapping> recipeMappings,
         @NotNull Map<Identifier, IdentifierMapping> entityMappings,
+        @NotNull Map<Identifier, IdentifierMapping> menuMappings,
         @NotNull Summary summary
     ) {
         this.blockMappings = Collections.unmodifiableMap(new LinkedHashMap<>(blockMappings));
         this.itemMappings = Collections.unmodifiableMap(new LinkedHashMap<>(itemMappings));
         this.recipeMappings = Collections.unmodifiableMap(new LinkedHashMap<>(recipeMappings));
         this.entityMappings = Collections.unmodifiableMap(new LinkedHashMap<>(entityMappings));
+        this.menuMappings = Collections.unmodifiableMap(new LinkedHashMap<>(menuMappings));
         this.summary = summary;
     }
 
     @NotNull
     public static MetadataIndex empty() {
-        return new MetadataIndex(Map.of(), Map.of(), Map.of(), Map.of(), Summary.empty());
+        return new MetadataIndex(Map.of(), Map.of(), Map.of(), Map.of(), Map.of(), Summary.empty());
     }
 
     @Nullable
@@ -76,6 +79,16 @@ public final class MetadataIndex {
     }
 
     @Nullable
+    public IdentifierMapping menuMapping(@NotNull Identifier javaIdentifier) {
+        return this.menuMappings.get(javaIdentifier);
+    }
+
+    @NotNull
+    public Map<Identifier, IdentifierMapping> menuMappings() {
+        return this.menuMappings;
+    }
+
+    @Nullable
     public BlockStateRule blockRule(@NotNull Identifier javaIdentifier, @NotNull BlockState state) {
         BlockMapping mapping = this.blockMappings.get(javaIdentifier);
         if (mapping == null) {
@@ -85,7 +98,11 @@ public final class MetadataIndex {
     }
 
     public boolean isEmpty() {
-        return this.blockMappings.isEmpty() && this.itemMappings.isEmpty() && this.recipeMappings.isEmpty() && this.entityMappings.isEmpty();
+        return this.blockMappings.isEmpty()
+            && this.itemMappings.isEmpty()
+            && this.recipeMappings.isEmpty()
+            && this.entityMappings.isEmpty()
+            && this.menuMappings.isEmpty();
     }
 
     @NotNull
@@ -99,6 +116,7 @@ public final class MetadataIndex {
         int itemMappingCount,
         int recipeMappingCount,
         int entityMappingCount,
+        int menuMappingCount,
         int ruleCount,
         @NotNull Map<String, Integer> ownershipFileCounts
     ) {
@@ -108,7 +126,7 @@ public final class MetadataIndex {
 
         @NotNull
         public static Summary empty() {
-            return new Summary(0, 0, 0, 0, 0, 0, Map.of());
+            return new Summary(0, 0, 0, 0, 0, 0, 0, Map.of());
         }
     }
 }

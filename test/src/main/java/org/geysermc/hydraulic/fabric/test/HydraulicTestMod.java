@@ -10,5 +10,6 @@ public class HydraulicTestMod implements ModInitializer {
         ModItems.init();
         ModBlocks.init();
         ModEntities.init();
+        ModMenus.init();
     }
 }

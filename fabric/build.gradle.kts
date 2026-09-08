@@ -13,9 +13,9 @@ loom {
     }
 }
 
-val common: Configuration by configurations.creating
-val developmentFabric: Configuration = configurations.getByName("developmentFabric")
-val includeTransitive: Configuration = configurations.getByName("includeTransitive")
+val common = configurations.create("common")
+val developmentFabric = configurations.named("developmentFabric").get()
+val includeTransitive = configurations.named("includeTransitive").get()
 val geyserCoreLocales = configurations.create("geyserCoreLocales")
 val geyserRuntimeResourcesDir = layout.buildDirectory.dir("generated/geyser-runtime-resources")
 

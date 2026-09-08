@@ -34,6 +34,7 @@ import team.unnamed.creative.model.ModelTexture;
 
 import java.util.*;
 
+@SuppressWarnings("rawtypes")
 @AutoService(PackModule.class)
 public class ItemPackModule extends TexturePackModule<ItemPackModule> {
     private final Set<Identifier> itemsWith2dIcon = new LinkedHashSet<>();

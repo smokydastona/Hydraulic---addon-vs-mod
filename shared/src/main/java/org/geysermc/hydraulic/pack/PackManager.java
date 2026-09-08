@@ -149,7 +149,7 @@ public class PackManager {
 
                 if (module.hasPreProcessors()) {
                     try {
-                        module.preProcess0(new PackPreProcessContext(this.hydraulic, mod, module, modPacks.get(mod.id()), modelProvider));
+                        this.preProcessModule(module, mod, modPacks.get(mod.id()));
                     } catch (Throwable t) {
                         LOGGER.error("Failed to pre-process mod {} for module {}", mod.id(), module.getClass().getSimpleName(), t);
                     }
@@ -158,6 +158,12 @@ public class PackManager {
         }
 
         GeyserApi.api().eventBus().register(this.hydraulic, new PackListener(this.hydraulic, this));
+    }
+
+    @SuppressWarnings({ "rawtypes", "unchecked" })
+    private void preProcessModule(@NotNull PackModule<?> rawModule, @NotNull ModInfo mod, @NotNull Collection<ResourcePack> packs) {
+        PackModule module = rawModule;
+        module.preProcess0(new PackPreProcessContext(this.hydraulic, mod, module, packs, modelProvider));
     }
 
     /**
@@ -307,13 +313,14 @@ public class PackManager {
 
         if (!this.metadataIndex.isEmpty()) {
             LOGGER.info(
-                "Loaded structural metadata overrides from {} (files={}, blockMappings={}, itemMappings={}, recipeMappings={}, entityMappings={}, rules={})",
+                "Loaded structural metadata overrides from {} (files={}, blockMappings={}, itemMappings={}, recipeMappings={}, entityMappings={}, menuMappings={}, rules={})",
                 metadataPath,
                 this.metadataIndex.summary().fileCount(),
                 this.metadataIndex.summary().blockMappingCount(),
                 this.metadataIndex.summary().itemMappingCount(),
                 this.metadataIndex.summary().recipeMappingCount(),
                 this.metadataIndex.summary().entityMappingCount(),
+                this.metadataIndex.summary().menuMappingCount(),
                 this.metadataIndex.summary().ruleCount()
             );
         }
