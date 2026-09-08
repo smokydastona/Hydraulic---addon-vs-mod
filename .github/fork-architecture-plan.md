@@ -182,6 +182,7 @@ This separation is fundamental, not just a reporting refinement. A converted mod
 - `ArmorPackModule` now generates humanoid armor attachables from direct equipment-asset loading and gates them through compatibility decisions.
 - `BowPackModule` now consumes compatibility-driven item presentation decisions before generating bow attachables.
 - `EntityPackModule` now consumes metadata-backed entity compatibility objects and registers custom entities through `GeyserDefineEntitiesEvent` when presentation support exists.
+- A first capability-adapter layer now exists for current block, item, armor, bow, and entity runtime consumers, driven by explicit adapter features and `behavior_tag` metadata when present.
 - Patch-declared behavior requirements and tags now flow into compatibility objects, structured findings, and runtime suppression reasons.
 - Item discovery now falls back from modern `assets/<ns>/items/*.json` definitions to legacy `models/item/*.json` assets for compatibility inventory and conversion indexing.
 - Focused tests already exist for loader precedence, resolver behavior, compatibility decisions, equipment asset loading, item asset lookup, and report generation.
@@ -199,10 +200,10 @@ This separation is fundamental, not just a reporting refinement. A converted mod
 - The block path remains the richest end-to-end compatibility path.
 - There is no behavior-pack generator.
 - There are no runtime interaction bridges for menus, block entities, fluids, machines, or entity behavior logic.
-- Runtime consumption of compatibility decisions now exists for block custom registration, block item texture fallback, item custom registration, item creative exposure, armor attachables, and bow attachables, but broad interaction and behavior bridges still do not.
+- Runtime consumption of compatibility decisions now exists for block custom registration, block item texture fallback, item custom registration, item creative exposure, armor attachables, bow attachables, and metadata-backed custom entity registration, but broad interaction and behavior bridges still do not.
 - Entity runtime consumption now reaches metadata-backed custom entity registration, but not interaction or behavior translation.
-- There is no compatibility knowledge layer or capability-adapter framework yet.
-- Runtime consumers still act on support outcomes and structured facts, not full adapter bindings.
+- There is no compatibility knowledge layer yet, and the current capability-adapter layer covers only the runtime bridges that already exist.
+- Runtime consumers now resolve those current bridges through explicit adapter bindings, but menus, block entities, fluids, machines, and richer entity behavior still have no adapter-backed runtime implementation.
 
 ## Actual Current Control Flow
 
@@ -219,11 +220,13 @@ PackManager.initialize
     -> write reports/content-inventory.json
     -> write reports/compatibility-report.json
     -> create CompatibilityRegistry + MappingResolver
+    -> CompatibilityDecisions resolves current runtime bridges through CapabilityAdapterRegistry
   -> normal pack conversion pipeline
   -> BlockPackModule consumes resolved block mappings during custom block registration
-  -> ItemPackModule consumes compatibility-aware block placement mapping for block items and item compatibility decisions for non-block registration/exposure
-  -> ArmorPackModule consumes compatibility decisions for attachable generation
-  -> BowPackModule consumes compatibility decisions for bow attachable generation
+    -> ItemPackModule consumes compatibility-aware block placement mapping plus adapter-aware registration/exposure decisions
+    -> ArmorPackModule consumes adapter-aware wearable decisions for attachable generation
+    -> BowPackModule consumes adapter-aware attachable decisions for bow generation
+    -> EntityPackModule consumes adapter-aware entity registration decisions
 ```
 
 This remains the correct insertion point. The architecture change is not to move the compatibility layer. The change is to deepen what the layer knows and how it decides.
