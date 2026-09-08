@@ -103,6 +103,7 @@ class CompatibilityManagerTest {
                 assertEquals(SupportLevel.APPROXIMATED, item.supportResults().get("behavior").level());
                 assertTrue(item.adapterBindings().stream().anyMatch(binding -> binding.adapterId().equals("item.custom_registration")));
                 assertFalse(item.adapterBindings().stream().anyMatch(binding -> binding.feature() == AdapterFeature.ITEM_CREATIVE_EXPOSURE));
+                assertTrue(item.runtimeRequirements().contains("item_behavior_bridge"));
                 assertTrue(item.findings().stream().anyMatch(finding -> finding.code().equals("item.behavior.required")));
         }
 
@@ -151,6 +152,7 @@ class CompatibilityManagerTest {
                 assertTrue(item.adapterBindings().stream().anyMatch(binding -> binding.adapterId().equals("item.custom_registration")));
                 assertTrue(item.adapterBindings().stream().anyMatch(binding -> binding.adapterId().equals("item.bow_attachable") && binding.feature() == AdapterFeature.ATTACHABLE_ITEM_PRESENTATION));
                 assertTrue(item.adapterBindings().stream().anyMatch(binding -> binding.adapterId().equals("item.bow_attachable") && binding.feature() == AdapterFeature.ITEM_CREATIVE_EXPOSURE));
+                assertTrue(item.runtimeRequirements().contains("item_behavior_bridge"));
         }
 
         @Test
@@ -197,11 +199,13 @@ class CompatibilityManagerTest {
                 JsonArray objects = mod.getAsJsonArray("objects");
                 JsonObject item = objects.get(0).getAsJsonObject();
                 JsonArray bindings = item.getAsJsonArray("adapterBindings");
+                JsonArray requirements = item.getAsJsonArray("runtimeRequirements");
 
                 assertEquals("bow_attachable", item.getAsJsonObject("inventoryFacts").get("behavior_tag").getAsString());
                 assertTrue(bindings.asList().stream()
                     .map(element -> element.getAsJsonObject())
                     .anyMatch(binding -> binding.get("adapterId").getAsString().equals("item.bow_attachable")
                         && binding.get("feature").getAsString().equals(AdapterFeature.ITEM_CREATIVE_EXPOSURE.name())));
+                assertTrue(requirements.asList().stream().anyMatch(element -> element.getAsString().equals("item_behavior_bridge")));
         }
 }

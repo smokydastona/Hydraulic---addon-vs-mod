@@ -184,6 +184,7 @@ This separation is fundamental, not just a reporting refinement. A converted mod
 - `EntityPackModule` now consumes metadata-backed entity compatibility objects and registers custom entities through `GeyserDefineEntitiesEvent` when presentation support exists.
 - A first capability-adapter layer now exists for current block, item, armor, bow, and entity runtime consumers, driven by explicit adapter features and `behavior_tag` metadata when present.
 - `CompatibilityObject` now carries derived adapter bindings so the report can describe which current generic runtime bridges apply to a given block, item, or entity.
+- `CompatibilityObject` now carries derived runtime requirements so the report can describe which bridge or generator category is still missing for a given object.
 - Patch-declared behavior requirements and tags now flow into compatibility objects, structured findings, and runtime suppression reasons.
 - Item discovery now falls back from modern `assets/<ns>/items/*.json` definitions to legacy `models/item/*.json` assets for compatibility inventory and conversion indexing.
 - Focused tests already exist for loader precedence, resolver behavior, compatibility decisions, equipment asset loading, item asset lookup, and report generation.

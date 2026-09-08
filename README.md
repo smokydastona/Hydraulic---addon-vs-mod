@@ -186,6 +186,7 @@ On startup, this fork now writes three compatibility artifacts under Hydraulic's
 - the five compatibility domains: content, presentation, state/data, interaction, behavior
 - capability requirements and analyzer results
 - derived adapter bindings for the currently implemented generic runtime bridges
+- derived runtime requirements for the bridges or generators that are still missing
 - patch-derived facts such as `behavior_required` and `behavior_tag` when present
 - confidence, provenance, and structured findings
 - metadata validation issues emitted during Metadata V2 loading

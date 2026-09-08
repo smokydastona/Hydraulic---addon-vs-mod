@@ -17,6 +17,7 @@ public record CompatibilityObject(
     @NotNull Map<String, String> inventoryFacts,
     @NotNull CapabilityProfile capabilityProfile,
     @NotNull List<AdapterBinding> adapterBindings,
+    @NotNull List<String> runtimeRequirements,
     @NotNull Map<String, SupportResult> supportResults,
     @NotNull SupportLevel overallLevel,
     @NotNull CompatibilityStatus overallStatus,
@@ -28,6 +29,7 @@ public record CompatibilityObject(
     public CompatibilityObject {
         inventoryFacts = Collections.unmodifiableMap(new LinkedHashMap<>(inventoryFacts));
         adapterBindings = List.copyOf(adapterBindings);
+        runtimeRequirements = List.copyOf(runtimeRequirements);
         supportResults = Collections.unmodifiableMap(new LinkedHashMap<>(supportResults));
         provenance = List.copyOf(provenance);
         findings = List.copyOf(findings);

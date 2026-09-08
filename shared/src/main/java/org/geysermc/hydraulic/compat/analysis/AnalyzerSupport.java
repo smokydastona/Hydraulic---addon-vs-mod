@@ -2,6 +2,7 @@ package org.geysermc.hydraulic.compat.analysis;
 
 import org.geysermc.hydraulic.compat.CompatibilityStatus;
 import org.geysermc.hydraulic.compat.adapter.AdapterBinding;
+import org.geysermc.hydraulic.compat.adapter.AdapterFeature;
 import org.geysermc.hydraulic.compat.adapter.CapabilityAdapterRegistry;
 import org.geysermc.hydraulic.compat.capability.Capability;
 import org.geysermc.hydraulic.compat.capability.CapabilityDomain;
@@ -83,9 +84,70 @@ final class AnalyzerSupport {
         SupportLevel overallLevel = overallLevel(supportResults);
         CompatibilityStatus overallStatus = overallStatus(supportResults);
         int overallScore = overallScore(supportResults);
-        CompatibilityObject candidate = new CompatibilityObject(javaIdentifier, contentType, modId, inventoryFacts, capabilityProfile, List.of(), supportResults, overallLevel, overallStatus, overallScore, confidence, provenance, findings);
+        CompatibilityObject candidate = new CompatibilityObject(javaIdentifier, contentType, modId, inventoryFacts, capabilityProfile, List.of(), List.of(), supportResults, overallLevel, overallStatus, overallScore, confidence, provenance, findings);
         List<AdapterBinding> adapterBindings = CapabilityAdapterRegistry.bindings(candidate);
-        return new CompatibilityObject(javaIdentifier, contentType, modId, inventoryFacts, capabilityProfile, adapterBindings, supportResults, overallLevel, overallStatus, overallScore, confidence, provenance, findings);
+        List<String> runtimeRequirements = runtimeRequirements(contentType, inventoryFacts, supportResults, adapterBindings);
+        return new CompatibilityObject(javaIdentifier, contentType, modId, inventoryFacts, capabilityProfile, adapterBindings, runtimeRequirements, supportResults, overallLevel, overallStatus, overallScore, confidence, provenance, findings);
+    }
+
+    @NotNull
+    private static List<String> runtimeRequirements(
+        @NotNull String contentType,
+        @NotNull Map<String, String> inventoryFacts,
+        @NotNull Map<String, SupportResult> supportResults,
+        @NotNull List<AdapterBinding> adapterBindings
+    ) {
+        List<String> requirements = new ArrayList<>();
+
+        switch (contentType) {
+            case "block" -> {
+                if (!hasFeature(adapterBindings, AdapterFeature.BLOCK_PLACEMENT)) {
+                    maybeAdd(requirements, supportResults.get("interaction"), "block_placement_bridge");
+                }
+                if (!hasFeature(adapterBindings, AdapterFeature.BLOCK_CREATIVE_EXPOSURE)) {
+                    maybeAdd(requirements, supportResults.get("behavior"), "block_behavior_bridge");
+                }
+            }
+            case "item" -> {
+                if (!hasFeature(adapterBindings, AdapterFeature.CUSTOM_ITEM_REGISTRATION)) {
+                    maybeAdd(requirements, supportResults.get("presentation"), "item_registration_bridge");
+                }
+                if (Boolean.parseBoolean(inventoryFacts.getOrDefault("behavior_required", "false"))) {
+                    maybeAdd(requirements, supportResults.get("behavior"), "item_behavior_bridge");
+                }
+            }
+            case "entity" -> {
+                maybeAdd(requirements, supportResults.get("interaction"), "entity_interaction_bridge");
+                maybeAdd(requirements, supportResults.get("behavior"), "entity_behavior_bridge");
+            }
+            case "menu" -> {
+                maybeAdd(requirements, supportResults.get("interaction"), "container_bridge");
+                maybeAdd(requirements, supportResults.get("behavior"), "menu_behavior_bridge");
+            }
+            case "block_entity" -> {
+                maybeAdd(requirements, supportResults.get("state_data"), "block_entity_data_bridge");
+                maybeAdd(requirements, supportResults.get("interaction"), "block_entity_interaction_bridge");
+                maybeAdd(requirements, supportResults.get("behavior"), "block_entity_behavior_bridge");
+            }
+            case "fluid" -> {
+                maybeAdd(requirements, supportResults.get("presentation"), "fluid_translator");
+                maybeAdd(requirements, supportResults.get("behavior"), "fluid_runtime_bridge");
+            }
+            default -> {
+            }
+        }
+
+        return List.copyOf(requirements);
+    }
+
+    private static void maybeAdd(@NotNull List<String> requirements, SupportResult result, @NotNull String requirement) {
+        if (result != null && result.level() != SupportLevel.NATIVE && result.level() != SupportLevel.AUTOMATIC && result.level() != SupportLevel.ADAPTED) {
+            requirements.add(requirement);
+        }
+    }
+
+    private static boolean hasFeature(@NotNull List<AdapterBinding> bindings, @NotNull AdapterFeature feature) {
+        return bindings.stream().anyMatch(binding -> binding.feature() == feature);
     }
 
     @NotNull
