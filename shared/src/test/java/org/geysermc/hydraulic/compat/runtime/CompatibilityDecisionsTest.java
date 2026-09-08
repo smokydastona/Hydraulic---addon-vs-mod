@@ -95,6 +95,31 @@ class CompatibilityDecisionsTest {
         assertFalse(CompatibilityDecisions.supportsAttachableItemPresentation(unsupported));
     }
 
+    @Test
+    void suppressesCustomItemRegistrationWhenPresentationIsUnsupported() {
+        CompatibilityObject unsupported = blockObject(
+            support("content", SupportLevel.AUTOMATIC, List.of("registered"), List.of()),
+            support("presentation", SupportLevel.UNSUPPORTED, List.of(), List.of("item_asset")),
+            support("interaction", SupportLevel.AUTOMATIC, List.of("offhand"), List.of()),
+            support("behavior", SupportLevel.AUTOMATIC, List.of("runtime_behavior"), List.of())
+        );
+
+        assertFalse(CompatibilityDecisions.allowsCustomItemRegistration(unsupported));
+    }
+
+    @Test
+    void suppressesCreativeExposureWhenItemBehaviorIsApproximated() {
+        CompatibilityObject approximated = blockObject(
+            support("content", SupportLevel.AUTOMATIC, List.of("registered"), List.of()),
+            support("presentation", SupportLevel.AUTOMATIC, List.of("item_asset"), List.of()),
+            support("interaction", SupportLevel.AUTOMATIC, List.of("offhand"), List.of()),
+            support("behavior", SupportLevel.APPROXIMATED, List.of(), List.of("runtime_behavior"))
+        );
+
+        assertFalse(CompatibilityDecisions.allowsItemCreativeExposure(approximated));
+        assertEquals("behavior domain is approximated", CompatibilityDecisions.itemCreativeExposureReason(approximated));
+    }
+
     private static CompatibilityObject blockObject(SupportResult content, SupportResult presentation, SupportResult interaction, SupportResult behavior) {
         return new CompatibilityObject(
             "example:test_block",

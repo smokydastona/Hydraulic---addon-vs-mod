@@ -53,6 +53,45 @@ public final class CompatibilityDecisions {
         return !isUnsupported(content) && !isUnsupported(presentation);
     }
 
+    public static boolean allowsCustomItemRegistration(@Nullable CompatibilityObject compatibilityObject) {
+        if (compatibilityObject == null) {
+            return true;
+        }
+
+        SupportResult content = support(compatibilityObject, "content");
+        SupportResult presentation = support(compatibilityObject, "presentation");
+        return !isUnsupported(content) && !isUnsupported(presentation);
+    }
+
+    public static boolean allowsItemCreativeExposure(@Nullable CompatibilityObject compatibilityObject) {
+        if (!allowsCustomItemRegistration(compatibilityObject)) {
+            return false;
+        }
+
+        SupportResult behavior = support(compatibilityObject, "behavior");
+        return behavior == null || (behavior.level() != SupportLevel.UNSUPPORTED && behavior.level() != SupportLevel.APPROXIMATED);
+    }
+
+    @Nullable
+    public static String itemCreativeExposureReason(@Nullable CompatibilityObject compatibilityObject) {
+        if (compatibilityObject == null || allowsItemCreativeExposure(compatibilityObject)) {
+            return null;
+        }
+
+        if (!allowsCustomItemRegistration(compatibilityObject)) {
+            return "content or presentation support is insufficient";
+        }
+
+        SupportResult behavior = support(compatibilityObject, "behavior");
+        if (behavior != null && behavior.level() == SupportLevel.UNSUPPORTED) {
+            return "behavior domain is unsupported";
+        }
+        if (behavior != null && behavior.level() == SupportLevel.APPROXIMATED) {
+            return "behavior domain is approximated";
+        }
+        return "compatibility evidence is insufficient";
+    }
+
     @Nullable
     public static String creativeExposureReason(@Nullable CompatibilityObject compatibilityObject) {
         if (compatibilityObject == null || allowsBlockCreativeExposure(compatibilityObject)) {

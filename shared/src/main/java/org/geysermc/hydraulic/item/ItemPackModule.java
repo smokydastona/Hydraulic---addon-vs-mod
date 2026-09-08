@@ -157,8 +157,14 @@ public class ItemPackModule extends TexturePackModule<ItemPackModule> {
         DefaultedRegistry<Item> registry = BuiltInRegistries.ITEM;
         for (Item item : items) {
             Identifier itemLocation = registry.getKey(item);
+            CompatibilityObject itemObject = this.compatibilityItemObject(context, itemLocation);
 
             try {
+                if (!CompatibilityDecisions.allowsCustomItemRegistration(itemObject)) {
+                    context.logger().info("Skipping custom item registration for {} because compatibility analysis does not support content/presentation", itemLocation);
+                    continue;
+                }
+
                 NonVanillaCustomItemDefinition.Builder customItemDefinition = NonVanillaCustomItemDefinition.builder(
                         org.geysermc.geyser.api.util.Identifier.of(itemLocation.toString()),
                         org.geysermc.geyser.api.util.Identifier.of(itemLocation.toString()),
@@ -192,8 +198,14 @@ public class ItemPackModule extends TexturePackModule<ItemPackModule> {
                 CompatibilityObject blockObject = item instanceof BlockItem blockItem ? this.compatibilityBlockObject(context, blockItem) : null;
 
                 // Set the creative mappings
-                if (!(item instanceof BlockItem) || CompatibilityDecisions.allowsBlockCreativeExposure(blockObject)) {
+                if (item instanceof BlockItem) {
+                    if (CompatibilityDecisions.allowsBlockCreativeExposure(blockObject)) {
+                        CreativeMappings.setup(item, customItemOptions);
+                    }
+                } else if (CompatibilityDecisions.allowsItemCreativeExposure(itemObject)) {
                     CreativeMappings.setup(item, customItemOptions);
+                } else {
+                    context.logger().info("Skipping creative exposure for {} because {}", itemLocation, CompatibilityDecisions.itemCreativeExposureReason(itemObject));
                 }
 
                 // Set all bedrock components using what java components we have
@@ -313,6 +325,12 @@ public class ItemPackModule extends TexturePackModule<ItemPackModule> {
 
     private boolean shouldUseBlockItemTextureBridge(@NotNull PackEventContext<GeyserDefineCustomItemsEvent, ItemPackModule> context, @NotNull BlockItem blockItem) {
         return CompatibilityDecisions.supportsBlockItemTextureFallback(this.compatibilityBlockObject(context, blockItem));
+    }
+
+    @Nullable
+    private CompatibilityObject compatibilityItemObject(@NotNull PackContext<ItemPackModule> context, @NotNull Identifier itemLocation) {
+        CompatibilityRegistry compatibilityRegistry = context.hydraulic().getPackManager().compatibilityRegistry();
+        return compatibilityRegistry.report().object(context.mod().id(), itemLocation.toString(), "item");
     }
 
     @Nullable
