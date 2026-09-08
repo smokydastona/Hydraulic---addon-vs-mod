@@ -5,6 +5,7 @@ import com.google.common.collect.Maps;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.MultimapBuilder;
 import com.mojang.logging.LogUtils;
+import net.kyori.adventure.key.Key;
 import net.minecraft.SharedConstants;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -43,10 +44,14 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.ServiceLoader;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.stream.Stream;
 
 /**
@@ -80,6 +85,7 @@ public class PackManager {
     private final ListMultimap<String, ModInfo> namespacesToMods = MultimapBuilder.hashKeys().arrayListValues(1).build();
     private final ListMultimap<String, Identifier> modsToBlocks = MultimapBuilder.hashKeys().arrayListValues().build();
     private final ListMultimap<String, Identifier> modsToItems = MultimapBuilder.hashKeys().arrayListValues().build();
+    private final Map<String, ModResourceIndex> modResourceIndexes = new LinkedHashMap<>();
 
     private MetadataIndex metadataIndex = MetadataIndex.empty();
     private CompatibilityRegistry compatibilityRegistry = CompatibilityRegistry.empty();
@@ -236,38 +242,37 @@ public class PackManager {
     }
 
     private void initializeModLookups() {
-        // Step 1: Lookup which namespaces are contained by which mods
+        Map<String, ModResourceIndex> modResourceIndexes = this.modResourceIndexes;
+        modResourceIndexes.clear();
+
+        // Step 1: Index each mod's resource roots once, then map namespaces to owning mods
         final Multimap<String, ModInfo> namespacesToMods = this.namespacesToMods;
         namespacesToMods.clear();
         for (final ModInfo mod : hydraulic.mods()) {
-            for (final Path root : mod.roots()) {
-                final Path assets = root.resolve("assets");
-                if (!Files.isDirectory(assets)) continue;
-                try (Stream<Path> stream = Files.list(assets)) {
-                    stream.filter(Files::isDirectory)
-                        .map(Path::getFileName)
-                        .map(Path::toString)
-                        .filter(namespace -> !namespace.equals("minecraft"))
-                        .forEach(namespace -> namespacesToMods.put(namespace, mod));
-                } catch (IOException e) {
-                    LOGGER.error("Failed to list namespaces for mod {}", mod.id(), e);
+            ModResourceIndex resourceIndex = ModResourceIndex.create(mod, LOGGER);
+            modResourceIndexes.put(mod.id(), resourceIndex);
+            for (String namespace : resourceIndex.namespaces()) {
+                if (!namespace.equals("minecraft")) {
+                    namespacesToMods.put(namespace, mod);
                 }
             }
         }
 
-        // Step 2: Use namespace information to lookup which mods contains what block models
+        // Step 2: Use namespace information to lookup which mods contain what blockstates
         final Multimap<String, Identifier> modsToBlocks = this.modsToBlocks;
         modsToBlocks.clear();
+        int skippedBlocks = 0;
         for (final Identifier block : BuiltInRegistries.BLOCK.keySet()) {
             if (block.getNamespace().equals("minecraft")) continue;
             for (final ModInfo mod : namespacesToMods.get(block.getNamespace())) {
-                final Path checkFile = mod.resolveFile("assets/" + block.getNamespace() + "/blockstates/" + block.getPath() + ".json");
-                if (checkFile != null) {
+                ModResourceIndex resourceIndex = modResourceIndexes.get(mod.id());
+                if (resourceIndex != null && resourceIndex.hasBlockState(block)) {
                     modsToBlocks.put(mod.id(), block);
                     break;
-                } else {
-                    LOGGER.warn("Failed to find path for block state {}, skipping", block);
                 }
+            }
+            if (!modsToBlocks.containsValue(block)) {
+                skippedBlocks++;
             }
         }
 
@@ -275,6 +280,8 @@ public class PackManager {
         // There's no ordering requirement between this and Step 2.
         final Multimap<String, Identifier> modsToItems = this.modsToItems;
         modsToItems.clear();
+        int missingItemModelComponents = 0;
+        int skippedItems = 0;
         for (final Identifier itemId : BuiltInRegistries.ITEM.keySet()) {
             if (itemId.getNamespace().equals("minecraft")) continue;
 
@@ -282,14 +289,14 @@ public class PackManager {
             Identifier itemModel = item.components().get(DataComponents.ITEM_MODEL);
             // Item model is missing, can't do much here
             if (itemModel == null) {
-                LOGGER.warn("Failed to find item model component for item {}, skipping", item);
+                missingItemModelComponents++;
                 continue;
             }
 
             boolean found = false;
             for (final ModInfo mod : namespacesToMods.get(itemId.getNamespace())) {
-                final Path checkFile = ItemAssetLocator.resolveItemAssetPath(mod, itemModel);
-                if (checkFile != null) {
+                ModResourceIndex resourceIndex = modResourceIndexes.get(mod.id());
+                if (resourceIndex != null && resourceIndex.resolveItemAssetPath(itemModel) != null) {
                     modsToItems.put(mod.id(), itemId);
                     found = true;
                     break;
@@ -297,9 +304,20 @@ public class PackManager {
             }
 
             if (!found) {
-                LOGGER.warn("Failed to find path for item {}, skipping", item);
+                skippedItems++;
             }
         }
+
+        LOGGER.info(
+            "Indexed mod resources for Hydraulic startup (mods={}, namespaces={}, blockMatches={}, skippedBlocks={}, itemMatches={}, skippedItems={}, missingItemModels={})",
+            modResourceIndexes.size(),
+            namespacesToMods.keySet().size(),
+            modsToBlocks.size(),
+            skippedBlocks,
+            modsToItems.size(),
+            skippedItems,
+            missingItemModelComponents
+        );
     }
 
     private void loadMetadata() {
@@ -353,16 +371,16 @@ public class PackManager {
             .toList();
 
         ResourcePack vanillaResourcePack = MinecraftResourcePackReader.minecraft().readFromZipFile(vanillaPath);
-
-        return key -> {
-            for (final ResourcePack pack : flattenedPacks) {
-                final Model model = pack.model(key);
-                if (model != null) {
-                    return model;
-                }
+        Map<Key, Model> modelIndex = new LinkedHashMap<>();
+        for (ResourcePack pack : flattenedPacks) {
+            for (Model model : pack.models()) {
+                modelIndex.putIfAbsent(model.key(), model);
             }
-            return vanillaResourcePack.model(key);
-        };
+        }
+        ConcurrentMap<Key, Optional<Model>> resolvedModels = new ConcurrentHashMap<>(Math.max(16, modelIndex.size()));
+        modelIndex.forEach((key, model) -> resolvedModels.put(key, Optional.of(model)));
+
+        return key -> resolvedModels.computeIfAbsent(key, ignored -> Optional.ofNullable(vanillaResourcePack.model(ignored))).orElse(null);
     }
 
     public boolean shouldIgnoreMod(ModInfo mod) {
