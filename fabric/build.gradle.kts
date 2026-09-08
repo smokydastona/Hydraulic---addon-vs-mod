@@ -70,6 +70,10 @@ tasks {
         dependsOn(syncGeyserRuntimeResources)
     }
 
+    sourcesJar {
+        dependsOn(syncGeyserRuntimeResources)
+    }
+
     named("runServer") {
         dependsOn(syncGeyserLocales)
     }
