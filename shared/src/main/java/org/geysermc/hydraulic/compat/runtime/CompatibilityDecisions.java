@@ -39,6 +39,16 @@ public final class CompatibilityDecisions {
         return interaction == null || interaction.supportedCapabilities().contains("placement");
     }
 
+    public static boolean supportsWearableItemPresentation(@Nullable CompatibilityObject compatibilityObject) {
+        if (compatibilityObject == null) {
+            return true;
+        }
+
+        SupportResult content = support(compatibilityObject, "content");
+        SupportResult presentation = support(compatibilityObject, "presentation");
+        return !isUnsupported(content) && !isUnsupported(presentation);
+    }
+
     @Nullable
     public static String creativeExposureReason(@Nullable CompatibilityObject compatibilityObject) {
         if (compatibilityObject == null || allowsBlockCreativeExposure(compatibilityObject)) {

@@ -57,6 +57,25 @@ class CompatibilityDecisionsTest {
         assertFalse(CompatibilityDecisions.shouldApplyBlockPlacementBridge(object));
     }
 
+    @Test
+    void wearablePresentationRequiresSupportedContentAndPresentation() {
+        CompatibilityObject supported = blockObject(
+            support("content", SupportLevel.AUTOMATIC, List.of("registered"), List.of()),
+            support("presentation", SupportLevel.ADAPTED, List.of("item_asset"), List.of()),
+            support("interaction", SupportLevel.AUTOMATIC, List.of("offhand"), List.of()),
+            support("behavior", SupportLevel.APPROXIMATED, List.of("runtime_behavior"), List.of())
+        );
+        CompatibilityObject unsupported = blockObject(
+            support("content", SupportLevel.UNSUPPORTED, List.of(), List.of("registered")),
+            support("presentation", SupportLevel.AUTOMATIC, List.of("item_asset"), List.of()),
+            support("interaction", SupportLevel.AUTOMATIC, List.of("offhand"), List.of()),
+            support("behavior", SupportLevel.AUTOMATIC, List.of("runtime_behavior"), List.of())
+        );
+
+        assertTrue(CompatibilityDecisions.supportsWearableItemPresentation(supported));
+        assertFalse(CompatibilityDecisions.supportsWearableItemPresentation(unsupported));
+    }
+
     private static CompatibilityObject blockObject(SupportResult content, SupportResult presentation, SupportResult interaction, SupportResult behavior) {
         return new CompatibilityObject(
             "example:test_block",

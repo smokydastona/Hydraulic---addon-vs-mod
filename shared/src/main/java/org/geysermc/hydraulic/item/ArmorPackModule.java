@@ -12,6 +12,9 @@ import net.minecraft.world.entity.EntityTypes;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.equipment.Equippable;
+import org.geysermc.hydraulic.compat.CompatibilityRegistry;
+import org.geysermc.hydraulic.compat.model.CompatibilityObject;
+import org.geysermc.hydraulic.compat.runtime.CompatibilityDecisions;
 import org.geysermc.hydraulic.pack.PackModule;
 import org.geysermc.hydraulic.pack.context.PackPostProcessContext;
 import org.geysermc.pack.bedrock.resource.attachables.Attachable;
@@ -20,11 +23,10 @@ import org.geysermc.pack.bedrock.resource.attachables.attachable.Description;
 import org.geysermc.pack.bedrock.resource.attachables.attachable.description.Scripts;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-import team.unnamed.creative.equipment.Equipment;
-import team.unnamed.creative.equipment.EquipmentLayer;
 import team.unnamed.creative.equipment.EquipmentLayerType;
 
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -59,10 +61,15 @@ public class ArmorPackModule extends PackModule<ArmorPackModule> {
 
         for (Item armorItem : armorItems) {
             Equippable equippable = armorItem.components().get(DataComponents.EQUIPPABLE);
+            Identifier armorItemLocation = BuiltInRegistries.ITEM.getKey(armorItem);
+            CompatibilityObject compatibilityObject = compatibilityItemObject(context, armorItemLocation);
+            if (!CompatibilityDecisions.supportsWearableItemPresentation(compatibilityObject)) {
+                context.logger().info("Skipping armor attachable generation for {} because item presentation support is insufficient", armorItemLocation);
+                continue;
+            }
 
             EquipmentLayerType layerType = getEquipmentLayer(equippable.slot());
             if (layerType == null) {
-                // This might be something else... lets just check
                 Optional<HolderSet<EntityType<?>>> optionalEntityType = equippable.allowedEntities();
                 if (optionalEntityType.isPresent()) {
                     HolderSet<EntityType<?>> entityTypeHolderSet = optionalEntityType.get();
@@ -76,24 +83,25 @@ public class ArmorPackModule extends PackModule<ArmorPackModule> {
                     }
                 }
 
-                if (layerType == null) { // We recheck as above can change how things go
-                    continue; // There is no layer we can give the bedrock currently, so we can skip this
+                if (layerType == null) {
+                    context.logger().info("Skipping armor attachable generation for {} because no Bedrock equipment layer could be inferred", armorItemLocation);
+                    continue;
                 }
             }
 
-            Identifier armorItemLocation = BuiltInRegistries.ITEM.getKey(armorItem);
+            Identifier armorTextureLocation = equippable.assetId().map(ResourceKey::identifier).orElseThrow();
 
-            Identifier armorTextureLocation = equippable.assetId().map(ResourceKey::identifier).orElseThrow(); // Checked above to ensure all armor processed has an asset id, so this shouldn't throw (This instead of get to prevent yellow lines)
-
-            Equipment equipment = context.javaResourcePack().equipment(Key.key(armorTextureLocation.toString()));
+            EquipmentAssetLoader.EquipmentAsset equipment = EquipmentAssetLoader.load(context.mod(), armorTextureLocation, context.logger());
             if (equipment == null) {
+                context.logger().warn("Skipping armor attachable generation for {} because equipment asset {} could not be loaded", armorItemLocation, armorTextureLocation);
                 continue;
             }
-            List<EquipmentLayer> layers = equipment.layers().get(layerType);
+            List<Key> layers = equipment.layers(layerType);
             if (layers == null || layers.isEmpty()) {
-                continue; // We have no layers that we can convert, so we can just skip this one
+                context.logger().warn("Skipping armor attachable generation for {} because equipment asset {} has no {} layer", armorItemLocation, armorTextureLocation, layerType.name().toLowerCase());
+                continue;
             }
-            Key layerTexture = layers.getFirst().texture();
+            Key layerTexture = layers.getFirst();
 
             Attachables armorAttachable = new Attachables();
             armorAttachable.formatVersion("1.10.0");
@@ -104,34 +112,20 @@ public class ArmorPackModule extends PackModule<ArmorPackModule> {
             description.scripts(ATTACHABLE_SCRIPTS);
             description.renderControllers(new String[] { "controller.render.armor" });
 
-            // Change the query to match the item
-            // This should always work as armour should have 2d item models
-            // If its 3d this will break as the item won't have the `item.` prefix
-            // TODO Register another attachable for 3d items? Or just work out which is correct from here
             Map<String, String> items = new HashMap<>() {{
                 put(armorItemLocation + "_item", "query.owner_identifier == 'minecraft:player'");
             }};
             description.item(items);
 
-            EquipmentLayerType finalLayerType = layerType;
-            description.textures(new HashMap<>() {
-                {
-                    put("default", String.format(BEDROCK_ARMOR_TEXTURE_LOCATION, layerTexture.namespace(), finalLayerType.name().toLowerCase(), layerTexture.value()));
-                    put("enchanted", "textures/misc/enchanted_actor_glint");
-                }
-            });
+            Map<String, String> textures = new LinkedHashMap<>();
+            textures.put("default", String.format(BEDROCK_ARMOR_TEXTURE_LOCATION, layerTexture.namespace(), layerType.name().toLowerCase(), layerTexture.value()));
+            textures.put("enchanted", "textures/misc/enchanted_actor_glint");
+            description.textures(textures);
 
-            String geometryType = "";
-            switch (layerType) {
-                case EquipmentLayerType.HUMANOID -> {
-                    switch (equippable.slot()) {
-                        case EquipmentSlot.HEAD -> geometryType = "geometry.player.armor.helmet";
-                        case EquipmentSlot.CHEST -> geometryType = "geometry.player.armor.chestplate";
-                        case EquipmentSlot.FEET -> geometryType = "geometry.player.armor.boots";
-                    }
-                }
-                case EquipmentLayerType.HUMANOID_LEGGINGS -> geometryType = "geometry.player.armor.leggings";
-                case EquipmentLayerType.HORSE_BODY -> {} // TODO: Handle adding horse armor, might need to PR geyser for the slot
+            String geometryType = geometryType(layerType, equippable.slot());
+            if (geometryType == null) {
+                context.logger().info("Skipping armor attachable generation for {} because {} does not have a verified Bedrock attachable geometry", armorItemLocation, layerType.name().toLowerCase());
+                continue;
             }
 
             description.geometry(Map.of("default", geometryType));
@@ -141,6 +135,7 @@ public class ArmorPackModule extends PackModule<ArmorPackModule> {
             armorAttachable.attachable(attachable);
 
             context.bedrockResourcePack().addAttachable(armorAttachable, "attachables/" + armorItemLocation.getPath() + ".json");
+            context.logger().info("Generated armor attachable for {} using equipment asset {}", armorItemLocation, armorTextureLocation);
         }
     }
 
@@ -155,5 +150,25 @@ public class ArmorPackModule extends PackModule<ArmorPackModule> {
             case LEGS -> EquipmentLayerType.HUMANOID_LEGGINGS;
             default -> null;
         };
+    }
+
+    @Nullable
+    private static String geometryType(@NotNull EquipmentLayerType layerType, @NotNull EquipmentSlot slot) {
+        return switch (layerType) {
+            case HUMANOID -> switch (slot) {
+                case HEAD -> "geometry.player.armor.helmet";
+                case CHEST -> "geometry.player.armor.chestplate";
+                case FEET -> "geometry.player.armor.boots";
+                default -> null;
+            };
+            case HUMANOID_LEGGINGS -> "geometry.player.armor.leggings";
+            default -> null;
+        };
+    }
+
+    @Nullable
+    private static CompatibilityObject compatibilityItemObject(@NotNull PackPostProcessContext<ArmorPackModule> context, @NotNull Identifier itemLocation) {
+        CompatibilityRegistry compatibilityRegistry = context.hydraulic().getPackManager().compatibilityRegistry();
+        return compatibilityRegistry.report().object(context.mod().id(), itemLocation.toString(), "item");
     }
 }
