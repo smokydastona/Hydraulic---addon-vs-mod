@@ -19,6 +19,7 @@ Right now this fork adds:
 - override support for Bedrock block identifier, geometry, and material
 - typed compatibility objects with support levels, confidence, provenance, findings, and mod fingerprints
 - a first analyzer API with block, item, entity, fluid, block-entity, menu, and recipe analyzers
+- a first entity runtime consumer that registers metadata-backed custom entities through Geyser
 - local Fabric dev metadata examples for the test block, item, and recipe surfaces
 
 ## What is Hydraulic?
@@ -187,7 +188,7 @@ On startup, this fork now writes two compatibility artifacts under Hydraulic's d
 - confidence, provenance, and structured findings
 - metadata validation issues emitted during Metadata V2 loading
 
-The current report is still conservative. It is intended to answer "what do we know right now from registries, assets, metadata, and patches?" not "is this mod fully playable end-to-end on Bedrock?" Behavior-heavy entities, fluids, menus, and block entities will still show low support until dedicated runtime bridges are implemented. For items, behavior-tagged patches already affect runtime exposure decisions, so unsupported behavior can now suppress Bedrock creative exposure even when the item is still registered.
+The current report is still conservative. It is intended to answer "what do we know right now from registries, assets, metadata, and patches?" not "is this mod fully playable end-to-end on Bedrock?" Behavior-heavy entities, fluids, menus, and block entities will still show low support until dedicated runtime bridges are implemented. For items, behavior-tagged patches already affect runtime exposure decisions, so unsupported behavior can now suppress Bedrock creative exposure even when the item is still registered. For entities, metadata-backed identifier mappings now drive custom entity registration, but that is still not full interaction or behavior translation.
 
 ## Contributing
 Any contributions are appreciated. Please feel free to reach out to us on [Discord](https://discord.gg/geysermc) if

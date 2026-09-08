@@ -135,6 +135,19 @@ class CompatibilityDecisionsTest {
         assertEquals("behavior domain is approximated (tag: custom_pack_behavior)", CompatibilityDecisions.itemCreativeExposureReason(tagged));
     }
 
+    @Test
+    void suppressesCustomEntityRegistrationWhenPresentationIsUnsupported() {
+        CompatibilityObject unsupported = blockObject(
+            support("content", SupportLevel.AUTOMATIC, List.of("registered"), List.of()),
+            support("presentation", SupportLevel.UNSUPPORTED, List.of(), List.of("presentation_mapping")),
+            support("interaction", SupportLevel.UNSUPPORTED, List.of(), List.of("entity_interaction")),
+            support("behavior", SupportLevel.UNSUPPORTED, List.of(), List.of("runtime_behavior"))
+        );
+
+        assertFalse(CompatibilityDecisions.allowsCustomEntityRegistration(unsupported));
+        assertEquals("presentation domain is unsupported", CompatibilityDecisions.entityRegistrationReason(unsupported));
+    }
+
     private static CompatibilityObject blockObject(SupportResult content, SupportResult presentation, SupportResult interaction, SupportResult behavior) {
         return new CompatibilityObject(
             "example:test_block",

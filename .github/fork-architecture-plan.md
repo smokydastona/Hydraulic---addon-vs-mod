@@ -181,6 +181,7 @@ This separation is fundamental, not just a reporting refinement. A converted mod
 - `ItemPackModule` already uses compatibility-aware block placement for block items, consults item compatibility objects for non-block custom item registration, suppresses creative exposure when item behavior is only approximated, and continues to translate modern item components through `ComponentConverter`.
 - `ArmorPackModule` now generates humanoid armor attachables from direct equipment-asset loading and gates them through compatibility decisions.
 - `BowPackModule` now consumes compatibility-driven item presentation decisions before generating bow attachables.
+- `EntityPackModule` now consumes metadata-backed entity compatibility objects and registers custom entities through `GeyserDefineEntitiesEvent` when presentation support exists.
 - Patch-declared behavior requirements and tags now flow into compatibility objects, structured findings, and runtime suppression reasons.
 - Item discovery now falls back from modern `assets/<ns>/items/*.json` definitions to legacy `models/item/*.json` assets for compatibility inventory and conversion indexing.
 - Focused tests already exist for loader precedence, resolver behavior, compatibility decisions, equipment asset loading, item asset lookup, and report generation.
@@ -197,8 +198,9 @@ This separation is fundamental, not just a reporting refinement. A converted mod
 - Non-block metadata is still shallow compared to the block path. It can now express typed patches and behavior requirements, but it still does not model full rendering, slots, recipes, fluids, or rich interactions.
 - The block path remains the richest end-to-end compatibility path.
 - There is no behavior-pack generator.
-- There are no runtime interaction bridges for menus, block entities, fluids, machines, or entity logic.
+- There are no runtime interaction bridges for menus, block entities, fluids, machines, or entity behavior logic.
 - Runtime consumption of compatibility decisions now exists for block custom registration, block item texture fallback, item custom registration, item creative exposure, armor attachables, and bow attachables, but broad interaction and behavior bridges still do not.
+- Entity runtime consumption now reaches metadata-backed custom entity registration, but not interaction or behavior translation.
 - There is no compatibility knowledge layer or capability-adapter framework yet.
 - Runtime consumers still act on support outcomes and structured facts, not full adapter bindings.
 
@@ -950,8 +952,9 @@ Current verified runtime consumers:
 - non-block item registration and creative exposure gating
 - armor attachable generation gating
 - bow attachable generation gating
+- metadata-backed custom entity registration
 
-This phase is still early. Generic interaction, container, fluid, entity, and block-entity bridges are not implemented.
+This phase is still early. Generic interaction, container, fluid, entity behavior, and block-entity bridges are not implemented.
 
 ## Phase 7: Behavior Generation
 Priority: very high

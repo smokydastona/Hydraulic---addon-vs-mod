@@ -92,6 +92,37 @@ public final class CompatibilityDecisions {
         return "compatibility evidence is insufficient";
     }
 
+    public static boolean allowsCustomEntityRegistration(@Nullable CompatibilityObject compatibilityObject) {
+        if (compatibilityObject == null) {
+            return false;
+        }
+
+        SupportResult content = support(compatibilityObject, "content");
+        SupportResult presentation = support(compatibilityObject, "presentation");
+        return !isUnsupported(content) && !isUnsupported(presentation);
+    }
+
+    @Nullable
+    public static String entityRegistrationReason(@Nullable CompatibilityObject compatibilityObject) {
+        if (compatibilityObject == null) {
+            return "compatibility object is missing";
+        }
+        if (allowsCustomEntityRegistration(compatibilityObject)) {
+            return null;
+        }
+
+        SupportResult presentation = support(compatibilityObject, "presentation");
+        if (isUnsupported(presentation)) {
+            return "presentation domain is unsupported";
+        }
+
+        SupportResult content = support(compatibilityObject, "content");
+        if (isUnsupported(content)) {
+            return "content domain is unsupported";
+        }
+        return "compatibility evidence is insufficient";
+    }
+
     @Nullable
     public static String creativeExposureReason(@Nullable CompatibilityObject compatibilityObject) {
         if (compatibilityObject == null || allowsBlockCreativeExposure(compatibilityObject)) {
