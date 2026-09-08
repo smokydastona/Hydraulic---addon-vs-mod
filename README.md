@@ -185,6 +185,7 @@ On startup, this fork now writes three compatibility artifacts under Hydraulic's
 - support levels: `NATIVE`, `AUTOMATIC`, `ADAPTED`, `APPROXIMATED`, `VISUAL_ONLY`, `UNSUPPORTED`
 - the five compatibility domains: content, presentation, state/data, interaction, behavior
 - capability requirements and analyzer results
+- derived adapter bindings for the currently implemented generic runtime bridges
 - patch-derived facts such as `behavior_required` and `behavior_tag` when present
 - confidence, provenance, and structured findings
 - metadata validation issues emitted during Metadata V2 loading

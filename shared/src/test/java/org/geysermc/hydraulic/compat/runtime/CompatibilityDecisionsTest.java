@@ -123,6 +123,7 @@ class CompatibilityDecisionsTest {
             approximated.modId(),
             java.util.Map.of("behavior_tag", "custom_pack_behavior"),
             approximated.capabilityProfile(),
+            List.of(),
             approximated.supportResults(),
             approximated.overallLevel(),
             approximated.overallStatus(),
@@ -187,6 +188,7 @@ class CompatibilityDecisionsTest {
             "examplemod",
             inventoryFacts,
             new CapabilityProfile("example:test_block", List.of(), List.of()),
+            List.of(),
             Map.of(
                 "content", content,
                 "presentation", presentation,

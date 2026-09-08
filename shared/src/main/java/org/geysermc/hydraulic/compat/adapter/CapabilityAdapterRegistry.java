@@ -32,6 +32,21 @@ public final class CapabilityAdapterRegistry {
         return binding(feature, compatibilityObject, runtimeObject).isPresent();
     }
 
+    public static @NotNull List<AdapterBinding> bindings(@Nullable CompatibilityObject compatibilityObject) {
+        return bindings(compatibilityObject, null);
+    }
+
+    public static @NotNull List<AdapterBinding> bindings(@Nullable CompatibilityObject compatibilityObject, @Nullable Object runtimeObject) {
+        if (compatibilityObject == null) {
+            return List.of();
+        }
+
+        return relevantFeatures(compatibilityObject.contentType()).stream()
+            .map(feature -> binding(feature, compatibilityObject, runtimeObject))
+            .flatMap(Optional::stream)
+            .toList();
+    }
+
     public static @NotNull Optional<AdapterBinding> binding(@NotNull AdapterFeature feature, @Nullable CompatibilityObject compatibilityObject, @Nullable Object runtimeObject) {
         if (compatibilityObject == null) {
             return Optional.empty();
@@ -43,6 +58,24 @@ public final class CapabilityAdapterRegistry {
             .sorted(Comparator.comparingInt(CapabilityAdapter::priority).reversed())
             .findFirst()
             .map(adapter -> new AdapterBinding(adapter.id(), feature, adapter.reason(compatibilityObject, runtimeObject, feature)));
+    }
+
+    private static @NotNull List<AdapterFeature> relevantFeatures(@NotNull String contentType) {
+        return switch (contentType) {
+            case "block" -> List.of(
+                AdapterFeature.BLOCK_ITEM_TEXTURE_FALLBACK,
+                AdapterFeature.BLOCK_PLACEMENT,
+                AdapterFeature.BLOCK_CREATIVE_EXPOSURE
+            );
+            case "item" -> List.of(
+                AdapterFeature.CUSTOM_ITEM_REGISTRATION,
+                AdapterFeature.WEARABLE_ITEM_PRESENTATION,
+                AdapterFeature.ATTACHABLE_ITEM_PRESENTATION,
+                AdapterFeature.ITEM_CREATIVE_EXPOSURE
+            );
+            case "entity" -> List.of(AdapterFeature.CUSTOM_ENTITY_REGISTRATION);
+            default -> List.of();
+        };
     }
 
     private static boolean contentSupported(@NotNull CompatibilityObject object) {

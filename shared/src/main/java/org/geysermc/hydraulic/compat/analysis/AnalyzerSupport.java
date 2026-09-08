@@ -1,6 +1,8 @@
 package org.geysermc.hydraulic.compat.analysis;
 
 import org.geysermc.hydraulic.compat.CompatibilityStatus;
+import org.geysermc.hydraulic.compat.adapter.AdapterBinding;
+import org.geysermc.hydraulic.compat.adapter.CapabilityAdapterRegistry;
 import org.geysermc.hydraulic.compat.capability.Capability;
 import org.geysermc.hydraulic.compat.capability.CapabilityDomain;
 import org.geysermc.hydraulic.compat.capability.CapabilityProfile;
@@ -81,7 +83,9 @@ final class AnalyzerSupport {
         SupportLevel overallLevel = overallLevel(supportResults);
         CompatibilityStatus overallStatus = overallStatus(supportResults);
         int overallScore = overallScore(supportResults);
-        return new CompatibilityObject(javaIdentifier, contentType, modId, inventoryFacts, capabilityProfile, supportResults, overallLevel, overallStatus, overallScore, confidence, provenance, findings);
+        CompatibilityObject candidate = new CompatibilityObject(javaIdentifier, contentType, modId, inventoryFacts, capabilityProfile, List.of(), supportResults, overallLevel, overallStatus, overallScore, confidence, provenance, findings);
+        List<AdapterBinding> adapterBindings = CapabilityAdapterRegistry.bindings(candidate);
+        return new CompatibilityObject(javaIdentifier, contentType, modId, inventoryFacts, capabilityProfile, adapterBindings, supportResults, overallLevel, overallStatus, overallScore, confidence, provenance, findings);
     }
 
     @NotNull

@@ -183,6 +183,7 @@ This separation is fundamental, not just a reporting refinement. A converted mod
 - `BowPackModule` now consumes compatibility-driven item presentation decisions before generating bow attachables.
 - `EntityPackModule` now consumes metadata-backed entity compatibility objects and registers custom entities through `GeyserDefineEntitiesEvent` when presentation support exists.
 - A first capability-adapter layer now exists for current block, item, armor, bow, and entity runtime consumers, driven by explicit adapter features and `behavior_tag` metadata when present.
+- `CompatibilityObject` now carries derived adapter bindings so the report can describe which current generic runtime bridges apply to a given block, item, or entity.
 - Patch-declared behavior requirements and tags now flow into compatibility objects, structured findings, and runtime suppression reasons.
 - Item discovery now falls back from modern `assets/<ns>/items/*.json` definitions to legacy `models/item/*.json` assets for compatibility inventory and conversion indexing.
 - Focused tests already exist for loader precedence, resolver behavior, compatibility decisions, equipment asset loading, item asset lookup, and report generation.
@@ -998,7 +999,7 @@ The best next implementation slice from the current repo state is:
 1. add the first real generic container or menu bridge on top of the existing menu analyzer and metadata mapping surface
 2. add the first real entity or block-entity runtime bridge using the existing compatibility report and Geyser lifecycle hooks
 3. promote runtime validation from log-only checks into committed regression coverage for compatibility-driven runtime consumers
-4. begin a capability-adapter layer that can consume `behavior_tag` signals instead of only support levels
+4. extend the current capability-adapter layer from blocks, items, and entity registration into container, block-entity, fluid, and richer behavior surfaces
 
 This is the smallest next slice that materially moves the fork from compatibility-aware pack generation into broader runtime bridge execution.
 
@@ -1014,7 +1015,7 @@ This is the smallest next slice that materially moves the fork from compatibilit
 ## Bottom Line
 The fork is pointed in the right direction and is further along than the earlier assessment implied.
 
-The architecture should no longer be described primarily as a future analyzer plus metadata expansion problem. The compatibility domains, capability model, support results, provenance, confidence, score, fingerprint, and typed patch system now exist in code. The correct next step is to convert those decisions into broader runtime bridges and capability-driven adapters without regressing the current pack pipeline.
+The architecture should no longer be described primarily as a future analyzer plus metadata expansion problem. The compatibility domains, capability model, support results, provenance, confidence, score, fingerprint, typed patch system, and current adapter bindings now exist in code. The correct next step is to convert those decisions into broader runtime bridges and wider capability-adapter coverage without regressing the current pack pipeline.
 
 The scaling strategy remains:
 
