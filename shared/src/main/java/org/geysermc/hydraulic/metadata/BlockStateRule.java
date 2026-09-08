@@ -7,6 +7,7 @@ import org.geysermc.hydraulic.compat.MappingOwnership;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 public final class BlockStateRule {
@@ -35,9 +36,9 @@ public final class BlockStateRule {
         int priority,
         int order
     ) {
-        this.javaWhen = javaWhen;
+        this.javaWhen = Map.copyOf(new LinkedHashMap<>(javaWhen));
         this.bedrockIdentifier = bedrockIdentifier;
-        this.bedrockState = bedrockState;
+        this.bedrockState = bedrockState != null ? Map.copyOf(new LinkedHashMap<>(bedrockState)) : null;
         this.geometryId = geometryId;
         this.materialId = materialId;
         this.behaviorRequired = behaviorRequired;
@@ -49,8 +50,12 @@ public final class BlockStateRule {
     }
 
     public boolean matches(@NotNull BlockState state) {
+        return this.matches(state, propertyLookup(state));
+    }
+
+    public boolean matches(@NotNull BlockState state, @NotNull Map<String, Property<?>> propertiesByName) {
         for (Map.Entry<String, String> entry : this.javaWhen.entrySet()) {
-            Property<?> property = property(state, entry.getKey());
+            Property<?> property = propertiesByName.get(entry.getKey());
             if (property == null) {
                 return false;
             }
@@ -63,14 +68,12 @@ public final class BlockStateRule {
         return true;
     }
 
-    @Nullable
-    private static Property<?> property(@NotNull BlockState state, @NotNull String name) {
+    private static Map<String, Property<?>> propertyLookup(@NotNull BlockState state) {
+        Map<String, Property<?>> propertiesByName = new LinkedHashMap<>();
         for (Property<?> property : state.getProperties()) {
-            if (property.getName().equals(name)) {
-                return property;
-            }
+            propertiesByName.put(property.getName(), property);
         }
-        return null;
+        return propertiesByName;
     }
 
     @NotNull

@@ -53,11 +53,13 @@ public final class MappingResolver {
 
     @NotNull
     public ResolvedBlockState resolveBlockState(@NotNull Identifier javaIdentifier, @NotNull BlockState state) {
-        BlockStateRule rule = this.blockRule(javaIdentifier, state);
-        if (rule == null || rule.bedrockIdentifier() == null) {
-            return new ResolvedBlockState(javaIdentifier, rule, false);
+        BlockMapping mapping = this.blockMapping(javaIdentifier);
+        if (mapping == null) {
+            return new ResolvedBlockState(javaIdentifier, null, false);
         }
-        return new ResolvedBlockState(rule.bedrockIdentifier(), rule, true);
+
+        BlockMapping.MatchResult resolved = mapping.resolve(state);
+        return new ResolvedBlockState(resolved.identifier(), resolved.rule(), resolved.overridden());
     }
 
     @NotNull
