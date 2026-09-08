@@ -59,7 +59,9 @@ class MappingResolverTest {
                     0
                 )
             ),
-            new MetadataIndex.Summary(1, 0, 1, 1, 1, 1, 0, Map.of("user", 1))
+            Map.of(),
+            java.util.List.of(),
+            new MetadataIndex.Summary(1, 0, 1, 1, 1, 1, 0, 0, 0, Map.of("user", 1))
         );
 
         MappingResolver resolver = new MappingResolver(index);

@@ -313,7 +313,7 @@ public class PackManager {
 
         if (!this.metadataIndex.isEmpty()) {
             LOGGER.info(
-                "Loaded structural metadata overrides from {} (files={}, blockMappings={}, itemMappings={}, recipeMappings={}, entityMappings={}, menuMappings={}, rules={})",
+                "Loaded structural metadata overrides from {} (files={}, blockMappings={}, itemMappings={}, recipeMappings={}, entityMappings={}, menuMappings={}, patches={}, rules={}, validationIssues={})",
                 metadataPath,
                 this.metadataIndex.summary().fileCount(),
                 this.metadataIndex.summary().blockMappingCount(),
@@ -321,7 +321,9 @@ public class PackManager {
                 this.metadataIndex.summary().recipeMappingCount(),
                 this.metadataIndex.summary().entityMappingCount(),
                 this.metadataIndex.summary().menuMappingCount(),
-                this.metadataIndex.summary().ruleCount()
+                this.metadataIndex.summary().patchCount(),
+                this.metadataIndex.summary().ruleCount(),
+                this.metadataIndex.summary().validationIssueCount()
             );
         }
     }

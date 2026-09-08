@@ -1,6 +1,7 @@
 package org.geysermc.hydraulic.metadata;
 
 import net.minecraft.resources.Identifier;
+import org.geysermc.hydraulic.compat.mapping.ContentPatch;
 import org.geysermc.hydraulic.compat.MappingOwnership;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -67,7 +68,9 @@ class MetadataLoaderTest {
         assertEquals(0, index.summary().recipeMappingCount());
         assertEquals(0, index.summary().entityMappingCount());
         assertEquals(0, index.summary().menuMappingCount());
+        assertEquals(0, index.summary().patchCount());
         assertEquals(3, index.summary().ruleCount());
+        assertEquals(0, index.summary().validationIssueCount());
         assertEquals(Map.of("builtin", 1, "user", 1), index.summary().ownershipFileCounts());
     }
 
@@ -97,7 +100,9 @@ class MetadataLoaderTest {
         assertEquals(0, index.summary().recipeMappingCount());
         assertEquals(0, index.summary().entityMappingCount());
         assertEquals(0, index.summary().menuMappingCount());
+        assertEquals(0, index.summary().patchCount());
         assertEquals(1, index.summary().ruleCount());
+        assertEquals(0, index.summary().validationIssueCount());
         assertEquals(Map.of("legacy", 1), index.summary().ownershipFileCounts());
     }
 
@@ -142,5 +147,71 @@ class MetadataLoaderTest {
         assertEquals(1, index.summary().recipeMappingCount());
         assertEquals(1, index.summary().entityMappingCount());
         assertEquals(1, index.summary().menuMappingCount());
+        assertEquals(0, index.summary().patchCount());
+        assertEquals(0, index.summary().validationIssueCount());
+    }
+
+    @Test
+    void loadsPatchMetadataAndSynthesizesMappings(@TempDir Path tempDir) throws IOException {
+        Files.writeString(tempDir.resolve("patches.json"), """
+            {
+              "patches": [
+                {
+                  "target": "example:test_block",
+                  "content_type": "block",
+                  "patch": {
+                    "visual": {
+                      "geometry": "example:geometry.test"
+                    },
+                    "bedrock": {
+                      "identifier": "example:test_block_bedrock",
+                      "state": {
+                        "variant": "default"
+                      }
+                    }
+                  }
+                },
+                {
+                  "target": "example:test_item",
+                  "content_type": "item",
+                  "patch": {
+                    "bedrock": {
+                      "identifier": "example:test_item_bedrock"
+                    }
+                  }
+                }
+              ]
+            }
+            """);
+
+        MetadataIndex index = new MetadataLoader(LoggerFactory.getLogger("MetadataLoaderTest")).load(tempDir);
+
+        assertEquals(2, index.summary().patchCount());
+        assertEquals(0, index.summary().validationIssueCount());
+        assertEquals(1, index.contentPatches(Identifier.fromNamespaceAndPath("example", "test_block")).size());
+        ContentPatch blockPatch = index.contentPatches(Identifier.fromNamespaceAndPath("example", "test_block")).getFirst();
+        assertEquals("example:geometry.test", blockPatch.operations().get("visual.geometry"));
+        assertNotNull(index.blockMapping(Identifier.fromNamespaceAndPath("example", "test_block")));
+        assertNotNull(index.itemMapping(Identifier.fromNamespaceAndPath("example", "test_item")));
+    }
+
+    @Test
+    void recordsValidationIssuesForInvalidPatchEntries(@TempDir Path tempDir) throws IOException {
+        Files.writeString(tempDir.resolve("invalid.json"), """
+            {
+              "patches": [
+                {
+                  "target": "bad_target",
+                  "patch": {}
+                }
+              ]
+            }
+            """);
+
+        MetadataIndex index = new MetadataLoader(LoggerFactory.getLogger("MetadataLoaderTest")).load(tempDir);
+
+        assertEquals(0, index.summary().patchCount());
+        assertEquals(1, index.summary().validationIssueCount());
+        assertEquals("metadata.patch.target", index.validationIssues().getFirst().code());
     }
 }

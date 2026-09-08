@@ -1,11 +1,27 @@
 package org.geysermc.hydraulic.compat;
 
 import com.google.common.collect.ListMultimap;
+import net.minecraft.SharedConstants;
 import net.minecraft.core.DefaultedRegistry;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.Identifier;
+import org.geysermc.hydraulic.compat.analysis.BlockAnalyzer;
+import org.geysermc.hydraulic.compat.analysis.BlockEntityAnalyzer;
+import org.geysermc.hydraulic.compat.analysis.CompatibilityAnalyzer;
+import org.geysermc.hydraulic.compat.analysis.EntityAnalyzer;
+import org.geysermc.hydraulic.compat.analysis.FluidAnalyzer;
+import org.geysermc.hydraulic.compat.analysis.ItemAnalyzer;
+import org.geysermc.hydraulic.compat.analysis.MenuAnalyzer;
+import org.geysermc.hydraulic.compat.analysis.RecipeAnalyzer;
+import org.geysermc.hydraulic.compat.mapping.ContentPatch;
+import org.geysermc.hydraulic.compat.model.CompatibilityFinding;
+import org.geysermc.hydraulic.compat.model.CompatibilityObject;
+import org.geysermc.hydraulic.compat.model.ModFingerprint;
+import org.geysermc.hydraulic.compat.model.SupportLevel;
+import org.geysermc.hydraulic.compat.model.SupportResult;
 import org.geysermc.hydraulic.Constants;
 import org.geysermc.hydraulic.metadata.MetadataIndex;
+import org.geysermc.hydraulic.metadata.MetadataValidationIssue;
 import org.geysermc.hydraulic.platform.mod.ModInfo;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
@@ -26,6 +42,16 @@ import java.util.function.Predicate;
 import java.util.stream.Stream;
 
 public final class CompatibilityManager {
+    private static final List<CompatibilityAnalyzer> ANALYZERS = List.of(
+        new BlockAnalyzer(),
+        new ItemAnalyzer(),
+        new EntityAnalyzer(),
+        new FluidAnalyzer(),
+        new BlockEntityAnalyzer(),
+        new MenuAnalyzer(),
+        new RecipeAnalyzer()
+    );
+
     private final Logger logger;
     private final Path dataPath;
 
@@ -71,19 +97,22 @@ public final class CompatibilityManager {
         this.incrementRegistry(inventories, namespacesToMods, BuiltInRegistries.ITEM.keySet(), "items");
         this.incrementRegistry(inventories, namespacesToMods, BuiltInRegistries.ENTITY_TYPE.keySet(), "entities");
         this.incrementRegistry(inventories, namespacesToMods, BuiltInRegistries.FLUID.keySet(), "fluids");
+        this.incrementRegistry(inventories, namespacesToMods, BuiltInRegistries.BLOCK_ENTITY_TYPE.keySet(), "block_entities");
+        this.incrementRegistry(inventories, namespacesToMods, BuiltInRegistries.SOUND_EVENT.keySet(), "sound_events");
+        this.incrementRegistry(inventories, namespacesToMods, BuiltInRegistries.PARTICLE_TYPE.keySet(), "particles");
         this.incrementMenuRegistry(inventories, namespacesToMods);
 
         for (MutableInventory inventory : inventories.values()) {
             this.scanModAssets(inventory);
-            inventory.registryCounts.put("block_assets", modsToBlocks.get(inventory.mod.id()).size());
-            inventory.registryCounts.put("item_assets", modsToItems.get(inventory.mod.id()).size());
+            inventory.assetKeys.computeIfAbsent("block_assets", key -> new LinkedHashSet<>()).addAll(modsToBlocks.get(inventory.mod.id()).stream().map(Identifier::toString).toList());
+            inventory.assetKeys.computeIfAbsent("item_assets", key -> new LinkedHashSet<>()).addAll(modsToItems.get(inventory.mod.id()).stream().map(Identifier::toString).toList());
         }
 
         for (Identifier javaId : metadataIndex.blockMappings().keySet()) {
             for (ModInfo mod : namespacesToMods.get(javaId.getNamespace())) {
                 MutableInventory inventory = inventories.get(mod.id());
                 if (inventory != null) {
-                    inventory.blockMetadataMappings++;
+                    inventory.addMetadata("blocks", javaId.toString());
                 }
             }
         }
@@ -92,7 +121,7 @@ public final class CompatibilityManager {
             for (ModInfo mod : namespacesToMods.get(javaId.getNamespace())) {
                 MutableInventory inventory = inventories.get(mod.id());
                 if (inventory != null) {
-                    inventory.itemMetadataMappings++;
+                    inventory.addMetadata("items", javaId.toString());
                 }
             }
         }
@@ -101,7 +130,7 @@ public final class CompatibilityManager {
             for (ModInfo mod : namespacesToMods.get(javaId.getNamespace())) {
                 MutableInventory inventory = inventories.get(mod.id());
                 if (inventory != null) {
-                    inventory.recipeMetadataMappings++;
+                    inventory.addMetadata("recipes", javaId.toString());
                 }
             }
         }
@@ -110,7 +139,7 @@ public final class CompatibilityManager {
             for (ModInfo mod : namespacesToMods.get(javaId.getNamespace())) {
                 MutableInventory inventory = inventories.get(mod.id());
                 if (inventory != null) {
-                    inventory.entityMetadataMappings++;
+                    inventory.addMetadata("entities", javaId.toString());
                 }
             }
         }
@@ -119,7 +148,17 @@ public final class CompatibilityManager {
             for (ModInfo mod : namespacesToMods.get(javaId.getNamespace())) {
                 MutableInventory inventory = inventories.get(mod.id());
                 if (inventory != null) {
-                    inventory.menuMetadataMappings++;
+                    inventory.addMetadata("menus", javaId.toString());
+                }
+            }
+        }
+
+        for (Map.Entry<Identifier, List<ContentPatch>> entry : metadataIndex.contentPatches().entrySet()) {
+            for (ModInfo mod : namespacesToMods.get(entry.getKey().getNamespace())) {
+                MutableInventory inventory = inventories.get(mod.id());
+                if (inventory != null) {
+                    String kind = this.inferPatchKind(inventory, entry.getKey(), entry.getValue());
+                    inventory.addPatch(kind, entry.getKey().toString());
                 }
             }
         }
@@ -145,7 +184,7 @@ public final class CompatibilityManager {
             for (ModInfo mod : namespacesToMods.get(identifier.getNamespace())) {
                 MutableInventory inventory = inventories.get(mod.id());
                 if (inventory != null) {
-                    inventory.incrementRegistry(category);
+                    inventory.incrementRegistry(category, identifier.toString());
                 }
             }
         }
@@ -198,10 +237,13 @@ public final class CompatibilityManager {
         inventory.addAssets("models", namespacePath.resolve("models"), path -> path.toString().endsWith(".json"));
         inventory.addAssets("textures", namespacePath.resolve("textures"), CompatibilityManager::isTextureAsset);
         inventory.addAssets("sounds", namespacePath.resolve("sounds"), CompatibilityManager::isSoundAsset);
+        inventory.addAssets("lang", namespacePath.resolve("lang"), path -> path.toString().endsWith(".json"));
     }
 
     private void scanDataNamespace(@NotNull MutableInventory inventory, @NotNull Path namespacePath) {
-        inventory.addAssets("recipes", namespacePath.resolve("recipes"), path -> path.toString().endsWith(".json"));
+        inventory.addIdentifierAssets("recipes", namespacePath.resolve("recipes"), namespacePath.getFileName().toString(), path -> path.toString().endsWith(".json"));
+        inventory.addAssets("tags", namespacePath.resolve("tags"), path -> path.toString().endsWith(".json"));
+        inventory.addAssets("loot_tables", namespacePath.resolve("loot_tables"), path -> path.toString().endsWith(".json"));
     }
 
     private static boolean isTextureAsset(@NotNull Path path) {
@@ -215,116 +257,229 @@ public final class CompatibilityManager {
     }
 
     @NotNull
-    private CompatibilityReport buildReport(@NotNull ContentInventory inventory, @NotNull MetadataIndex metadataIndex) {
+    CompatibilityReport buildReport(@NotNull ContentInventory inventory, @NotNull MetadataIndex metadataIndex) {
         Map<String, CompatibilityProfile> profiles = new LinkedHashMap<>();
+        List<CompatibilityFinding> metadataFindings = metadataIndex.validationIssues().stream().map(this::toFinding).toList();
         for (ContentInventory.ModContentInventory modInventory : inventory.mods().values()) {
-            Map<String, CompatibilityProfile.CapabilityMetric> metrics = new LinkedHashMap<>();
-            metrics.put("blocks", coverageMetric(modInventory.registryCounts().get("blocks"), modInventory.assetCounts().get("blockstates"), "blockstate json present"));
-            metrics.put("items", coverageMetric(modInventory.registryCounts().get("items"), Math.max(valueOrZero(modInventory.assetCounts().get("item_models")), modInventory.itemMetadataMappings()), "item model json or item metadata mapping present"));
-            metrics.put("entities", coverageMetric(modInventory.registryCounts().get("entities"), modInventory.entityMetadataMappings(), "entity metadata mapping present; runtime entity bridge is not implemented yet"));
-            metrics.put("fluids", unknownMetric(modInventory.registryCounts().get("fluids"), "registry discovered; fluid analyzer not implemented yet"));
-            metrics.put("recipes", coverageMetric(modInventory.assetCounts().get("recipes"), modInventory.recipeMetadataMappings(), "recipe json present with optional recipe metadata mapping"));
-            metrics.put("menus", coverageMetric(modInventory.registryCounts().get("menus"), modInventory.menuMetadataMappings(), "menu metadata mapping present; runtime menu bridge is not implemented yet"));
-            metrics.put("textures", presenceMetric(modInventory.assetCounts().get("textures"), "texture asset present"));
-            metrics.put("models", presenceMetric(modInventory.assetCounts().get("models"), "model json present"));
-            metrics.put("sounds", presenceMetric(modInventory.assetCounts().get("sounds"), "sound asset present"));
-            metrics.put("metadata_blocks", coverageMetric(modInventory.registryCounts().get("blocks"), modInventory.blockMetadataMappings(), "block metadata mapping present"));
-            metrics.put("metadata_items", coverageMetric(modInventory.registryCounts().get("items"), modInventory.itemMetadataMappings(), "item metadata mapping present"));
-            metrics.put("metadata_recipes", coverageMetric(modInventory.assetCounts().get("recipes"), modInventory.recipeMetadataMappings(), "recipe metadata mapping present"));
-            metrics.put("metadata_entities", coverageMetric(modInventory.registryCounts().get("entities"), modInventory.entityMetadataMappings(), "entity metadata mapping present; runtime entity bridge is not implemented yet"));
-            metrics.put("metadata_menus", coverageMetric(modInventory.registryCounts().get("menus"), modInventory.menuMetadataMappings(), "menu metadata mapping present; runtime menu bridge is not implemented yet"));
-
+            List<CompatibilityObject> objects = this.analyzeObjects(modInventory, metadataIndex);
+            Map<String, SupportResult> supportResults = aggregateSupportResults(objects);
             List<String> notes = new ArrayList<>();
-            notes.add("Early compatibility profile is inventory-backed and intended for regression tracking before deeper analyzers exist.");
-            if (modInventory.blockMetadataMappings() == 0) {
-                notes.add("No metadata block mappings discovered for this mod.");
-            }
-            if (modInventory.itemMetadataMappings() == 0) {
-                notes.add("No metadata item mappings discovered for this mod.");
-            }
-            if (valueOrZero(modInventory.registryCounts().get("entities")) > 0 && modInventory.entityMetadataMappings() == 0) {
-                notes.add("Entity registrations were discovered without entity metadata mappings.");
-            }
-            if (valueOrZero(modInventory.registryCounts().get("menus")) > 0 && modInventory.menuMetadataMappings() == 0) {
-                notes.add("Menu registrations were discovered without menu metadata mappings.");
-            }
-            if (valueOrZero(modInventory.assetCounts().get("recipes")) > 0 && modInventory.recipeMetadataMappings() == 0) {
-                notes.add("Recipe assets were discovered without recipe metadata mappings.");
-            }
+            notes.add("Compatibility output now combines inventory-backed facts, analyzer heuristics, metadata mappings, and Metadata V2 patches.");
+            notes.add("Behavior and runtime interaction domains remain conservative until dedicated bridges are implemented.");
+
+            List<CompatibilityFinding> findings = new ArrayList<>(objects.stream().flatMap(object -> object.findings().stream()).toList());
+            findings.addAll(metadataFindings.stream().filter(finding -> appliesToMod(finding, modInventory)).toList());
+            Map<String, Integer> levelCounts = countLevels(objects);
 
             profiles.put(
                 modInventory.modId(),
-                new CompatibilityProfile(modInventory.modId(), overallStatus(metrics), metrics, notes)
+                new CompatibilityProfile(
+                    modInventory.modId(),
+                    modInventory.fingerprint(),
+                    overallLevel(supportResults),
+                    overallStatus(supportResults),
+                    overallScore(supportResults),
+                    supportResults,
+                    levelCounts,
+                    objects,
+                    findings,
+                    notes
+                )
             );
         }
 
-        return new CompatibilityReport(Instant.now().toString(), metadataIndex.summary(), profiles);
+        return new CompatibilityReport(Instant.now().toString(), metadataIndex.summary(), metadataFindings, profiles);
     }
 
     @NotNull
-    private static CompatibilityProfile.CapabilityMetric coverageMetric(Integer total, Integer covered, @NotNull String basis) {
-        if (total == null || total == 0) {
-            return new CompatibilityProfile.CapabilityMetric(total, covered != null ? covered : 0, total == null ? null : 0, CompatibilityStatus.NONE, basis);
-        }
-
-        int safeCovered = Math.min(covered != null ? covered : 0, total);
-        int percent = (int) Math.round((safeCovered * 100.0d) / total);
-        CompatibilityStatus status = safeCovered == 0 ? CompatibilityStatus.NONE : safeCovered == total ? CompatibilityStatus.COMPLETE : CompatibilityStatus.PARTIAL;
-        return new CompatibilityProfile.CapabilityMetric(total, safeCovered, percent, status, basis);
-    }
-
-    @NotNull
-    private static CompatibilityProfile.CapabilityMetric presenceMetric(Integer count, @NotNull String basis) {
-        int safeCount = count != null ? count : 0;
-        CompatibilityStatus status = safeCount == 0 ? CompatibilityStatus.NONE : CompatibilityStatus.COMPLETE;
-        return new CompatibilityProfile.CapabilityMetric(safeCount, safeCount, safeCount == 0 ? 0 : 100, status, basis);
-    }
-
-    private static int valueOrZero(Integer value) {
-        return value != null ? value : 0;
-    }
-
-    @NotNull
-    private static CompatibilityProfile.CapabilityMetric unknownMetric(Integer total, @NotNull String basis) {
-        int safeTotal = total != null ? total : 0;
-        CompatibilityStatus status = safeTotal == 0 ? CompatibilityStatus.NONE : CompatibilityStatus.UNKNOWN;
-        return new CompatibilityProfile.CapabilityMetric(safeTotal, null, null, status, basis);
-    }
-
-    @NotNull
-    private static CompatibilityStatus overallStatus(@NotNull Map<String, CompatibilityProfile.CapabilityMetric> metrics) {
-        boolean hasKnown = false;
-        boolean hasCoverage = false;
-        boolean hasMissing = false;
-        boolean hasPartial = false;
-
-        for (CompatibilityProfile.CapabilityMetric metric : metrics.values()) {
-            if (metric.status() == CompatibilityStatus.UNKNOWN) {
+    private List<CompatibilityObject> analyzeObjects(@NotNull ContentInventory.ModContentInventory modInventory, @NotNull MetadataIndex metadataIndex) {
+        List<CompatibilityObject> objects = new ArrayList<>();
+        for (ContentInventory.ContentDescriptor descriptor : modInventory.contentDescriptors()) {
+            CompatibilityAnalyzer analyzer = ANALYZERS.stream()
+                .filter(candidate -> candidate.supports(descriptor))
+                .findFirst()
+                .orElse(null);
+            if (analyzer == null) {
                 continue;
             }
+            objects.add(analyzer.analyze(descriptor, modInventory, metadataIndex));
+        }
+        return List.copyOf(objects);
+    }
 
-            hasKnown = true;
-            if (metric.status() == CompatibilityStatus.PARTIAL) {
-                hasPartial = true;
-            }
-            if (metric.status() == CompatibilityStatus.NONE && (metric.total() == null || metric.total() > 0)) {
-                hasMissing = true;
-            }
-            if (metric.status() == CompatibilityStatus.COMPLETE) {
-                hasCoverage = true;
+    @NotNull
+    private static Map<String, SupportResult> aggregateSupportResults(@NotNull List<CompatibilityObject> objects) {
+        Map<String, List<SupportResult>> grouped = new LinkedHashMap<>();
+        for (CompatibilityObject object : objects) {
+            for (Map.Entry<String, SupportResult> entry : object.supportResults().entrySet()) {
+                grouped.computeIfAbsent(entry.getKey(), ignored -> new ArrayList<>()).add(entry.getValue());
             }
         }
 
-        if (!hasKnown) {
-            return CompatibilityStatus.UNKNOWN;
+        Map<String, SupportResult> aggregated = new LinkedHashMap<>();
+        for (Map.Entry<String, List<SupportResult>> entry : grouped.entrySet()) {
+            List<SupportResult> values = entry.getValue();
+            int scored = 0;
+            int totalScore = 0;
+            boolean hasComplete = false;
+            boolean hasPartial = false;
+            boolean hasNone = false;
+            boolean hasUnsupported = false;
+            boolean hasAdapted = false;
+            boolean hasApproximated = false;
+            boolean hasVisualOnly = false;
+            Set<String> supported = new LinkedHashSet<>();
+            Set<String> missing = new LinkedHashSet<>();
+            List<String> notes = new ArrayList<>();
+
+            for (SupportResult result : values) {
+                if (result.scorePercent() != null) {
+                    scored++;
+                    totalScore += result.scorePercent();
+                }
+                hasComplete |= result.status() == CompatibilityStatus.COMPLETE;
+                hasPartial |= result.status() == CompatibilityStatus.PARTIAL;
+                hasNone |= result.status() == CompatibilityStatus.NONE;
+                hasUnsupported |= result.level() == SupportLevel.UNSUPPORTED;
+                hasVisualOnly |= result.level() == SupportLevel.VISUAL_ONLY;
+                hasApproximated |= result.level() == SupportLevel.APPROXIMATED;
+                hasAdapted |= result.level() == SupportLevel.ADAPTED;
+                supported.addAll(result.supportedCapabilities());
+                missing.addAll(result.missingCapabilities());
+                notes.addAll(result.notes());
+            }
+
+            CompatibilityStatus status = hasNone || hasPartial ? CompatibilityStatus.PARTIAL : hasComplete ? CompatibilityStatus.COMPLETE : CompatibilityStatus.UNKNOWN;
+            SupportLevel level = hasUnsupported ? SupportLevel.UNSUPPORTED : hasVisualOnly ? SupportLevel.VISUAL_ONLY : hasApproximated ? SupportLevel.APPROXIMATED : hasAdapted ? SupportLevel.ADAPTED : SupportLevel.AUTOMATIC;
+            aggregated.put(entry.getKey(), new SupportResult(entry.getKey(), level, status, scored == 0 ? null : (int) Math.round(totalScore / (double) scored), List.copyOf(supported), List.copyOf(missing), List.copyOf(notes)));
         }
-        if (hasPartial || hasMissing) {
+        return aggregated;
+    }
+
+    @NotNull
+    private static Map<String, Integer> countLevels(@NotNull List<CompatibilityObject> objects) {
+        Map<String, Integer> counts = new LinkedHashMap<>();
+        for (CompatibilityObject object : objects) {
+            counts.merge(object.overallLevel().name(), 1, Integer::sum);
+        }
+        return counts;
+    }
+
+    @NotNull
+    private static CompatibilityStatus overallStatus(@NotNull Map<String, SupportResult> supportResults) {
+        boolean hasComplete = false;
+        boolean hasPartial = false;
+        boolean hasNone = false;
+        for (SupportResult result : supportResults.values()) {
+            hasComplete |= result.status() == CompatibilityStatus.COMPLETE;
+            hasPartial |= result.status() == CompatibilityStatus.PARTIAL;
+            hasNone |= result.status() == CompatibilityStatus.NONE;
+        }
+        if (hasNone || hasPartial) {
             return CompatibilityStatus.PARTIAL;
         }
-        if (hasCoverage) {
+        if (hasComplete) {
             return CompatibilityStatus.COMPLETE;
         }
-        return CompatibilityStatus.NONE;
+        return CompatibilityStatus.UNKNOWN;
+    }
+
+    @NotNull
+    private static SupportLevel overallLevel(@NotNull Map<String, SupportResult> supportResults) {
+        boolean hasUnsupported = false;
+        boolean hasVisualOnly = false;
+        boolean hasApproximated = false;
+        boolean hasAdapted = false;
+        for (SupportResult result : supportResults.values()) {
+            hasUnsupported |= result.level() == SupportLevel.UNSUPPORTED;
+            hasVisualOnly |= result.level() == SupportLevel.VISUAL_ONLY;
+            hasApproximated |= result.level() == SupportLevel.APPROXIMATED;
+            hasAdapted |= result.level() == SupportLevel.ADAPTED;
+        }
+        if (hasUnsupported) {
+            return SupportLevel.UNSUPPORTED;
+        }
+        if (hasVisualOnly) {
+            return SupportLevel.VISUAL_ONLY;
+        }
+        if (hasApproximated) {
+            return SupportLevel.APPROXIMATED;
+        }
+        if (hasAdapted) {
+            return SupportLevel.ADAPTED;
+        }
+        return SupportLevel.AUTOMATIC;
+    }
+
+    private static int overallScore(@NotNull Map<String, SupportResult> supportResults) {
+        int total = 0;
+        int counted = 0;
+        for (SupportResult result : supportResults.values()) {
+            if (result.scorePercent() != null) {
+                total += result.scorePercent();
+                counted++;
+            }
+        }
+        return counted == 0 ? 0 : (int) Math.round(total / (double) counted);
+    }
+
+    @NotNull
+    private CompatibilityFinding toFinding(@NotNull MetadataValidationIssue issue) {
+        CompatibilityFinding.Severity severity;
+        try {
+            severity = CompatibilityFinding.Severity.valueOf(issue.severity());
+        } catch (IllegalArgumentException ex) {
+            severity = CompatibilityFinding.Severity.WARNING;
+        }
+        return new CompatibilityFinding(issue.code(), severity, "metadata", issue.message(), issue.target(), "Fix the metadata patch or mapping entry described by this validation issue.", issue.sourcePath());
+    }
+
+    private boolean appliesToMod(@NotNull CompatibilityFinding finding, @NotNull ContentInventory.ModContentInventory inventory) {
+        return finding.reason() != null && finding.reason().startsWith(inventory.namespace() + ":");
+    }
+
+    @NotNull
+    private String inferPatchKind(@NotNull MutableInventory inventory, @NotNull Identifier identifier, @NotNull List<ContentPatch> patches) {
+        String explicit = patches.stream().map(ContentPatch::contentType).filter(java.util.Objects::nonNull).findFirst().orElse(null);
+        if (explicit != null) {
+            return pluralize(explicit);
+        }
+        if (inventory.registryEntries.getOrDefault("blocks", Set.of()).contains(identifier.toString())) {
+            return "blocks";
+        }
+        if (inventory.registryEntries.getOrDefault("items", Set.of()).contains(identifier.toString())) {
+            return "items";
+        }
+        if (inventory.registryEntries.getOrDefault("entities", Set.of()).contains(identifier.toString())) {
+            return "entities";
+        }
+        if (inventory.registryEntries.getOrDefault("fluids", Set.of()).contains(identifier.toString())) {
+            return "fluids";
+        }
+        if (inventory.registryEntries.getOrDefault("block_entities", Set.of()).contains(identifier.toString())) {
+            return "block_entities";
+        }
+        if (inventory.registryEntries.getOrDefault("menus", Set.of()).contains(identifier.toString())) {
+            return "menus";
+        }
+        if (inventory.assetKeys.getOrDefault("recipes", Set.of()).contains(identifier.toString())) {
+            return "recipes";
+        }
+        return "content";
+    }
+
+    @NotNull
+    private static String pluralize(@NotNull String value) {
+        return switch (value) {
+            case "block" -> "blocks";
+            case "item" -> "items";
+            case "entity" -> "entities";
+            case "fluid" -> "fluids";
+            case "block_entity" -> "block_entities";
+            case "menu" -> "menus";
+            case "recipe" -> "recipes";
+            default -> value.endsWith("s") ? value : value + "s";
+        };
     }
 
     private void writeJson(@NotNull Path path, @NotNull Object value) {
@@ -341,19 +496,18 @@ public final class CompatibilityManager {
     private final class MutableInventory {
         private final ModInfo mod;
         private final Map<String, Integer> registryCounts = new LinkedHashMap<>();
+        private final Map<String, Set<String>> registryEntries = new LinkedHashMap<>();
         private final Map<String, Set<String>> assetKeys = new LinkedHashMap<>();
-        private int blockMetadataMappings;
-        private int itemMetadataMappings;
-        private int recipeMetadataMappings;
-        private int entityMetadataMappings;
-        private int menuMetadataMappings;
+        private final Map<String, Set<String>> metadataEntries = new LinkedHashMap<>();
+        private final Map<String, Set<String>> patchEntries = new LinkedHashMap<>();
 
         private MutableInventory(@NotNull ModInfo mod) {
             this.mod = mod;
         }
 
-        private void incrementRegistry(@NotNull String category) {
+        private void incrementRegistry(@NotNull String category, @NotNull String identifier) {
             this.registryCounts.merge(category, 1, Integer::sum);
+            this.registryEntries.computeIfAbsent(category, ignored -> new LinkedHashSet<>()).add(identifier);
         }
 
         private void addAssets(@NotNull String category, @NotNull Path root, @NotNull Predicate<Path> filter) {
@@ -370,12 +524,79 @@ public final class CompatibilityManager {
             }
         }
 
+        private void addIdentifierAssets(@NotNull String category, @NotNull Path root, @NotNull String namespace, @NotNull Predicate<Path> filter) {
+            if (!Files.isDirectory(root)) {
+                return;
+            }
+
+            try (Stream<Path> stream = Files.walk(root)) {
+                for (Path path : stream.filter(Files::isRegularFile).filter(filter).toList()) {
+                    String relative = root.relativize(path).toString().replace('\\', '/');
+                    this.assetKeys.computeIfAbsent(category, ignored -> new LinkedHashSet<>()).add(namespace + ":" + relative.substring(0, relative.length() - ".json".length()));
+                }
+            } catch (IOException e) {
+                logger.warn("Failed to scan identifier asset root {} for mod {}", root, this.mod.id(), e);
+            }
+        }
+
+        private void addMetadata(@NotNull String category, @NotNull String identifier) {
+            this.metadataEntries.computeIfAbsent(category, ignored -> new LinkedHashSet<>()).add(identifier);
+        }
+
+        private void addPatch(@NotNull String category, @NotNull String identifier) {
+            this.patchEntries.computeIfAbsent(category, ignored -> new LinkedHashSet<>()).add(identifier);
+        }
+
         @NotNull
         private ContentInventory.ModContentInventory freeze() {
             Map<String, Integer> assetCounts = new LinkedHashMap<>();
+            Map<String, List<String>> assetEntries = new LinkedHashMap<>();
             for (Map.Entry<String, Set<String>> entry : this.assetKeys.entrySet()) {
                 assetCounts.put(entry.getKey(), entry.getValue().size());
+                assetEntries.put(entry.getKey(), List.copyOf(entry.getValue()));
             }
+
+            Map<String, List<String>> registryEntries = new LinkedHashMap<>();
+            for (Map.Entry<String, Set<String>> entry : this.registryEntries.entrySet()) {
+                registryEntries.put(entry.getKey(), List.copyOf(entry.getValue()));
+            }
+
+            Map<String, Integer> metadataCounts = new LinkedHashMap<>();
+            Map<String, List<String>> metadataEntries = new LinkedHashMap<>();
+            for (Map.Entry<String, Set<String>> entry : this.metadataEntries.entrySet()) {
+                metadataCounts.put(entry.getKey(), entry.getValue().size());
+                metadataEntries.put(entry.getKey(), List.copyOf(entry.getValue()));
+            }
+
+            Map<String, Integer> patchCounts = new LinkedHashMap<>();
+            Map<String, List<String>> patchEntries = new LinkedHashMap<>();
+            for (Map.Entry<String, Set<String>> entry : this.patchEntries.entrySet()) {
+                patchCounts.put(entry.getKey(), entry.getValue().size());
+                patchEntries.put(entry.getKey(), List.copyOf(entry.getValue()));
+            }
+
+            ModFingerprint fingerprint = new ModFingerprint(
+                this.mod.id(),
+                this.mod.namespace(),
+                this.mod.version(),
+                "unknown",
+                SharedConstants.getCurrentVersion().id(),
+                this.registryCounts.getOrDefault("blocks", 0),
+                this.registryCounts.getOrDefault("items", 0),
+                this.registryCounts.getOrDefault("entities", 0),
+                this.registryCounts.getOrDefault("fluids", 0),
+                this.registryCounts.getOrDefault("block_entities", 0),
+                this.registryCounts.getOrDefault("menus", 0),
+                assetCounts.getOrDefault("recipes", 0),
+                this.registryCounts.getOrDefault("block_entities", 0) > 0,
+                !metadataEntries.getOrDefault("blocks", List.of()).isEmpty(),
+                false,
+                this.registryCounts.getOrDefault("menus", 0) > 0 || this.registryCounts.getOrDefault("fluids", 0) > 0 || this.registryCounts.getOrDefault("block_entities", 0) > 0,
+                !metadataEntries.getOrDefault("items", List.of()).isEmpty(),
+                assetCounts.getOrDefault("models", 0) > 0,
+                this.registryCounts.getOrDefault("particles", 0) > 0,
+                assetCounts.getOrDefault("sounds", 0) > 0 || this.registryCounts.getOrDefault("sound_events", 0) > 0
+            );
 
             return new ContentInventory.ModContentInventory(
                 this.mod.id(),
@@ -383,13 +604,15 @@ public final class CompatibilityManager {
                 this.mod.name(),
                 this.mod.version(),
                 this.mod.roots().stream().map(Path::toString).toList(),
+                fingerprint,
                 this.registryCounts,
+                registryEntries,
                 assetCounts,
-                this.blockMetadataMappings,
-                this.itemMetadataMappings,
-                this.recipeMetadataMappings,
-                this.entityMetadataMappings,
-                this.menuMetadataMappings
+                assetEntries,
+                metadataCounts,
+                metadataEntries,
+                patchCounts,
+                patchEntries
             );
         }
     }

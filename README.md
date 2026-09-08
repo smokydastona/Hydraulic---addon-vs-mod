@@ -8,15 +8,17 @@ Hydraulic is a companion to Geyser which allows for Bedrock players to join modd
 Hydraulic is an open collaboration project by [CubeCraft Games](https://cubecraft.net).
 
 ## About This Fork
-This fork keeps the normal Hydraulic pack pipeline, but adds a metadata layer for block, item, recipe, entity, and menu compatibility overrides.
+This fork keeps the normal Hydraulic pack pipeline, but now adds a broader compatibility-analysis and metadata-patch layer on top of it.
 
-The goal is simple: when Hydraulic's normal model and material lookup is not enough, you can describe a block override in JSON instead of hardcoding everything in Java.
+The goal is no longer just "JSON override a block." The fork now records typed compatibility evidence for discovered mod content, separates compatibility into content, presentation, state/data, interaction, and behavior domains, and lets metadata patches progressively refine the result.
 
 Right now this fork adds:
 - metadata-based block matching by Java block ID and optional Java state filters
 - item, recipe, entity, and menu identifier mapping metadata on the same compatibility/report foundation
+- Metadata V2 patch loading for blocks, items, recipes, entities, and menus
 - override support for Bedrock block identifier, geometry, and material
-- a first narrow Bedrock state override path for custom block properties and permutations
+- typed compatibility objects with support levels, confidence, provenance, findings, and mod fingerprints
+- a first analyzer API with block, item, entity, fluid, block-entity, menu, and recipe analyzers
 - local Fabric dev metadata examples for the test block, item, and recipe surfaces
 
 ## What is Hydraulic?
@@ -27,7 +29,7 @@ Hydraulic is a server-side mod, which allows for Bedrock players to join modded 
 ## What Changed Compared To Upstream Hydraulic?
 Upstream Hydraulic mainly relies on its existing registry, model, and resource-pack conversion flow.
 
-This fork adds a declarative metadata index that is loaded during pack manager startup. That metadata is then used by the block conversion path to selectively override how a block is exposed to Bedrock.
+This fork adds a declarative metadata index that is loaded during pack manager startup. That metadata is then used by the block conversion path to selectively override how a block is exposed to Bedrock, while the compatibility report records how far each discovered content object gets across the five compatibility domains.
 
 In practice, that means you can now attach extra mapping rules in JSON for cases where a mod content entry needs:
 - a different Bedrock identifier
@@ -96,7 +98,7 @@ Supported fields today:
 - `behavior_required`: reserved for future behavior-pack work
 - `behavior_tag`: reserved for future behavior-pack work
 
-The same metadata directory now also supports simple item, recipe, entity, and menu identifier mappings:
+The same metadata directory also supports simple item, recipe, entity, and menu identifier mappings:
 
 ```json
 {
@@ -127,13 +129,64 @@ The same metadata directory now also supports simple item, recipe, entity, and m
 }
 ```
 
+Metadata V2 additionally supports patch entries. Patches are loaded recursively, respect the same ownership precedence, are recorded in the compatibility report, and can synthesize current block and identifier mappings when they expose fields Hydraulic already understands.
+
+Example patch file:
+
+```json
+{
+	"patches": [
+		{
+			"target": "hydraulic_test_mod:golden_barrel",
+			"content_type": "block",
+			"patch": {
+				"visual": {
+					"geometry": "minecraft:geometry.full_block",
+					"material": "hydraulic_test_mod:block/golden_barrel"
+				},
+				"bedrock": {
+					"identifier": "hydraulic_test_mod:golden_barrel_override",
+					"state": {
+						"variant": "gold"
+					}
+				},
+				"behavior": {
+					"required": true,
+					"tag": "machine"
+				}
+			}
+		}
+	]
+}
+```
+
+Supported patch paths today:
+- `bedrock.identifier`
+- `bedrock.state.<key>`
+- `visual.geometry`
+- `visual.material`
+- `java.when.<key>`
+- `behavior.required`
+- `behavior.tag`
+
+Unsupported patch data is still preserved in the metadata index and compatibility report, but only the fields above are synthesized into the current runtime mapping layer.
+
 ## Compatibility Inventory And Report
-On startup, this fork now writes two early compatibility artifacts under Hydraulic's data folder:
+On startup, this fork now writes two compatibility artifacts under Hydraulic's data folder:
 
 - `config/hydraulic/reports/content-inventory.json`
 - `config/hydraulic/reports/compatibility-report.json`
 
-These files are meant to give you a machine-readable view of what Hydraulic discovered before deeper compatibility analyzers exist. The current report is inventory-backed, so it is useful for regression tracking and metadata coverage, but it is not yet a full gameplay compatibility verdict.
+`content-inventory.json` records the per-mod discovery inventory, including registry entries, discovered assets, metadata targets, patch targets, and a mod fingerprint.
+
+`compatibility-report.json` records per-object analyzer output, including:
+- support levels: `NATIVE`, `AUTOMATIC`, `ADAPTED`, `APPROXIMATED`, `VISUAL_ONLY`, `UNSUPPORTED`
+- the five compatibility domains: content, presentation, state/data, interaction, behavior
+- capability requirements and analyzer results
+- confidence, provenance, and structured findings
+- metadata validation issues emitted during Metadata V2 loading
+
+The current report is still conservative. It is intended to answer "what do we know right now from registries, assets, metadata, and patches?" not "is this mod fully playable end-to-end on Bedrock?" Behavior-heavy entities, fluids, menus, and block entities will still show low support until dedicated runtime bridges are implemented.
 
 ## Contributing
 Any contributions are appreciated. Please feel free to reach out to us on [Discord](https://discord.gg/geysermc) if

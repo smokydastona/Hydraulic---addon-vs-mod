@@ -1,5 +1,6 @@
 package org.geysermc.hydraulic.metadata;
 
+import org.geysermc.hydraulic.compat.mapping.ContentPatch;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.level.block.state.BlockState;
 import org.jetbrains.annotations.NotNull;
@@ -15,6 +16,8 @@ public final class MetadataIndex {
     private final Map<Identifier, IdentifierMapping> recipeMappings;
     private final Map<Identifier, IdentifierMapping> entityMappings;
     private final Map<Identifier, IdentifierMapping> menuMappings;
+    private final Map<Identifier, java.util.List<ContentPatch>> contentPatches;
+    private final java.util.List<MetadataValidationIssue> validationIssues;
     private final Summary summary;
 
     public MetadataIndex(
@@ -23,6 +26,8 @@ public final class MetadataIndex {
         @NotNull Map<Identifier, IdentifierMapping> recipeMappings,
         @NotNull Map<Identifier, IdentifierMapping> entityMappings,
         @NotNull Map<Identifier, IdentifierMapping> menuMappings,
+        @NotNull Map<Identifier, java.util.List<ContentPatch>> contentPatches,
+        @NotNull java.util.List<MetadataValidationIssue> validationIssues,
         @NotNull Summary summary
     ) {
         this.blockMappings = Collections.unmodifiableMap(new LinkedHashMap<>(blockMappings));
@@ -30,12 +35,18 @@ public final class MetadataIndex {
         this.recipeMappings = Collections.unmodifiableMap(new LinkedHashMap<>(recipeMappings));
         this.entityMappings = Collections.unmodifiableMap(new LinkedHashMap<>(entityMappings));
         this.menuMappings = Collections.unmodifiableMap(new LinkedHashMap<>(menuMappings));
+        Map<Identifier, java.util.List<ContentPatch>> patchCopy = new LinkedHashMap<>();
+        for (Map.Entry<Identifier, java.util.List<ContentPatch>> entry : contentPatches.entrySet()) {
+            patchCopy.put(entry.getKey(), java.util.List.copyOf(entry.getValue()));
+        }
+        this.contentPatches = Collections.unmodifiableMap(patchCopy);
+        this.validationIssues = java.util.List.copyOf(validationIssues);
         this.summary = summary;
     }
 
     @NotNull
     public static MetadataIndex empty() {
-        return new MetadataIndex(Map.of(), Map.of(), Map.of(), Map.of(), Map.of(), Summary.empty());
+        return new MetadataIndex(Map.of(), Map.of(), Map.of(), Map.of(), Map.of(), Map.of(), java.util.List.of(), Summary.empty());
     }
 
     @Nullable
@@ -88,6 +99,21 @@ public final class MetadataIndex {
         return this.menuMappings;
     }
 
+    @NotNull
+    public Map<Identifier, java.util.List<ContentPatch>> contentPatches() {
+        return this.contentPatches;
+    }
+
+    @NotNull
+    public java.util.List<ContentPatch> contentPatches(@NotNull Identifier javaIdentifier) {
+        return this.contentPatches.getOrDefault(javaIdentifier, java.util.List.of());
+    }
+
+    @NotNull
+    public java.util.List<MetadataValidationIssue> validationIssues() {
+        return this.validationIssues;
+    }
+
     @Nullable
     public BlockStateRule blockRule(@NotNull Identifier javaIdentifier, @NotNull BlockState state) {
         BlockMapping mapping = this.blockMappings.get(javaIdentifier);
@@ -102,7 +128,8 @@ public final class MetadataIndex {
             && this.itemMappings.isEmpty()
             && this.recipeMappings.isEmpty()
             && this.entityMappings.isEmpty()
-            && this.menuMappings.isEmpty();
+            && this.menuMappings.isEmpty()
+            && this.contentPatches.isEmpty();
     }
 
     @NotNull
@@ -117,7 +144,9 @@ public final class MetadataIndex {
         int recipeMappingCount,
         int entityMappingCount,
         int menuMappingCount,
+        int patchCount,
         int ruleCount,
+        int validationIssueCount,
         @NotNull Map<String, Integer> ownershipFileCounts
     ) {
         public Summary {
@@ -126,7 +155,7 @@ public final class MetadataIndex {
 
         @NotNull
         public static Summary empty() {
-            return new Summary(0, 0, 0, 0, 0, 0, 0, Map.of());
+            return new Summary(0, 0, 0, 0, 0, 0, 0, 0, 0, Map.of());
         }
     }
 }
