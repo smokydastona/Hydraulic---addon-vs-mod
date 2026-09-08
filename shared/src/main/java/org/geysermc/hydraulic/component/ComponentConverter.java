@@ -26,9 +26,9 @@ import java.util.Optional;
 public class ComponentConverter {
     private static final Map<DataComponentType<?>, Converter<Object>> COMPONENT_CONVERT_MAP = new HashMap<>();
 
+    @SuppressWarnings("unchecked")
     private static <T> void addComponentConversion(DataComponentType<T> dataComponent, Converter<T> conversion) {
         // Yellow lines make me sad, this is safe, so no worries
-        //noinspection unchecked
         COMPONENT_CONVERT_MAP.put(dataComponent, (Converter<Object>) conversion);
     }
 

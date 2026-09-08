@@ -84,6 +84,7 @@ public class BlockPackModule extends PackModule<BlockPackModule> {
     private final Map<String, StateDefinition> blockStates = new HashMap<>();
     private final Set<String> emptyModels = new HashSet<>();
 
+    @SuppressWarnings("this-escape")
     public BlockPackModule() {
         this.listenOn(GeyserDefineCustomBlocksEvent.class, this::onDefineCustomBlocks);
 
@@ -189,6 +190,7 @@ public class BlockPackModule extends PackModule<BlockPackModule> {
         return !context.registryValues(BuiltInRegistries.BLOCK).isEmpty();
     }
 
+    @SuppressWarnings("deprecation")
     private void onDefineCustomBlocks(PackEventContext<GeyserDefineCustomBlocksEvent, BlockPackModule> context) {
         GeyserDefineCustomBlocksEvent event = context.event();
         List<Block> blocks = context.registryValues(BuiltInRegistries.BLOCK);

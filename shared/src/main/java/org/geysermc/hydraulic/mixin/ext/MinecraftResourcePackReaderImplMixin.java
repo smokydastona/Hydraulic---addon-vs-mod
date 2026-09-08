@@ -54,7 +54,7 @@ public abstract class MinecraftResourcePackReaderImplMixin {
             target = "Lteam/unnamed/creative/serialize/minecraft/io/JsonResourceDeserializer;deserializeFromJson(Lcom/google/gson/JsonElement;Lnet/kyori/adventure/key/Key;Lteam/unnamed/creative/metadata/pack/PackFormat;)Ljava/lang/Object;"
         )
     )
-    private Object deserializeFromJson(JsonResourceDeserializer instance, JsonElement jsonElement, Key key, PackFormat packFormat) throws IOException {
+    private Object deserializeFromJson(JsonResourceDeserializer<?> instance, JsonElement jsonElement, Key key, PackFormat packFormat) throws IOException {
         if (jsonElement == null) {
             return null;
         }

@@ -33,7 +33,7 @@ public class ModelSerializerMixin {
             target = "Ljava/util/Map;put(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;"
         )
     )
-    private Object redirectDisplayMapPut(Map instance, Object k, Object v) {
+    private Object redirectDisplayMapPut(Map<Object, Object> instance, Object k, Object v) {
         // If the type is null, we skip adding it to the map
         if (k == null) {
             return null;

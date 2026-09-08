@@ -15,6 +15,7 @@ import java.util.Map;
 @SuppressWarnings("rawtypes")
 @AutoService(PackModule.class)
 public class HydraulicPackModule extends PackModule<HydraulicPackModule> {
+    @SuppressWarnings("this-escape")
     public HydraulicPackModule() {
         this.postProcess(context -> {
             JsonMappings jsonMappings = JsonMappings.getMapping("textures");
