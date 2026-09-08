@@ -22,8 +22,18 @@ configurations {
 }
 
 tasks {
+    val syncGeneratedResources by registering(Copy::class) {
+        dependsOn(named("runDatagen"))
+        from("src/main/generated")
+        into(layout.buildDirectory.dir("resources/main"))
+    }
+
     sourcesJar {
         dependsOn(named("runDatagen")) // Make sure the sources jar gets our generated files
+    }
+
+    named<Jar>("jar") {
+        dependsOn(syncGeneratedResources)
     }
 
     named<Jar>("mergeShadowAndJarJar") {
@@ -47,6 +57,14 @@ tasks {
 
     jar {
         archiveClassifier.set("dev")
+    }
+
+    named("runServer") {
+        dependsOn(syncGeneratedResources)
+    }
+
+    named("runClient") {
+        dependsOn(syncGeneratedResources)
     }
 }
 

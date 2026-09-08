@@ -8,15 +8,16 @@ Hydraulic is a companion to Geyser which allows for Bedrock players to join modd
 Hydraulic is an open collaboration project by [CubeCraft Games](https://cubecraft.net).
 
 ## About This Fork
-This fork keeps the normal Hydraulic pack pipeline, but adds a small metadata layer for block overrides.
+This fork keeps the normal Hydraulic pack pipeline, but adds a metadata layer for block, item, and recipe compatibility overrides.
 
 The goal is simple: when Hydraulic's normal model and material lookup is not enough, you can describe a block override in JSON instead of hardcoding everything in Java.
 
 Right now this fork adds:
 - metadata-based block matching by Java block ID and optional Java state filters
+- item and recipe identifier mapping metadata on the same compatibility/report foundation
 - override support for Bedrock block identifier, geometry, and material
 - a first narrow Bedrock state override path for custom block properties and permutations
-- a sample metadata file for the test block `hydraulic_test_mod:golden_barrel`
+- local Fabric dev metadata examples for the test block, item, and recipe surfaces
 
 ## What is Hydraulic?
 Hydraulic is a server-side mod, which allows for Bedrock players to join modded Minecraft: Java Edition servers. This project works alongside [Geyser](https://github.com/GeyserMC/Geyser) to make this possible.
@@ -28,7 +29,7 @@ Upstream Hydraulic mainly relies on its existing registry, model, and resource-p
 
 This fork adds a declarative metadata index that is loaded during pack manager startup. That metadata is then used by the block conversion path to selectively override how a block is exposed to Bedrock.
 
-In practice, that means you can now attach extra mapping rules in JSON for cases where a mod block needs:
+In practice, that means you can now attach extra mapping rules in JSON for cases where a mod content entry needs:
 - a different Bedrock identifier
 - a specific Bedrock geometry name
 - a specific material key
@@ -94,6 +95,25 @@ Supported fields today:
 - `material`: optional Bedrock material override
 - `behavior_required`: reserved for future behavior-pack work
 - `behavior_tag`: reserved for future behavior-pack work
+
+The same metadata directory now also supports simple item and recipe identifier mappings:
+
+```json
+{
+	"items": [
+		{
+			"java_id": "hydraulic_test_mod:barrel_pack",
+			"bedrock_identifier": "hydraulic_test_mod:barrel_pack_override"
+		}
+	],
+	"recipes": [
+		{
+			"java_id": "hydraulic_test_mod:barrel_stick",
+			"bedrock_identifier": "hydraulic_test_mod:barrel_stick_recipe_override"
+		}
+	]
+}
+```
 
 ## Compatibility Inventory And Report
 On startup, this fork now writes two early compatibility artifacts under Hydraulic's data folder:
