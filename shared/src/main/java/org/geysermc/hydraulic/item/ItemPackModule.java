@@ -14,6 +14,7 @@ import org.geysermc.geyser.api.item.custom.v2.NonVanillaCustomItemDefinition;
 import org.geysermc.geyser.api.item.custom.v2.component.geyser.GeyserBlockPlacer;
 import org.geysermc.geyser.api.item.custom.v2.component.geyser.GeyserChargeable;
 import org.geysermc.geyser.api.item.custom.v2.component.geyser.GeyserItemDataComponents;
+import org.geysermc.hydraulic.compat.MappingResolver;
 import org.geysermc.hydraulic.pack.PackLogListener;
 import org.geysermc.hydraulic.pack.PackModule;
 import org.geysermc.hydraulic.pack.TexturePackModule;
@@ -228,10 +229,15 @@ public class ItemPackModule extends TexturePackModule<ItemPackModule> {
                     // Set the block_placer component to the correct block
                     // This fixes animations sometimes not showing
                     Block block = blockItem.getBlock();
+                    Identifier javaBlockIdentifier = BuiltInRegistries.BLOCK.getKey(block);
+                    MappingResolver.ResolvedBlockState resolvedPlacement = context.hydraulic()
+                        .getPackManager()
+                        .mappingResolver()
+                        .resolveBlockState(javaBlockIdentifier, block.defaultBlockState());
 
                     customItemDefinition.component(
                             GeyserItemDataComponents.BLOCK_PLACER,
-                            GeyserBlockPlacer.of(HydraulicKey.of(BuiltInRegistries.BLOCK.getKey(block)), !is2d)
+                        GeyserBlockPlacer.of(HydraulicKey.of(resolvedPlacement.identifier()), !is2d)
                     );
 
                     CreativeMappings.setupBlock(block, customItemOptions);

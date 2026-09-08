@@ -4,9 +4,15 @@ import net.minecraft.resources.Identifier;
 import net.minecraft.world.level.block.state.BlockState;
 import org.geysermc.hydraulic.metadata.BlockMapping;
 import org.geysermc.hydraulic.metadata.BlockStateRule;
+import org.geysermc.hydraulic.metadata.IdentifierMapping;
 import org.geysermc.hydraulic.metadata.MetadataIndex;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 
 public final class MappingResolver {
     private final MetadataIndex metadataIndex;
@@ -25,33 +31,89 @@ public final class MappingResolver {
         return this.metadataIndex.blockRule(javaIdentifier, state);
     }
 
+    @Nullable
+    public IdentifierMapping itemMapping(@NotNull Identifier javaIdentifier) {
+        return this.metadataIndex.itemMapping(javaIdentifier);
+    }
+
+    @Nullable
+    public IdentifierMapping recipeMapping(@NotNull Identifier javaIdentifier) {
+        return this.metadataIndex.recipeMapping(javaIdentifier);
+    }
+
     @NotNull
-    public ResolvedIdentifier resolveBlockIdentifier(@NotNull Identifier javaIdentifier, @NotNull Iterable<BlockState> states) {
-        Identifier resolved = null;
-        boolean conflicting = false;
+    public ResolvedBlockState resolveBlockState(@NotNull Identifier javaIdentifier, @NotNull BlockState state) {
+        BlockStateRule rule = this.blockRule(javaIdentifier, state);
+        if (rule == null || rule.bedrockIdentifier() == null) {
+            return new ResolvedBlockState(javaIdentifier, rule, false);
+        }
+        return new ResolvedBlockState(rule.bedrockIdentifier(), rule, true);
+    }
+
+    @NotNull
+    public List<ResolvedBlockDefinition> resolveBlockDefinitions(@NotNull Identifier javaIdentifier, @NotNull Iterable<BlockState> states) {
+        Map<Identifier, List<BlockState>> groupedStates = new LinkedHashMap<>();
+        Map<Identifier, Boolean> overridden = new LinkedHashMap<>();
 
         for (BlockState state : states) {
-            BlockStateRule rule = this.blockRule(javaIdentifier, state);
-            if (rule == null || rule.bedrockIdentifier() == null) {
-                continue;
-            }
-
-            if (resolved == null) {
-                resolved = rule.bedrockIdentifier();
-                continue;
-            }
-
-            if (!resolved.equals(rule.bedrockIdentifier())) {
-                conflicting = true;
-                break;
-            }
+            ResolvedBlockState resolved = this.resolveBlockState(javaIdentifier, state);
+            groupedStates.computeIfAbsent(resolved.identifier(), ignored -> new ArrayList<>()).add(state);
+            overridden.merge(resolved.identifier(), resolved.overridden(), Boolean::logicalOr);
         }
 
-        if (conflicting || resolved == null) {
-            return new ResolvedIdentifier(javaIdentifier, resolved != null, conflicting);
+        List<ResolvedBlockDefinition> definitions = new ArrayList<>();
+        for (Map.Entry<Identifier, List<BlockState>> entry : groupedStates.entrySet()) {
+            definitions.add(new ResolvedBlockDefinition(entry.getKey(), List.copyOf(entry.getValue()), overridden.getOrDefault(entry.getKey(), false)));
+        }
+        return List.copyOf(definitions);
+    }
+
+    @NotNull
+    public ResolvedIdentifier resolveBlockIdentifier(@NotNull Identifier javaIdentifier, @NotNull Iterable<BlockState> states) {
+        List<ResolvedBlockDefinition> definitions = this.resolveBlockDefinitions(javaIdentifier, states);
+        if (definitions.isEmpty()) {
+            return new ResolvedIdentifier(javaIdentifier, false, false);
         }
 
-        return new ResolvedIdentifier(resolved, true, false);
+        if (definitions.size() > 1) {
+            boolean overridden = definitions.stream().anyMatch(ResolvedBlockDefinition::overridden);
+            return new ResolvedIdentifier(javaIdentifier, overridden, true);
+        }
+
+        ResolvedBlockDefinition resolved = definitions.getFirst();
+        if (!resolved.overridden()) {
+            return new ResolvedIdentifier(javaIdentifier, false, false);
+        }
+
+        return new ResolvedIdentifier(resolved.identifier(), true, false);
+    }
+
+    @NotNull
+    public ResolvedIdentifier resolveItemIdentifier(@NotNull Identifier javaIdentifier) {
+        IdentifierMapping mapping = this.itemMapping(javaIdentifier);
+        if (mapping == null) {
+            return new ResolvedIdentifier(javaIdentifier, false, false);
+        }
+        return new ResolvedIdentifier(mapping.bedrockIdentifier(), true, false);
+    }
+
+    @NotNull
+    public ResolvedIdentifier resolveRecipeIdentifier(@NotNull Identifier javaIdentifier) {
+        IdentifierMapping mapping = this.recipeMapping(javaIdentifier);
+        if (mapping == null) {
+            return new ResolvedIdentifier(javaIdentifier, false, false);
+        }
+        return new ResolvedIdentifier(mapping.bedrockIdentifier(), true, false);
+    }
+
+    public record ResolvedBlockState(@NotNull Identifier identifier, @Nullable BlockStateRule rule, boolean overridden) {
+    }
+
+    public record ResolvedBlockDefinition(@NotNull Identifier identifier, @NotNull List<BlockState> states, boolean overridden) {
+        @NotNull
+        public BlockState representativeState(@NotNull BlockState fallback) {
+            return this.states.contains(fallback) ? fallback : this.states.getFirst();
+        }
     }
 
     public record ResolvedIdentifier(@NotNull Identifier identifier, boolean overridden, boolean conflicting) {

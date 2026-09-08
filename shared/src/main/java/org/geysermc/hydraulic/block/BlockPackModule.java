@@ -195,23 +195,31 @@ public class BlockPackModule extends PackModule<BlockPackModule> {
         DefaultedRegistry<Block> registry = BuiltInRegistries.BLOCK;
         for (Block block : blocks) {
             Identifier blockLocation = registry.getKey(block);
-            BlockMapping blockMapping = context.hydraulic().getPackManager().mappingResolver().blockMapping(blockLocation);
+            MappingResolver mappingResolver = context.hydraulic().getPackManager().mappingResolver();
+            BlockMapping blockMapping = mappingResolver.blockMapping(blockLocation);
             Map<String, StatePropertyDefinition> stateDefinitions = stateDefinitions(context, blockLocation, block.getStateDefinition().getProperties(), blockMapping);
-            Identifier customBlockIdentifier = overrideIdentifier(context, block, blockLocation);
-            CustomBlockData.Builder builder = NonVanillaCustomBlockData.builder()
-                    .name(customBlockIdentifier.getPath())
-                    .namespace(customBlockIdentifier.getNamespace())
-                    .includedInCreativeInventory(true);
-
-            CreativeMappings.setupBlock(block, builder);
-
-            for (StatePropertyDefinition definition : stateDefinitions.values()) {
-                addStateProperty(builder, definition);
+            List<MappingResolver.ResolvedBlockDefinition> resolvedDefinitions = mappingResolver.resolveBlockDefinitions(blockLocation, block.getStateDefinition().getPossibleStates());
+            if (resolvedDefinitions.size() > 1) {
+                context.logger().info("Resolved {} state-aware compatibility variants for {}", resolvedDefinitions.size(), blockLocation);
             }
 
-            List<CustomBlockPermutation> permutations = new ArrayList<>();
-            CustomBlockComponents.Builder baseComponentBuilder = CustomBlockComponents.builder();
-            for (BlockState state : block.getStateDefinition().getPossibleStates()) {
+            int blockId = registry.getId(block);
+            for (MappingResolver.ResolvedBlockDefinition resolvedDefinition : resolvedDefinitions) {
+                Identifier customBlockIdentifier = resolvedDefinition.identifier();
+                CustomBlockData.Builder builder = NonVanillaCustomBlockData.builder()
+                        .name(customBlockIdentifier.getPath())
+                        .namespace(customBlockIdentifier.getNamespace())
+                        .includedInCreativeInventory(true);
+
+                CreativeMappings.setupBlock(block, builder);
+
+                for (StatePropertyDefinition definition : stateDefinitions.values()) {
+                    addStateProperty(builder, definition);
+                }
+
+                List<CustomBlockPermutation> permutations = new ArrayList<>();
+                CustomBlockComponents.Builder baseComponentBuilder = CustomBlockComponents.builder();
+                for (BlockState state : resolvedDefinition.states()) {
                 ModelDefinition definition = getModel(context, blockLocation, state);
                 if (definition == null) {
                     continue;
@@ -219,8 +227,9 @@ public class BlockPackModule extends PackModule<BlockPackModule> {
 
                 Model model = definition.model();
                 Key key = model.key();
-                BlockStateRule metadataRule = metadataRule(context, blockLocation, state);
-        Map<String, String> stateValues = customStateValues(context, blockLocation, stateDefinitions, state, metadataRule);
+                MappingResolver.ResolvedBlockState resolvedState = mappingResolver.resolveBlockState(blockLocation, state);
+                BlockStateRule metadataRule = resolvedState.rule();
+                Map<String, String> stateValues = customStateValues(context, blockLocation, stateDefinitions, state, metadataRule);
 
                 CustomBlockComponents.Builder componentsBuilder = CustomBlockComponents.builder()
                         .transformation(new TransformationComponent(
@@ -369,36 +378,35 @@ public class BlockPackModule extends PackModule<BlockPackModule> {
 
                 String condition = String.join(" && ", conditions);
                 permutations.add(new CustomBlockPermutation(componentsBuilder.build(), condition));
-            }
+                }
 
-            builder.permutations(permutations);
+                builder.permutations(permutations);
 
-            BlockState defaultState = block.defaultBlockState();
-            VoxelShape shape = defaultState.getShape(new SingletonBlockGetter(defaultState), BlockPos.ZERO);
-            VoxelShape collisionShape = defaultState.getCollisionShape(new SingletonBlockGetter(defaultState), BlockPos.ZERO);
+                BlockState defaultState = resolvedDefinition.representativeState(block.defaultBlockState());
+                VoxelShape shape = defaultState.getShape(new SingletonBlockGetter(defaultState), BlockPos.ZERO);
+                VoxelShape collisionShape = defaultState.getCollisionShape(new SingletonBlockGetter(defaultState), BlockPos.ZERO);
 
-            CustomBlockComponents.Builder componentsBuilder = baseComponentBuilder
-                    .displayName("%" + block.getDescriptionId())
-                    .friction(Math.min(1 - block.getFriction(), 0.9f))
-                    .destructibleByMining(block.defaultDestroyTime()) // TODO: Check
-                    // .unitCube(true) // TODO: Geometry conversion
-                    .selectionBox(createBoxComponent(shape))
-                    .collisionBox(createBoxComponent(collisionShape));
+                CustomBlockComponents.Builder componentsBuilder = baseComponentBuilder
+                        .displayName("%" + block.getDescriptionId())
+                        .friction(Math.min(1 - block.getFriction(), 0.9f))
+                        .destructibleByMining(block.defaultDestroyTime()) // TODO: Check
+                        // .unitCube(true) // TODO: Geometry conversion
+                        .selectionBox(createBoxComponent(shape))
+                        .collisionBox(createBoxComponent(collisionShape));
 
-            builder.components(componentsBuilder.build());
+                builder.components(componentsBuilder.build());
 
-            CustomBlockData blockData = builder.build();
-            try {
-                event.register(blockData);
-            } catch (IllegalArgumentException e) {
-                context.logger().error("Failed to register block {}: {}", blockLocation, e.getMessage());
-                continue;
-            }
+                CustomBlockData blockData = builder.build();
+                try {
+                    event.register(blockData);
+                } catch (IllegalArgumentException e) {
+                    context.logger().error("Failed to register block {} variant {}: {}", blockLocation, customBlockIdentifier, e.getMessage());
+                    continue;
+                }
 
-            int blockId = registry.getId(block);
-            for (BlockState state : block.getStateDefinition().getPossibleStates()) {
-                BlockStateRule metadataRule = metadataRule(context, blockLocation, state);
-                Map<String, String> stateValues = customStateValues(context, blockLocation, stateDefinitions, state, metadataRule);
+                for (BlockState state : resolvedDefinition.states()) {
+                    BlockStateRule metadataRule = metadataRule(context, blockLocation, state);
+                    Map<String, String> stateValues = customStateValues(context, blockLocation, stateDefinitions, state, metadataRule);
                 CustomBlockState.Builder stateBuilder = blockData.blockStateBuilder();
                 for (StatePropertyDefinition property : stateDefinitions.values()) {
                     String value = stateValues.get(property.name());
@@ -439,33 +447,13 @@ public class BlockPackModule extends PackModule<BlockPackModule> {
                     context.logger().warn("Failed to get pick item for block {}: {}", blockLocation, e.getMessage());
                 }
 
-                /*
-                List<AABB> aabbs = collisionShape.toAabbs();
-                JavaBoundingBox[] bbs = new JavaBoundingBox[aabbs.size()];
-                for (int i = 0; i < aabbs.size(); i++) {
-                    AABB aabb = aabbs.get(i);
-                    bbs[i] = new JavaBoundingBox(aabb.minX, aabb.minY, aabb.minZ, aabb.maxX, aabb.maxY, aabb.maxZ);
+                    VoxelShape stateCollisionShape = state.getCollisionShape(new SingletonBlockGetter(state), BlockPos.ZERO);
+                    javaBlockStateBuilder.collision(createJavaBoundingBoxes(stateCollisionShape));
+
+                    event.registerOverride(javaBlockStateBuilder.build(), customBlockState);
                 }
-
-                javaBlockStateBuilder.collision(bbs);
-                 */
-                javaBlockStateBuilder.collision(new JavaBoundingBox[0]); // TODO
-
-                event.registerOverride(javaBlockStateBuilder.build(), customBlockState);
             }
         }
-    }
-
-    @NotNull
-    private Identifier overrideIdentifier(@NotNull PackContext<?> context, @NotNull Block block, @NotNull Identifier blockLocation) {
-        MappingResolver.ResolvedIdentifier resolved = context.hydraulic()
-            .getPackManager()
-            .mappingResolver()
-            .resolveBlockIdentifier(blockLocation, block.getStateDefinition().getPossibleStates());
-        if (resolved.conflicting()) {
-            context.logger().warn("Ignoring conflicting block identifier overrides for {}", blockLocation);
-        }
-        return resolved.identifier();
     }
 
     @Nullable
@@ -579,6 +567,17 @@ public class BlockPackModule extends PackModule<BlockPackModule> {
             case STRING -> "'" + value + "'";
             case BOOLEAN, INTEGER -> value;
         };
+    }
+
+    @NotNull
+    private JavaBoundingBox[] createJavaBoundingBoxes(@NotNull VoxelShape shape) {
+        List<AABB> aabbs = shape.toAabbs();
+        JavaBoundingBox[] boxes = new JavaBoundingBox[aabbs.size()];
+        for (int index = 0; index < aabbs.size(); index++) {
+            AABB aabb = aabbs.get(index);
+            boxes[index] = new JavaBoundingBox(aabb.minX, aabb.minY, aabb.minZ, aabb.maxX, aabb.maxY, aabb.maxZ);
+        }
+        return boxes;
     }
 
     private enum PropertyType {

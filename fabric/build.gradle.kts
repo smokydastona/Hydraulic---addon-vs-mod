@@ -5,9 +5,19 @@ architectury {
     fabric()
 }
 
+loom {
+    runs {
+        named("server") {
+            runDir("run")
+        }
+    }
+}
+
 val common: Configuration by configurations.creating
 val developmentFabric: Configuration = configurations.getByName("developmentFabric")
 val includeTransitive: Configuration = configurations.getByName("includeTransitive")
+val geyserCoreLocales = configurations.create("geyserCoreLocales")
+val geyserRuntimeResourcesDir = layout.buildDirectory.dir("generated/geyser-runtime-resources")
 
 configurations {
     compileClasspath.get().extendsFrom(configurations["common"])
@@ -16,6 +26,22 @@ configurations {
 }
 
 tasks {
+    val syncGeyserRuntimeResources = register<Sync>("syncGeyserRuntimeResources") {
+        from({ geyserCoreLocales.resolve().map(::zipTree) })
+        include("mappings/**")
+        into(geyserRuntimeResourcesDir)
+    }
+
+    val syncGeyserLocales = register<Sync>("syncGeyserLocales") {
+        from({ geyserCoreLocales.resolve().map(::zipTree) })
+        include("languages/texts/*.properties")
+        eachFile {
+            path = name
+        }
+        includeEmptyDirs = false
+        into(layout.projectDirectory.dir("run/config/Geyser-Fabric/languages"))
+    }
+
     named<Jar>("mergeShadowAndJarJar") {
         from (
             zipTree( shadowJar.map { it.outputs.files.singleFile } ).matching {
@@ -39,6 +65,14 @@ tasks {
     jar {
         archiveClassifier.set("dev")
     }
+
+    named<ProcessResources>("processResources") {
+        dependsOn(syncGeyserRuntimeResources)
+    }
+
+    named("runServer") {
+        dependsOn(syncGeyserLocales)
+    }
 }
 
 dependencies {
@@ -55,6 +89,7 @@ dependencies {
     runtimeOnly(libs.examination.api)
     runtimeOnly(libs.examination.string)
     includeTransitive(libs.pack.converter)
+    geyserCoreLocales(libs.geyser.core)
 
     localRuntime(libs.bundles.configurate)
     shadow(libs.bundles.configurate) { isTransitive = false }
@@ -72,6 +107,7 @@ sourceSets {
     main {
         resources {
             srcDirs(project(":shared").sourceSets["main"].resources.srcDirs)
+            srcDir(geyserRuntimeResourcesDir)
         }
     }
 }

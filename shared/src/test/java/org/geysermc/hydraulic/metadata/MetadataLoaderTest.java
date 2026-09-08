@@ -63,6 +63,8 @@ class MetadataLoaderTest {
         assertEquals("example:default", mapping.rules().get(2).geometryId());
         assertEquals(2, index.summary().fileCount());
         assertEquals(2, index.summary().blockMappingCount());
+        assertEquals(0, index.summary().itemMappingCount());
+        assertEquals(0, index.summary().recipeMappingCount());
         assertEquals(3, index.summary().ruleCount());
         assertEquals(Map.of("builtin", 1, "user", 1), index.summary().ownershipFileCounts());
     }
@@ -89,7 +91,36 @@ class MetadataLoaderTest {
         assertEquals("legacy.json", mapping.rules().get(0).sourcePath());
         assertEquals(1, index.summary().fileCount());
         assertEquals(1, index.summary().blockMappingCount());
+        assertEquals(0, index.summary().itemMappingCount());
+        assertEquals(0, index.summary().recipeMappingCount());
         assertEquals(1, index.summary().ruleCount());
         assertEquals(Map.of("legacy", 1), index.summary().ownershipFileCounts());
+    }
+
+    @Test
+    void loadsItemAndRecipeMappings(@TempDir Path tempDir) throws IOException {
+        Files.writeString(tempDir.resolve("compat.json"), """
+            {
+              "items": [
+                {
+                  "java_id": "example:test_item",
+                  "bedrock_identifier": "example:bedrock_item"
+                }
+              ],
+              "recipes": [
+                {
+                  "java_id": "example:test_recipe",
+                  "bedrock_identifier": "example:bedrock_recipe"
+                }
+              ]
+            }
+            """);
+
+        MetadataIndex index = new MetadataLoader(LoggerFactory.getLogger("MetadataLoaderTest")).load(tempDir);
+
+        assertNotNull(index.itemMapping(Identifier.fromNamespaceAndPath("example", "test_item")));
+        assertNotNull(index.recipeMapping(Identifier.fromNamespaceAndPath("example", "test_recipe")));
+        assertEquals(1, index.summary().itemMappingCount());
+        assertEquals(1, index.summary().recipeMappingCount());
     }
 }

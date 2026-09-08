@@ -35,9 +35,13 @@ public final class MetadataLoader {
         }
 
         Map<Identifier, List<BlockStateRule>> blockMappings = new LinkedHashMap<>();
+        Map<Identifier, IdentifierMapping> itemMappings = new LinkedHashMap<>();
+        Map<Identifier, IdentifierMapping> recipeMappings = new LinkedHashMap<>();
         Map<String, Integer> ownershipFileCounts = new LinkedHashMap<>();
         int fileCount = 0;
         int blockMappingCount = 0;
+        int itemMappingCount = 0;
+        int recipeMappingCount = 0;
         int ruleCount = 0;
 
         try (Stream<Path> stream = Files.walk(directory)) {
@@ -48,9 +52,11 @@ public final class MetadataLoader {
                 .toList();
 
             for (Path path : files) {
-                LoadStats stats = this.loadFile(directory, path, blockMappings, ownershipFileCounts);
+                LoadStats stats = this.loadFile(directory, path, blockMappings, itemMappings, recipeMappings, ownershipFileCounts);
                 fileCount += stats.fileCount();
                 blockMappingCount += stats.blockMappingCount();
+                itemMappingCount += stats.itemMappingCount();
+                recipeMappingCount += stats.recipeMappingCount();
                 ruleCount += stats.ruleCount();
             }
         } catch (IOException e) {
@@ -71,7 +77,9 @@ public final class MetadataLoader {
 
         return new MetadataIndex(
             finalizedMappings,
-            new MetadataIndex.Summary(fileCount, blockMappingCount, ruleCount, ownershipFileCounts)
+            itemMappings,
+            recipeMappings,
+            new MetadataIndex.Summary(fileCount, blockMappingCount, itemMappingCount, recipeMappingCount, ruleCount, ownershipFileCounts)
         );
     }
 
@@ -80,6 +88,8 @@ public final class MetadataLoader {
         @NotNull Path rootDirectory,
         @NotNull Path path,
         @NotNull Map<Identifier, List<BlockStateRule>> blockMappings,
+        @NotNull Map<Identifier, IdentifierMapping> itemMappings,
+        @NotNull Map<Identifier, IdentifierMapping> recipeMappings,
         @NotNull Map<String, Integer> ownershipFileCounts
     ) {
         Path relativePath = rootDirectory.relativize(path);
@@ -103,12 +113,18 @@ public final class MetadataLoader {
                 }
             } else if (jsonRoot.has("java_id")) {
                 blockObjects.add(jsonRoot);
-            } else {
-                this.logger.warn("Ignoring metadata file without blocks or java_id in {}", path);
+            }
+
+            JsonArray itemObjects = jsonRoot.getAsJsonArray("items");
+            JsonArray recipeObjects = jsonRoot.getAsJsonArray("recipes");
+            if (blockObjects.isEmpty() && itemObjects == null && recipeObjects == null) {
+                this.logger.warn("Ignoring metadata file without blocks, items, recipes, or java_id in {}", path);
                 return LoadStats.empty();
             }
 
-            int mappingCount = 0;
+            int blockMappingCount = 0;
+            int itemMappingCount = 0;
+            int recipeMappingCount = 0;
             int ruleCount = 0;
             for (int index = 0; index < blockObjects.size(); index++) {
                 BlockMapping mapping = this.parseBlockMapping(blockObjects.get(index), path, ownership, sourcePath, index);
@@ -117,16 +133,53 @@ public final class MetadataLoader {
                 }
 
                 blockMappings.computeIfAbsent(mapping.javaIdentifier(), ignored -> new ArrayList<>()).addAll(mapping.rules());
-                mappingCount++;
+                blockMappingCount++;
                 ruleCount += mapping.rules().size();
             }
 
+            itemMappingCount += this.parseIdentifierMappings(itemObjects, "item", path, ownership, sourcePath, itemMappings);
+            recipeMappingCount += this.parseIdentifierMappings(recipeObjects, "recipe", path, ownership, sourcePath, recipeMappings);
+
             ownershipFileCounts.merge(ownership.name().toLowerCase(), 1, Integer::sum);
-            return new LoadStats(1, mappingCount, ruleCount);
+            return new LoadStats(1, blockMappingCount, itemMappingCount, recipeMappingCount, ruleCount);
         } catch (Exception e) {
             this.logger.error("Failed to load metadata file {}", path, e);
             return LoadStats.empty();
         }
+    }
+
+    private int parseIdentifierMappings(
+        @Nullable JsonArray array,
+        @NotNull String kind,
+        @NotNull Path path,
+        @NotNull MappingOwnership ownership,
+        @NotNull String sourcePath,
+        @NotNull Map<Identifier, IdentifierMapping> mappings
+    ) {
+        if (array == null) {
+            return 0;
+        }
+
+        int count = 0;
+        int basePriority = ownership.priority();
+        for (int index = 0; index < array.size(); index++) {
+            JsonElement element = array.get(index);
+            if (!element.isJsonObject()) {
+                continue;
+            }
+
+            IdentifierMapping mapping = this.parseIdentifierMapping(element.getAsJsonObject(), kind, path, ownership, sourcePath, basePriority, index);
+            if (mapping == null) {
+                continue;
+            }
+
+            IdentifierMapping current = mappings.get(mapping.javaIdentifier());
+            if (current == null || this.hasHigherPrecedence(mapping, current)) {
+                mappings.put(mapping.javaIdentifier(), mapping);
+            }
+            count++;
+        }
+        return count;
     }
 
     @Nullable
@@ -208,6 +261,37 @@ public final class MetadataLoader {
         );
     }
 
+    @Nullable
+    private IdentifierMapping parseIdentifierMapping(
+        @NotNull JsonObject object,
+        @NotNull String kind,
+        @NotNull Path path,
+        @NotNull MappingOwnership ownership,
+        @NotNull String sourcePath,
+        int priority,
+        int order
+    ) {
+        Identifier javaIdentifier = this.parseIdentifier(object, "java_id", path, true);
+        Identifier bedrockIdentifier = this.parseIdentifier(object, "bedrock_identifier", path, true);
+        if (javaIdentifier == null || bedrockIdentifier == null) {
+            this.logger.warn("Ignoring {} metadata missing valid identifiers in {}", kind, path);
+            return null;
+        }
+
+        return new IdentifierMapping(javaIdentifier, bedrockIdentifier, ownership, sourcePath, priority, order);
+    }
+
+    private boolean hasHigherPrecedence(@NotNull IdentifierMapping candidate, @NotNull IdentifierMapping existing) {
+        if (candidate.priority() != existing.priority()) {
+            return candidate.priority() > existing.priority();
+        }
+        int sourceCompare = candidate.sourcePath().compareTo(existing.sourcePath());
+        if (sourceCompare != 0) {
+            return sourceCompare < 0;
+        }
+        return candidate.order() < existing.order();
+    }
+
     @NotNull
     private static String normalize(@NotNull Path path) {
         return path.toString().replace('\\', '/');
@@ -253,10 +337,10 @@ public final class MetadataLoader {
         return object.get(key).getAsString();
     }
 
-    private record LoadStats(int fileCount, int blockMappingCount, int ruleCount) {
+    private record LoadStats(int fileCount, int blockMappingCount, int itemMappingCount, int recipeMappingCount, int ruleCount) {
         @NotNull
         private static LoadStats empty() {
-            return new LoadStats(0, 0, 0);
+            return new LoadStats(0, 0, 0, 0, 0);
         }
     }
 }

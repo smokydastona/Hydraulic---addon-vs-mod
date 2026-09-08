@@ -32,7 +32,9 @@ public final class ContentInventory {
         @NotNull List<String> roots,
         @NotNull Map<String, Integer> registryCounts,
         @NotNull Map<String, Integer> assetCounts,
-        int metadataMappings
+        int blockMetadataMappings,
+        int itemMetadataMappings,
+        int recipeMetadataMappings
     ) {
         public ModContentInventory {
             roots = List.copyOf(roots);
