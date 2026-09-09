@@ -240,6 +240,7 @@ The compatibility layer stays above the current Hydraulic conversion pipeline, b
 - The block-entity patch bridge is no longer limited to constant tag synthesis; compiled patch templates can now copy selected values from the live Java block-entity NBT into Bedrock output through explicit `$java.<path>` patch values.
 - Those live menu and block-entity bridge factories now also require explicit compiled adapter bindings, so runtime instantiation follows the same capability-driven adapter selection surfaced in `compatibility-report.json`.
 - Unsupported menu-open and block-entity fallback diagnostics now also consume precompiled runtime-dispatch candidate indexes instead of rescanning the full compatibility report during live warnings.
+- Those menu and block-entity diagnostic candidate paths now also resolve through typed `RuntimeBridgeKind` group queries inside `RuntimeDispatchTable` instead of depending on separate legacy special-case bridge lists.
 - Unsupported menu-open handling now also preserves the resolved live Java menu identifier across the mixin, fallback, and warning paths, so the runtime warning can bind directly to the matched compiled menu plan and its explicit menu bridge requirements instead of only reporting a container type plus global candidates.
 - State-aware block identifier grouping and per-state runtime metadata now also compile into the runtime dispatch table, so block registration and block-item placement no longer need to re-derive those mappings through `MappingResolver` when compiled entries already exist.
 - The remaining block-item texture fallback decision path now also consumes compiled block compatibility plans instead of looking raw objects back up from the compatibility report during conversion.
@@ -276,6 +277,7 @@ The compatibility layer stays above the current Hydraulic conversion pipeline, b
 - Runtime dispatch is now identifier-driven for the shipped bridge seams, unsupported diagnostics, and the first block-state registration paths, but transfer-heavy paths and deeper behavior surfaces still have too much flexible runtime reasoning.
 - Runtime dispatch now also compiles the current menu fallback seam into a typed container enum instead of keeping that bridge input as a late-parsed string, but transfer-heavy paths and deeper behavior surfaces still have too much flexible runtime reasoning.
 - Runtime bridge requirements now also compile into typed categories instead of only freeform requirement strings, but those categories are still mostly feeding reporting, diagnostics, and suppression decisions rather than full machine, transfer, and fluid bridge execution.
+- Runtime diagnostics now consume typed bridge-group queries for menu and block-entity candidate selection, but the broader machine, transfer, and fluid execution paths still do not have real bridge implementations.
 - Block-entity runtime translation is now more useful for metadata-backed data bridges because compiled templates can carry live Java tag values through to Bedrock output, but the seam is still patch-driven and does not yet cover interaction or behavior.
 - Compatibility analysis now has explicit kind-keyed analyzer dispatch, but it still reconstructs facts too often and still depends on repeated asset discovery.
 - Non-block compatibility remains shallower than the block path.
@@ -1465,6 +1467,7 @@ Current state:
 - item presentation compilation now avoids early component-binding hazards by using safe runtime probes and conservative fallbacks when item components are not yet bound
 - compatibility analysis now also has a first explicit `AnalyzerRegistry`, so descriptor-to-analyzer routing is direct by content kind instead of a repeated `supports(...)` scan
 - runtime requirement compilation now also produces typed `RuntimeBridgeKind` indexes, so the compiled plan can distinguish menu, block-entity, block, item, entity, and fluid bridge categories without leaving future runtime consumers to reinterpret freeform strings
+- menu and block-entity diagnostic candidate selection now also flows through typed bridge-group queries rather than separate persisted special-case lists
 - deeper resource IR and broader lazy resource loading are still pending
 
 Build:

@@ -18,7 +18,7 @@ final class UnsupportedMenuDiagnosticFormatter {
         @Nullable String javaIdentifier,
         @NotNull CompatibilityRegistry compatibilityRegistry
     ) {
-        List<CompiledCompatibilityPlan> blockedMenus = compatibilityRegistry.dispatchTable().menuBridgePlans();
+        List<CompiledCompatibilityPlan> blockedMenus = compatibilityRegistry.dispatchTable().runtimeBridgePlans(RuntimeBridgeKind.menuRuntimeKinds());
         CompiledCompatibilityPlan matchedPlan = javaIdentifier != null ? compatibilityRegistry.dispatchTable().plan("menu", javaIdentifier) : null;
         StringBuilder builder = new StringBuilder("Geyser could not open Java container type ")
             .append(containerTypeName);
@@ -40,7 +40,9 @@ final class UnsupportedMenuDiagnosticFormatter {
         }
 
         if (blockedMenus.isEmpty()) {
-            builder.append(" The current compatibility report has no discovered menu objects marked with the container_bridge runtime requirement.");
+            builder.append(" The current compatibility report has no discovered menu objects marked with the ")
+                .append(RuntimeBridgeKind.MENU_CONTAINER.requirementId())
+                .append(" runtime requirement.");
             return builder.toString();
         }
 

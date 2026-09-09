@@ -3,6 +3,8 @@ package org.geysermc.hydraulic.compat.runtime;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
@@ -22,6 +24,9 @@ public enum RuntimeBridgeKind {
     FLUID_TRANSLATOR("fluid_translator", "fluid"),
     FLUID_RUNTIME("fluid_runtime_bridge", "fluid");
 
+    private static final List<RuntimeBridgeKind> MENU_RUNTIME_KINDS = List.of(MENU_CONTAINER, MENU_BEHAVIOR);
+    private static final List<RuntimeBridgeKind> BLOCK_ENTITY_RUNTIME_KINDS = List.of(BLOCK_ENTITY_DATA, BLOCK_ENTITY_INTERACTION, BLOCK_ENTITY_BEHAVIOR);
+
     private final String requirementId;
     private final String contentType;
 
@@ -38,6 +43,26 @@ public enum RuntimeBridgeKind {
     @NotNull
     public String contentType() {
         return this.contentType;
+    }
+
+    @NotNull
+    public static List<RuntimeBridgeKind> menuRuntimeKinds() {
+        return MENU_RUNTIME_KINDS;
+    }
+
+    @NotNull
+    public static List<RuntimeBridgeKind> blockEntityRuntimeKinds() {
+        return BLOCK_ENTITY_RUNTIME_KINDS;
+    }
+
+    @NotNull
+    public static List<String> requirementIds(@NotNull List<RuntimeBridgeKind> kinds) {
+        List<String> requirementIds = new ArrayList<>(kinds.size());
+        for (RuntimeBridgeKind kind : kinds) {
+            requirementIds.add(kind.requirementId());
+        }
+        Collections.sort(requirementIds);
+        return List.copyOf(requirementIds);
     }
 
     @Nullable

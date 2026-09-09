@@ -18,7 +18,7 @@ final class UnsupportedBlockEntityDiagnosticFormatter {
         @NotNull String position,
         @NotNull CompatibilityRegistry compatibilityRegistry
     ) {
-        List<CompiledCompatibilityPlan> blockedBlockEntities = compatibilityRegistry.dispatchTable().blockEntityBridgePlans();
+        List<CompiledCompatibilityPlan> blockedBlockEntities = compatibilityRegistry.dispatchTable().runtimeBridgePlans(RuntimeBridgeKind.blockEntityRuntimeKinds());
         CompiledCompatibilityPlan matchedObject = javaIdentifier != null ? compatibilityRegistry.dispatchTable().plan("block_entity", javaIdentifier) : null;
         if (matchedObject != null && !matchedObject.requiresBlockEntityRuntime()) {
             return null;

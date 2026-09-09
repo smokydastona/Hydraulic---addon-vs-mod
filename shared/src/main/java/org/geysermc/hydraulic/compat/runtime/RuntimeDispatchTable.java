@@ -20,6 +20,7 @@ import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.LinkedHashSet;
 import java.util.EnumMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -32,8 +33,6 @@ public final class RuntimeDispatchTable {
     private final Map<String, List<MappingResolver.ResolvedBlockDefinition>> blockDefinitionsByIdentifier;
     private final Map<String, MappingResolver.ResolvedBlockState> blockStatesByIdentifierAndState;
     private final Map<RuntimeBridgeKind, List<CompiledCompatibilityPlan>> plansByRuntimeBridgeKind;
-    private final List<CompiledCompatibilityPlan> menuBridgePlans;
-    private final List<CompiledCompatibilityPlan> blockEntityBridgePlans;
     private final Map<String, LookupCounters> countersByType;
 
     private RuntimeDispatchTable(
@@ -41,9 +40,7 @@ public final class RuntimeDispatchTable {
         @NotNull Map<String, List<CompiledCompatibilityPlan>> plansByModAndType,
         @NotNull Map<String, List<MappingResolver.ResolvedBlockDefinition>> blockDefinitionsByIdentifier,
         @NotNull Map<String, MappingResolver.ResolvedBlockState> blockStatesByIdentifierAndState,
-        @NotNull Map<RuntimeBridgeKind, List<CompiledCompatibilityPlan>> plansByRuntimeBridgeKind,
-        @NotNull List<CompiledCompatibilityPlan> menuBridgePlans,
-        @NotNull List<CompiledCompatibilityPlan> blockEntityBridgePlans
+        @NotNull Map<RuntimeBridgeKind, List<CompiledCompatibilityPlan>> plansByRuntimeBridgeKind
     ) {
         this.plansByTypeAndIdentifier = Collections.unmodifiableMap(new LinkedHashMap<>(plansByTypeAndIdentifier));
         Map<String, List<CompiledCompatibilityPlan>> copy = new LinkedHashMap<>();
@@ -62,8 +59,6 @@ public final class RuntimeDispatchTable {
             bridgeKindCopy.put(entry.getKey(), List.copyOf(entry.getValue()));
         }
         this.plansByRuntimeBridgeKind = Collections.unmodifiableMap(bridgeKindCopy);
-        this.menuBridgePlans = List.copyOf(menuBridgePlans);
-        this.blockEntityBridgePlans = List.copyOf(blockEntityBridgePlans);
         this.countersByType = Map.of(
             "block", new LookupCounters(),
             "item", new LookupCounters(),
@@ -75,7 +70,7 @@ public final class RuntimeDispatchTable {
 
     @NotNull
     public static RuntimeDispatchTable empty() {
-        return new RuntimeDispatchTable(Map.of(), Map.of(), Map.of(), Map.of(), Map.of(), List.of(), List.of());
+        return new RuntimeDispatchTable(Map.of(), Map.of(), Map.of(), Map.of(), Map.of());
     }
 
     @NotNull
@@ -85,8 +80,6 @@ public final class RuntimeDispatchTable {
         Map<String, List<MappingResolver.ResolvedBlockDefinition>> blockDefinitionsByIdentifier = new LinkedHashMap<>();
         Map<String, MappingResolver.ResolvedBlockState> blockStatesByIdentifierAndState = new LinkedHashMap<>();
         Map<RuntimeBridgeKind, List<CompiledCompatibilityPlan>> plansByRuntimeBridgeKind = new EnumMap<>(RuntimeBridgeKind.class);
-        List<CompiledCompatibilityPlan> menuBridgePlans = new ArrayList<>();
-        List<CompiledCompatibilityPlan> blockEntityBridgePlans = new ArrayList<>();
         for (CompatibilityProfile profile : report.mods().values()) {
             for (CompatibilityObject object : profile.objects()) {
                 CompiledCompatibilityPlan plan = compilePlan(object, mappingResolver);
@@ -96,24 +89,14 @@ public final class RuntimeDispatchTable {
                 for (RuntimeBridgeKind kind : plan.runtimeBridgeKinds()) {
                     plansByRuntimeBridgeKind.computeIfAbsent(kind, ignored -> new ArrayList<>()).add(plan);
                 }
-                if (plan.requiresMenuBridge()) {
-                    menuBridgePlans.add(plan);
-                }
-                if (plan.requiresBlockEntityRuntime()) {
-                    blockEntityBridgePlans.add(plan);
-                }
             }
         }
-        menuBridgePlans.sort(planComparator());
-        blockEntityBridgePlans.sort(planComparator());
         return new RuntimeDispatchTable(
             plansByIdentifier,
             plansByModAndType,
             blockDefinitionsByIdentifier,
             blockStatesByIdentifierAndState,
-            plansByRuntimeBridgeKind,
-            menuBridgePlans,
-            blockEntityBridgePlans
+            plansByRuntimeBridgeKind
         );
     }
 
@@ -177,17 +160,35 @@ public final class RuntimeDispatchTable {
 
     @NotNull
     public List<CompiledCompatibilityPlan> menuBridgePlans() {
-        return this.menuBridgePlans;
+        return this.runtimeBridgePlans(RuntimeBridgeKind.menuRuntimeKinds());
     }
 
     @NotNull
     public List<CompiledCompatibilityPlan> blockEntityBridgePlans() {
-        return this.blockEntityBridgePlans;
+        return this.runtimeBridgePlans(RuntimeBridgeKind.blockEntityRuntimeKinds());
     }
 
     @NotNull
     public List<CompiledCompatibilityPlan> runtimeBridgePlans(@NotNull RuntimeBridgeKind kind) {
         return this.plansByRuntimeBridgeKind.getOrDefault(kind, List.of());
+    }
+
+    @NotNull
+    public List<CompiledCompatibilityPlan> runtimeBridgePlans(@NotNull List<RuntimeBridgeKind> kinds) {
+        if (kinds.isEmpty()) {
+            return List.of();
+        }
+
+        Map<String, CompiledCompatibilityPlan> combined = new LinkedHashMap<>();
+        for (RuntimeBridgeKind kind : kinds) {
+            for (CompiledCompatibilityPlan plan : this.runtimeBridgePlans(kind)) {
+                combined.putIfAbsent(key(plan.contentType(), plan.javaIdentifier()), plan);
+            }
+        }
+
+        List<CompiledCompatibilityPlan> plans = new ArrayList<>(combined.values());
+        plans.sort(planComparator());
+        return List.copyOf(plans);
     }
 
     @NotNull
@@ -271,11 +272,10 @@ public final class RuntimeDispatchTable {
 
     @NotNull
     private static List<String> bridgeRequirements(@NotNull List<RuntimeBridgeKind> runtimeBridgeKinds, @NotNull String contentType) {
-        return runtimeBridgeKinds.stream()
+        List<RuntimeBridgeKind> filteredKinds = runtimeBridgeKinds.stream()
             .filter(kind -> kind.contentType().equals(contentType))
-            .map(RuntimeBridgeKind::requirementId)
-            .sorted()
             .toList();
+        return RuntimeBridgeKind.requirementIds(filteredKinds);
     }
 
     @NotNull

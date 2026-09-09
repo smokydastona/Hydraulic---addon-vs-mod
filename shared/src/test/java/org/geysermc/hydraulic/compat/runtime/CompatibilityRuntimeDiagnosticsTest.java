@@ -41,6 +41,7 @@ class CompatibilityRuntimeDiagnosticsTest {
 
         assertTrue(message.contains("GENERIC_9X3"));
         assertTrue(message.contains("no discovered menu objects"));
+        assertTrue(message.contains(RuntimeBridgeKind.MENU_CONTAINER.requirementId()));
     }
 
     @Test

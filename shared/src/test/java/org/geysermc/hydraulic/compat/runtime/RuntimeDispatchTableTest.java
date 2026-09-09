@@ -165,6 +165,8 @@ class RuntimeDispatchTableTest {
 
         assertEquals(1, registry.dispatchTable().runtimeBridgePlans(RuntimeBridgeKind.MENU_CONTAINER).size());
         assertEquals(1, registry.dispatchTable().runtimeBridgePlans(RuntimeBridgeKind.BLOCK_ENTITY_DATA).size());
+        assertEquals(List.of(menuPlan), registry.dispatchTable().runtimeBridgePlans(RuntimeBridgeKind.menuRuntimeKinds()));
+        assertEquals(List.of(blockEntityPlan), registry.dispatchTable().runtimeBridgePlans(RuntimeBridgeKind.blockEntityRuntimeKinds()));
 
         assertNull(registry.dispatchTable().plan("item", "example:missing"));
         assertEquals(1, registry.dispatchTable().entityPlans("testmod").size());
