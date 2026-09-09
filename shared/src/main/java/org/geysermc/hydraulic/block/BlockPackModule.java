@@ -1,6 +1,8 @@
 package org.geysermc.hydraulic.block;
 
 import com.google.auto.service.AutoService;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonParser;
 import net.kyori.adventure.key.Key;
 import net.minecraft.commands.arguments.blocks.BlockStateParser;
 import net.minecraft.core.BlockPos;
@@ -53,22 +55,26 @@ import org.geysermc.hydraulic.pack.context.PackContext;
 import org.geysermc.hydraulic.pack.context.PackEventContext;
 import org.geysermc.hydraulic.pack.context.PackPostProcessContext;
 import org.geysermc.hydraulic.pack.context.PackPreProcessContext;
-import org.geysermc.hydraulic.storage.ModStorage;
 import org.geysermc.hydraulic.util.PackUtil;
 import org.geysermc.hydraulic.util.SingletonBlockGetter;
 import org.geysermc.pack.bedrock.resource.BedrockResourcePack;
 import org.geysermc.pack.converter.type.model.ModelStitcher;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-import team.unnamed.creative.ResourcePack;
 import team.unnamed.creative.blockstate.Condition;
 import team.unnamed.creative.blockstate.MultiVariant;
 import team.unnamed.creative.blockstate.Selector;
 import team.unnamed.creative.blockstate.Variant;
+import team.unnamed.creative.metadata.pack.PackFormat;
 import team.unnamed.creative.model.Model;
 import team.unnamed.creative.model.ModelTexture;
 import team.unnamed.creative.model.ModelTextures;
+import team.unnamed.creative.serialize.minecraft.blockstate.BlockStateSerializer;
 
+import java.io.IOException;
+import java.io.Reader;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -99,8 +105,12 @@ public class BlockPackModule extends TexturePackModule<BlockPackModule> {
     }
 
     private void preProcess(@NotNull PackPreProcessContext<BlockPackModule> context) {
-        for (var blockState : context.assets(ResourcePack::blockStates)) {
-            this.blockStates.put(blockState.key().toString(), new StateDefinition(blockState, context.modelProvider()));
+        ModResourceIndex resourceIndex = context.hydraulic().getPackManager().modResourceIndex(context.mod().id());
+        if (resourceIndex != null) {
+            for (Block block : context.registryValues(BuiltInRegistries.BLOCK)) {
+                Identifier blockLocation = BuiltInRegistries.BLOCK.getKey(block);
+                loadBlockStateDefinition(context, resourceIndex, blockLocation);
+            }
         }
 
         // Check for empty models
@@ -130,6 +140,35 @@ public class BlockPackModule extends TexturePackModule<BlockPackModule> {
 
                 emptyModels.add(key.toString());
             }
+        }
+    }
+
+    private void loadBlockStateDefinition(
+        @NotNull PackPreProcessContext<BlockPackModule> context,
+        @NotNull ModResourceIndex resourceIndex,
+        @NotNull Identifier blockLocation
+    ) {
+        if (this.blockStates.containsKey(blockLocation.toString())) {
+            return;
+        }
+
+        Path blockStatePath = resourceIndex.resolveBlockStatePath(blockLocation);
+        if (blockStatePath == null) {
+            return;
+        }
+
+        try (Reader reader = Files.newBufferedReader(blockStatePath, StandardCharsets.UTF_8)) {
+            JsonElement json = JsonParser.parseReader(reader);
+            team.unnamed.creative.blockstate.BlockState blockState = BlockStateSerializer.INSTANCE.deserializeFromJson(
+                json,
+                Key.key(blockLocation.getNamespace(), blockLocation.getPath()),
+                PackFormat.UNKNOWN
+            );
+            if (blockState != null) {
+                this.blockStates.put(blockLocation.toString(), new StateDefinition(blockState, context.modelProvider()));
+            }
+        } catch (IOException e) {
+            context.logger().warn("Failed to load indexed blockstate {} from {}", blockLocation, blockStatePath, e);
         }
     }
 

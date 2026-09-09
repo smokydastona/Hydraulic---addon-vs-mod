@@ -228,6 +228,11 @@ public final class ModResourceIndex {
         return this.blockStates.size();
     }
 
+    @Nullable
+    public Path resolveBlockStatePath(@NotNull Identifier block) {
+        return this.blockStates.get(block);
+    }
+
     public boolean hasItemAsset(@NotNull Identifier itemModel) {
         return this.itemDefinitions.containsKey(itemModel) || this.legacyItemModels.containsKey(itemModel);
     }

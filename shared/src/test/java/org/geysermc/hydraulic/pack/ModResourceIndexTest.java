@@ -65,6 +65,7 @@ class ModResourceIndexTest {
         assertTrue(index.namespaces().contains("examplemod"));
         assertTrue(index.hasBlockState(Identifier.fromNamespaceAndPath("examplemod", "machines/crusher")));
         assertEquals(1, index.blockStateCount());
+        assertEquals(blockstate, index.resolveBlockStatePath(Identifier.fromNamespaceAndPath("examplemod", "machines/crusher")));
         assertTrue(index.hasItemAsset(Identifier.fromNamespaceAndPath("examplemod", "tools/wrench")));
         assertTrue(index.hasItemAsset(Identifier.fromNamespaceAndPath("examplemod", "tools/hammer")));
         assertEquals(2, index.itemAssetCount());
@@ -168,6 +169,7 @@ class ModResourceIndexTest {
         assertEquals(0, index.modelCount());
         assertEquals(0, index.textureCount());
         assertEquals(Set.of(), index.dependencyNamespaces());
+        assertNull(index.resolveBlockStatePath(Identifier.fromNamespaceAndPath("examplemod", "test_block")));
         assertTrue(!index.hasItemAsset(Identifier.fromNamespaceAndPath("examplemod", "test_item")));
         assertNull(index.resolveItemAssetPath(Identifier.fromNamespaceAndPath("examplemod", "test_item")));
         assertNull(index.resolveModelPath(Key.key("examplemod", "missing")));
