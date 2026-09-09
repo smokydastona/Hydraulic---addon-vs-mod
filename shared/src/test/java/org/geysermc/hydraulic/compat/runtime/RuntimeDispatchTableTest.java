@@ -35,6 +35,7 @@ import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -54,6 +55,7 @@ class RuntimeDispatchTableTest {
         Identifier menu = Identifier.fromNamespaceAndPath("example", "test_menu");
         Identifier blockEntity = Identifier.fromNamespaceAndPath("example", "test_block_entity");
         Identifier fluid = Identifier.fromNamespaceAndPath("example", "test_fluid");
+        Identifier behaviorItem = Identifier.fromNamespaceAndPath("example", "behavior_item");
         Identifier northBlock = Identifier.fromNamespaceAndPath("example", "north_piston");
 
         MetadataIndex metadataIndex = new MetadataIndex(
@@ -106,6 +108,27 @@ class RuntimeDispatchTableTest {
                         List.of(
                             object("block", block.toString(), Map.of(), supportResults(SupportLevel.ADAPTED, SupportLevel.ADAPTED, SupportLevel.AUTOMATIC)),
                             object("item", bow.toString(), Map.of("behavior_tag", "chargeable_bow"), supportResults(SupportLevel.ADAPTED, SupportLevel.ADAPTED, SupportLevel.AUTOMATIC)),
+                            new CompatibilityObject(
+                                behaviorItem.toString(),
+                                "item",
+                                "testmod",
+                                Map.of("behavior_required", "true", "behavior_tag", "wearable"),
+                                new CapabilityProfile(behaviorItem.toString(), List.of(), List.of()),
+                                List.of(new AdapterBinding("adapter", AdapterFeature.CUSTOM_ITEM_REGISTRATION, "reason")),
+                                List.of("item_behavior_bridge"),
+                                Map.of(
+                                    "content", new SupportResult("content", SupportLevel.AUTOMATIC, CompatibilityStatus.COMPLETE, 100, List.of("present"), List.of(), List.of()),
+                                    "presentation", new SupportResult("presentation", SupportLevel.AUTOMATIC, CompatibilityStatus.COMPLETE, 100, List.of("present"), List.of(), List.of()),
+                                    "behavior", new SupportResult("behavior", SupportLevel.APPROXIMATED, CompatibilityStatus.PARTIAL, 60, List.of(), List.of("runtime_behavior"), List.of()),
+                                    "interaction", new SupportResult("interaction", SupportLevel.AUTOMATIC, CompatibilityStatus.COMPLETE, 100, List.of("offhand"), List.of(), List.of())
+                                ),
+                                SupportLevel.APPROXIMATED,
+                                CompatibilityStatus.PARTIAL,
+                                70,
+                                new Confidence(0.8, "medium"),
+                                List.of(new Provenance("analyzer", "generated", "synthetic", false)),
+                                List.of()
+                            ),
                             object("entity", entity.toString(), Map.of("behavior_tag", "visual_only_runtime"), supportResults(SupportLevel.ADAPTED, SupportLevel.ADAPTED, SupportLevel.APPROXIMATED)),
                             object("menu", menu.toString(), Map.of(), supportResults(SupportLevel.AUTOMATIC, SupportLevel.AUTOMATIC, SupportLevel.AUTOMATIC)),
                             object("block_entity", blockEntity.toString(), Map.of(), supportResults(SupportLevel.AUTOMATIC, SupportLevel.AUTOMATIC, SupportLevel.AUTOMATIC)),
@@ -137,6 +160,13 @@ class RuntimeDispatchTableTest {
         assertNotNull(bowPlan);
         assertTrue(bowPlan.supportsAttachablePresentation());
         assertTrue(bowPlan.allowsCustomRegistration());
+
+        var behaviorItemPlan = registry.dispatchTable().item(behaviorItem);
+        assertNotNull(behaviorItemPlan);
+        assertTrue(behaviorItemPlan.supportsWearablePresentation());
+        assertTrue(behaviorItemPlan.requiresRuntimeBridge(RuntimeBridgeKind.ITEM_BEHAVIOR));
+        assertFalse(behaviorItemPlan.allowsCreativeExposure());
+        assertEquals("item behavior runtime bridge is required (tag: wearable)", behaviorItemPlan.creativeExposureReason());
 
         var entityPlan = registry.dispatchTable().entity(entity);
         assertNotNull(entityPlan);
@@ -176,7 +206,7 @@ class RuntimeDispatchTableTest {
         assertEquals(1, registry.dispatchTable().menuBridgePlans().size());
         assertEquals(1, registry.dispatchTable().blockEntityBridgePlans().size());
         assertEquals(3, registry.dispatchTable().metrics().blocks().hits());
-        assertEquals(1, registry.dispatchTable().metrics().items().hits());
+        assertEquals(2, registry.dispatchTable().metrics().items().hits());
         assertEquals(1, registry.dispatchTable().metrics().items().misses());
         assertEquals(2, registry.dispatchTable().metrics().entities().hits());
         assertEquals(1, registry.dispatchTable().metrics().menus().hits());

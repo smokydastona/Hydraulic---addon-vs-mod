@@ -24,6 +24,7 @@ public final class CompatibilityDecisions {
         if (compatibilityObject == null) {
             return true;
         }
+
         return CapabilityAdapterRegistry.supports(AdapterFeature.BLOCK_CREATIVE_EXPOSURE, compatibilityObject, runtimeObject);
     }
 
@@ -55,6 +56,7 @@ public final class CompatibilityDecisions {
         if (compatibilityObject == null) {
             return true;
         }
+
         SupportResult content = support(compatibilityObject, "content");
         SupportResult presentation = support(compatibilityObject, "presentation");
         return !isUnsupported(content) && !isUnsupported(presentation);
@@ -64,6 +66,7 @@ public final class CompatibilityDecisions {
         if (compatibilityObject == null) {
             return true;
         }
+
         SupportResult content = support(compatibilityObject, "content");
         SupportResult presentation = support(compatibilityObject, "presentation");
         return !isUnsupported(content)
@@ -80,6 +83,7 @@ public final class CompatibilityDecisions {
         if (compatibilityObject == null) {
             return true;
         }
+
         return CapabilityAdapterRegistry.supports(AdapterFeature.CUSTOM_ITEM_REGISTRATION, compatibilityObject, runtimeObject);
     }
 
@@ -89,6 +93,10 @@ public final class CompatibilityDecisions {
 
     public static boolean allowsItemCreativeExposure(@Nullable CompatibilityObject compatibilityObject, @Nullable Object runtimeObject) {
         if (!allowsCustomItemRegistration(compatibilityObject, runtimeObject)) {
+            return false;
+        }
+
+        if (requiresItemBehaviorBridge(compatibilityObject)) {
             return false;
         }
 
@@ -111,6 +119,10 @@ public final class CompatibilityDecisions {
 
         if (!allowsCustomItemRegistration(compatibilityObject, runtimeObject)) {
             return "content or presentation support is insufficient";
+        }
+
+        if (requiresItemBehaviorBridge(compatibilityObject)) {
+            return behaviorReason("item behavior runtime bridge is required", compatibilityObject);
         }
 
         SupportResult behavior = support(compatibilityObject, "behavior");
@@ -178,6 +190,11 @@ public final class CompatibilityDecisions {
 
     private static boolean isUnsupported(@Nullable SupportResult supportResult) {
         return supportResult != null && supportResult.level() == SupportLevel.UNSUPPORTED;
+    }
+
+    private static boolean requiresItemBehaviorBridge(@Nullable CompatibilityObject compatibilityObject) {
+        return compatibilityObject != null
+            && RuntimeBridgeKind.resolve(compatibilityObject.runtimeRequirements()).contains(RuntimeBridgeKind.ITEM_BEHAVIOR);
     }
 
     @NotNull

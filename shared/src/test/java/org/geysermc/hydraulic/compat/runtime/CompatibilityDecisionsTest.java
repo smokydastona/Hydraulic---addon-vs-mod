@@ -166,6 +166,35 @@ class CompatibilityDecisionsTest {
     }
 
     @Test
+    void suppressesCreativeExposureWhenTypedItemBehaviorBridgeIsRequired() {
+        CompatibilityObject tagged = new CompatibilityObject(
+            "example:test_item",
+            "item",
+            "examplemod",
+            Map.of("behavior_required", "true", "behavior_tag", "wearable"),
+            new CapabilityProfile("example:test_item", List.of(), List.of()),
+            List.of(),
+            List.of("item_behavior_bridge"),
+            Map.of(
+                "content", support("content", SupportLevel.AUTOMATIC, List.of("registered"), List.of()),
+                "presentation", support("presentation", SupportLevel.AUTOMATIC, List.of("item_asset"), List.of()),
+                "interaction", support("interaction", SupportLevel.AUTOMATIC, List.of("offhand"), List.of()),
+                "behavior", support("behavior", SupportLevel.APPROXIMATED, List.of(), List.of("runtime_behavior"))
+            ),
+            SupportLevel.APPROXIMATED,
+            CompatibilityStatus.PARTIAL,
+            72,
+            new Confidence(0.7D, "test"),
+            List.of(),
+            List.of()
+        );
+
+        assertTrue(CompatibilityDecisions.supportsWearableItemPresentation(tagged, null));
+        assertFalse(CompatibilityDecisions.allowsItemCreativeExposure(tagged, null));
+        assertEquals("item behavior runtime bridge is required (tag: wearable)", CompatibilityDecisions.itemCreativeExposureReason(tagged, null));
+    }
+
+    @Test
     void suppressesCustomEntityRegistrationWhenPresentationIsUnsupported() {
         CompatibilityObject unsupported = blockObject(
             support("content", SupportLevel.AUTOMATIC, List.of("registered"), List.of()),

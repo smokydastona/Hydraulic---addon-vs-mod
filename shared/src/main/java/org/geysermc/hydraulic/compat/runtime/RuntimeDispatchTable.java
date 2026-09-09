@@ -210,13 +210,15 @@ public final class RuntimeDispatchTable {
             default -> javaIdentifier.toString();
         };
 
+        List<RuntimeBridgeKind> runtimeBridgeKinds = RuntimeBridgeKind.resolve(object.runtimeRequirements());
         boolean supportsWearablePresentation = supportsWearablePresentation(object, item);
         boolean supportsAttachablePresentation = supportsAttachablePresentation(object, item);
+        boolean requiresItemBehaviorBridge = runtimeBridgeKinds.contains(RuntimeBridgeKind.ITEM_BEHAVIOR);
 
-        boolean allowsItemCreativeExposure = allowsItemCreativeExposure(object, item, supportsWearablePresentation, supportsAttachablePresentation);
+        boolean allowsItemCreativeExposure = allowsItemCreativeExposure(object, item, supportsWearablePresentation, supportsAttachablePresentation, requiresItemBehaviorBridge);
         String creativeExposureReason = switch (object.contentType()) {
             case "block" -> CompatibilityDecisions.creativeExposureReason(object);
-            case "item" -> itemCreativeExposureReason(object, allowsItemCreativeExposure);
+            case "item" -> itemCreativeExposureReason(object, allowsItemCreativeExposure, requiresItemBehaviorBridge);
             default -> null;
         };
 
@@ -239,7 +241,6 @@ public final class RuntimeDispatchTable {
 
         SupportLevel behaviorLevel = object.supportResults().containsKey("behavior") ? object.supportResults().get("behavior").level() : null;
         String behaviorTag = object.inventoryFacts().get("behavior_tag");
-        List<RuntimeBridgeKind> runtimeBridgeKinds = RuntimeBridgeKind.resolve(object.runtimeRequirements());
         boolean requiresMenuBridge = runtimeBridgeKinds.contains(RuntimeBridgeKind.MENU_CONTAINER);
         List<String> menuRuntimeRequirements = bridgeRequirements(runtimeBridgeKinds, "menu");
         List<String> blockEntityRuntimeRequirements = bridgeRequirements(runtimeBridgeKinds, "block_entity");
@@ -380,9 +381,14 @@ public final class RuntimeDispatchTable {
         @NotNull CompatibilityObject object,
         @Nullable Item item,
         boolean supportsWearablePresentation,
-        boolean supportsAttachablePresentation
+        boolean supportsAttachablePresentation,
+        boolean requiresItemBehaviorBridge
     ) {
         if (!CompatibilityDecisions.allowsCustomItemRegistration(object, item)) {
+            return false;
+        }
+
+        if (requiresItemBehaviorBridge) {
             return false;
         }
 
@@ -395,13 +401,17 @@ public final class RuntimeDispatchTable {
     }
 
     @Nullable
-    private static String itemCreativeExposureReason(@NotNull CompatibilityObject object, boolean allowsItemCreativeExposure) {
+    private static String itemCreativeExposureReason(@NotNull CompatibilityObject object, boolean allowsItemCreativeExposure, boolean requiresItemBehaviorBridge) {
         if (allowsItemCreativeExposure) {
             return null;
         }
 
         if (!CompatibilityDecisions.allowsCustomItemRegistration(object)) {
             return "content or presentation support is insufficient";
+        }
+
+        if (requiresItemBehaviorBridge) {
+            return behaviorReason("item behavior runtime bridge is required", object);
         }
 
         SupportResult behavior = object.supportResults().get("behavior");
