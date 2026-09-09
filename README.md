@@ -177,6 +177,8 @@ Supported patch paths today:
 - `behavior.required`
 - `behavior.tag`
 
+For `bedrock.block_entity.data.<key>`, literal scalar values still work as before. Metadata can now also request a live copy from the incoming Java block-entity tag with a `$java.<path>` value such as `$java.CustomName` or `$java.front_text.page`.
+
 Unsupported patch data is still preserved in the metadata index and compatibility report, but only the fields above are synthesized into the current runtime mapping layer.
 
 ## Compatibility Inventory And Report
@@ -236,7 +238,7 @@ Metadata V2 can now also drive a first real menu fallback bridge. A `menu` patch
 
 When Geyser receives Java block entity data that falls through to its default `EmptyBlockEntityTranslator`, Hydraulic now attempts to resolve the live Java block entity at that position and emits a compatibility-backed runtime warning only when the compatibility report already marks that object as still requiring block-entity runtime bridges such as `block_entity_data_bridge`. That unsupported-runtime path now also reads from precompiled dispatch plans and bridge-candidate indexes instead of rescanning compatibility objects live.
 
-Metadata V2 can now also drive a first real block-entity data bridge. A `block_entity` patch with `bedrock.block_entity.id` and `bedrock.block_entity.data.*` synthesizes a constant Bedrock block-entity tag at the same Geyser seam before Hydraulic falls back to the unsupported-runtime warning path. That translator now also requires the compiled `block_entity.patch_translator` adapter binding, so runtime activation follows analyzer-backed capability selection rather than raw patch presence alone. This is intentionally limited to data translation; interaction and behavior bridges are still missing.
+Metadata V2 can now also drive a first real block-entity data bridge. A `block_entity` patch with `bedrock.block_entity.id` and `bedrock.block_entity.data.*` synthesizes Bedrock block-entity tag output at the same Geyser seam before Hydraulic falls back to the unsupported-runtime warning path. Those patch values can now be either constants or explicit `$java.<path>` copies from the live Java block-entity tag, which makes the bridge useful for carrying through names and other discovered state instead of only stamping fixed literals. That translator still requires the compiled `block_entity.patch_translator` adapter binding, so runtime activation follows analyzer-backed capability selection rather than raw patch presence alone. This is intentionally limited to data translation; interaction and behavior bridges are still missing.
 
 The current report is still conservative. It is intended to answer "what do we know right now from registries, assets, metadata, and patches?" not "is this mod fully playable end-to-end on Bedrock?" Behavior-heavy entities, fluids, menus, and block entities will still show low support until dedicated runtime bridges are implemented. For items, behavior-tagged patches already affect runtime exposure decisions, so unsupported behavior can now suppress Bedrock creative exposure even when the item is still registered. For entities, metadata-backed identifier mappings now drive custom entity registration, but that is still not full interaction or behavior translation.
 

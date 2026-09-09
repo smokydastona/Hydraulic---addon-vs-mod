@@ -47,6 +47,32 @@ class BlockEntityPatchTemplateTest {
     }
 
     @Test
+    void resolvesJavaSourceCopyMutations() {
+        BlockEntityPatchTemplate template = BlockEntityPatchTemplate.resolve(List.of(new ContentPatch(
+            Identifier.fromNamespaceAndPath("example", "test_block_entity"),
+            "block_entity",
+            Map.of(
+                "bedrock.block_entity.data.CustomName", "$java.CustomName",
+                "bedrock.block_entity.data.front_text.page", "$java.front_text.page"
+            ),
+            MappingOwnership.USER,
+            "user/block-entities.json",
+            MappingOwnership.USER.priority(),
+            0
+        )));
+
+        assertNotNull(template);
+        assertEquals(2, template.mutations().size());
+        Map<List<String>, BlockEntityPatchTemplate.TagValue> valuesByPath = new LinkedHashMap<>();
+        for (BlockEntityPatchTemplate.TagMutation mutation : template.mutations()) {
+            valuesByPath.put(mutation.path(), mutation.value());
+        }
+        assertEquals(BlockEntityPatchTemplate.TagValue.Kind.COPY_FROM_JAVA, valuesByPath.get(List.of("CustomName")).kind());
+        assertEquals(List.of("CustomName"), valuesByPath.get(List.of("CustomName")).javaSourcePath());
+        assertEquals(List.of("front_text", "page"), valuesByPath.get(List.of("front_text", "page")).javaSourcePath());
+    }
+
+    @Test
     void laterPatchesOverrideEarlierValues() {
         BlockEntityPatchTemplate template = BlockEntityPatchTemplate.resolve(List.of(
             new ContentPatch(

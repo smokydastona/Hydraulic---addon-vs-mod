@@ -12,6 +12,7 @@ import java.util.Map;
 public final class BlockEntityPatchTemplate {
     private static final String BEDROCK_BLOCK_ENTITY_PREFIX = "bedrock.block_entity.";
     private static final String BEDROCK_BLOCK_ENTITY_DATA_PREFIX = BEDROCK_BLOCK_ENTITY_PREFIX + "data.";
+    private static final String JAVA_SOURCE_PREFIX = "$java.";
 
     private final @Nullable String bedrockIdentifier;
     private final @NotNull List<TagMutation> mutations;
@@ -91,6 +92,12 @@ public final class BlockEntityPatchTemplate {
             if (rawValue == null || rawValue.equals("null")) {
                 return new TagValue(Kind.NULL, null);
             }
+            if (rawValue.startsWith(JAVA_SOURCE_PREFIX)) {
+                List<String> javaSourcePath = javaSourcePath(rawValue.substring(JAVA_SOURCE_PREFIX.length()));
+                if (javaSourcePath != null) {
+                    return new TagValue(Kind.COPY_FROM_JAVA, javaSourcePath);
+                }
+            }
             if (rawValue.equalsIgnoreCase("true") || rawValue.equalsIgnoreCase("false")) {
                 return new TagValue(Kind.BOOLEAN, Boolean.parseBoolean(rawValue));
             }
@@ -109,13 +116,36 @@ public final class BlockEntityPatchTemplate {
             return new TagValue(Kind.STRING, rawValue);
         }
 
+        @Nullable
+        @SuppressWarnings("unchecked")
+        public List<String> javaSourcePath() {
+            if (this.kind != Kind.COPY_FROM_JAVA) {
+                return null;
+            }
+            return (List<String>) this.value;
+        }
+
+        @Nullable
+        private static List<String> javaSourcePath(@NotNull String rawPath) {
+            if (rawPath.isBlank()) {
+                return null;
+            }
+
+            List<String> segments = List.of(rawPath.split("\\."));
+            if (segments.stream().anyMatch(String::isBlank)) {
+                return null;
+            }
+            return List.copyOf(segments);
+        }
+
         public enum Kind {
             NULL,
             BOOLEAN,
             INTEGER,
             LONG,
             DOUBLE,
-            STRING
+            STRING,
+            COPY_FROM_JAVA
         }
     }
 }

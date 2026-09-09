@@ -62,24 +62,24 @@ public final class BlockEntityPatchTranslatorFactory {
             }
 
             for (BlockEntityPatchTemplate.TagMutation mutation : this.template.mutations()) {
-                applyMutation(bedrockTag, mutation, 0);
+                applyMutation(bedrockTag, mutation, javaTag, 0);
             }
         }
 
-        private void applyMutation(@NotNull NbtMapBuilder target, @NotNull BlockEntityPatchTemplate.TagMutation mutation, int index) {
+        private void applyMutation(@NotNull NbtMapBuilder target, @NotNull BlockEntityPatchTemplate.TagMutation mutation, @Nullable NbtMap javaTag, int index) {
             String key = mutation.path().get(index);
             if (index == mutation.path().size() - 1) {
-                putScalar(target, key, mutation.value());
+                putValue(target, key, mutation.value(), javaTag);
                 return;
             }
 
             Object existing = target.get(key);
             NbtMapBuilder compound = existing instanceof NbtMap map ? NbtMapBuilder.from(map) : NbtMap.builder();
-            applyMutation(compound, mutation, index + 1);
+            applyMutation(compound, mutation, javaTag, index + 1);
             target.putCompound(key, compound.build());
         }
 
-        private void putScalar(@NotNull NbtMapBuilder target, @NotNull String key, @NotNull BlockEntityPatchTemplate.TagValue value) {
+        private void putValue(@NotNull NbtMapBuilder target, @NotNull String key, @NotNull BlockEntityPatchTemplate.TagValue value, @Nullable NbtMap javaTag) {
             switch (value.kind()) {
                 case NULL -> target.remove(key);
                 case BOOLEAN -> target.putBoolean(key, (Boolean) value.value());
@@ -87,7 +87,40 @@ public final class BlockEntityPatchTranslatorFactory {
                 case LONG -> target.putLong(key, (Long) value.value());
                 case DOUBLE -> target.putDouble(key, (Double) value.value());
                 case STRING -> target.putString(key, (String) value.value());
+                case COPY_FROM_JAVA -> copyJavaValue(target, key, value, javaTag);
             }
+        }
+
+        private void copyJavaValue(@NotNull NbtMapBuilder target, @NotNull String key, @NotNull BlockEntityPatchTemplate.TagValue value, @Nullable NbtMap javaTag) {
+            if (javaTag == null) {
+                return;
+            }
+
+            Object sourceValue = resolveJavaValue(javaTag, value.javaSourcePath(), 0);
+            if (sourceValue == null) {
+                return;
+            }
+
+            if (sourceValue instanceof NbtMap map) {
+                target.putCompound(key, map);
+                return;
+            }
+
+            target.put(key, sourceValue);
+        }
+
+        @Nullable
+        private Object resolveJavaValue(@Nullable Object current, @Nullable java.util.List<String> path, int index) {
+            if (current == null || path == null) {
+                return null;
+            }
+            if (index == path.size()) {
+                return current;
+            }
+            if (!(current instanceof NbtMap map)) {
+                return null;
+            }
+            return resolveJavaValue(map.get(path.get(index)), path, index + 1);
         }
     }
 }
