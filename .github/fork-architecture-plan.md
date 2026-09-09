@@ -1053,15 +1053,110 @@ That means the next roadmap should finish and generalize partially landed system
 - finish the partially landed performance substrate before widening broad runtime bridge scope
 - keep README and this architecture plan aligned with what was actually validated
 
+## External Tooling Deep Dive
+
+The linked Forge/Fabric tooling is useful as pattern input, but it should change Hydraulic's implementation details more than its mission.
+
+### Minecraft-Mod-Porter: useful patterns, not a direct Hydraulic dependency
+
+Useful findings:
+
+- use a canonical intermediate representation instead of pairwise rewrite logic
+- keep version and platform knowledge in data files rather than hard-coded switch logic
+- support alias and overlay datasets so closely related versions reuse mappings safely
+- preserve unresolved cases and emit structured manual-action reports instead of guessing
+- separate engine, CLI, and UI through a library-first backend and machine-readable reports
+
+Important correction:
+
+- the current README explicitly says Forge to Fabric cross-loader conversion is not supported today, so this should not be treated as a turnkey source-to-source loader converter for Hydraulic
+
+Hydraulic implementation takeaway:
+
+- add a compact compatibility IR for concepts Hydraulic already reasons about, such as menu archetypes, block-entity patch templates, item component families, storage and transfer capabilities, and interaction categories
+- store compatibility knowledge as data with overlay support instead of spreading version, mod-family, or loader-family facts through runtime conditionals
+- emit structured follow-up actions when automatic translation cannot safely decide, rather than silently downgrading intent
+
+### Porting-Lib and Porting-Lib-Dash: modular shim design
+
+Useful findings:
+
+- the library is split into narrow modules like registry, transfer, fluids, gui utilities, config, tags, model loaders, and chunk loading instead of one monolithic compatibility layer
+- related APIs are explicitly called out for capability replacement patterns, such as components instead of capabilities and accessories instead of Curios-style slots
+- the maintained upstream matters more than stale forks; the Dash fork appears materially behind upstream and should not be treated as the baseline reference
+
+Hydraulic implementation takeaway:
+
+- keep capability adapters narrow, feature-scoped, and swappable instead of growing a single generic adapter abstraction that knows everything
+- model machine, transfer, fluid, gui, and registry-style compatibility as separate bridge families with explicit requirements and bindings
+- prefer optional bridge modules and targeted adapter surfaces over one large runtime emulation layer
+
+### Kilt: runtime bridge lessons and non-goals
+
+Useful findings:
+
+- Kilt uses a staged runtime strategy: remap inputs, apply targeted fixers, then bridge APIs through explicit injects and workarounds
+- the codebase keeps compatibility work visible through dedicated `compat` and `workarounds` areas rather than burying it in unrelated systems
+- broad runtime compatibility requires many targeted fixups even when a large API surface is already bundled
+
+Important constraint:
+
+- Kilt describes itself as highly unstable and experimental, which reinforces how expensive full loader emulation is in practice
+
+Hydraulic implementation takeaway:
+
+- Hydraulic should borrow the shape of a remap and fixup pipeline for metadata patches, compatibility decisions, and targeted runtime bridge fixers
+- Hydraulic should not attempt to recreate full Forge or NeoForge API emulation inside the Bedrock compatibility layer
+- targeted workaround registries are appropriate; loader-wide reimplementation is not
+
+### Modpack Converter: modpack-level intake patterns
+
+Useful findings:
+
+- pack conversion is a distinct problem from mod conversion or runtime compatibility
+- the tool resolves pack manifests, downloads target-loader candidates, and emits a report split into converted, failed, and excluded entries
+- optional external metadata sources improve resolution quality without being required for the baseline pipeline
+
+Hydraulic implementation takeaway:
+
+- Phase 10 should treat modpack intake as its own artifact pipeline with explicit converted, blocked, skipped, and unsupported categories
+- Hydraulic's reports should separate content that converted cleanly from content that was intentionally excluded, unresolved, or requires a stronger adapter tier
+- optional external indexes can improve prioritization, but the core compatibility verdicts should remain reproducible without them
+
+### Decompilers: intake-only tooling
+
+Useful findings:
+
+- CFR and Fernflower are decompilers, not converters
+- Fernflower and ForgeFlower remain useful for readable source recovery and identifier cleanup options
+- CFR's regression-testing model is a good reminder to diff transformed output against expected artifacts instead of trusting one pass blindly
+
+Hydraulic implementation takeaway:
+
+- decompilation should be treated only as an optional analysis lane for closed-source mods when legally permitted
+- decompiled output is not authoritative architecture data and should never be treated as automatic proof of behavior parity
+- do not ingest recovered third-party code into Hydraulic; use it only to inform compatibility findings, metadata patches, and runtime bridge design where rights allow
+
+## External Findings To Implement
+
+These external projects suggest a concrete Hydraulic extension set:
+
+1. add a canonical compatibility IR and overlayable knowledge datasets so Hydraulic can normalize menu, transfer, fluid, block-entity, and interaction concepts before deciding bridge strategy
+2. extend reporting with explicit manual-action, approximated, blocked, excluded, and unsupported categories plus suggested resolutions and provenance
+3. formalize a targeted fixer pipeline between analysis and runtime bridging so unsupported or partially supported mechanics can register narrow fixups without contaminating the whole conversion path
+4. keep adapter and bridge families modular by domain, following the Porting-Lib module shape rather than building a single compatibility blob
+5. add modpack-scale reporting and prioritization in Phase 10 so real pack audits distinguish converted content from missing upstream equivalents and Bedrock-only incompatibilities
+
 ## Recommended Immediate Next Slice
 
 The best next implementation slice from the current repo state is:
 
 1. split flexible metadata loading from compact runtime metadata so runtime consumers stop traversing nested rule and patch structures
-2. finish compact resolved block-state answer caching and any remaining block hot-path compaction around the now-indexed rule matcher and cached model resolution path
-3. complete resource and model lookup indexing so startup and conversion stop paying repeated filesystem or flattened-pack search costs
-4. promote runtime validation and performance validation from log-only checks into committed regression coverage plus artifact-backed measurement
-5. once the performance substrate is proven, widen the existing menu and block-entity seams into the first more generic container or interaction bridge
+2. define the first canonical compatibility IR slice for menu archetypes, block-entity patch templates, and transfer or interaction requirements so later bridges do not stay stringly typed
+3. finish compact resolved block-state answer caching and any remaining block hot-path compaction around the now-indexed rule matcher and cached model resolution path
+4. complete resource and model lookup indexing so startup and conversion stop paying repeated filesystem or flattened-pack search costs
+5. promote runtime validation and performance validation from log-only checks into committed regression coverage plus artifact-backed measurement
+6. once the performance substrate and first IR slice are proven, widen the existing menu and block-entity seams into the first more generic container or interaction bridge
 
 This is the smallest next slice that lets both plans complete coherently: the architecture plan keeps its bridge-first long-term direction, while the current-state execution plan front-loads the substrate work needed to scale those bridges safely.
 
@@ -1073,6 +1168,9 @@ This is the smallest next slice that lets both plans complete coherently: the ar
 - Do not let generated metadata overwrite server-owner or user intent.
 - Do not let one failed asset or one unsupported mechanic abort the whole modpack conversion.
 - Do not recreate Geyser's base knowledge when Hydraulic can consume it.
+- Do not describe Hydraulic as a direct Forge jar to Fabric jar or cross-loader source converter.
+- Do not attempt full Forge or NeoForge API emulation inside Hydraulic's Bedrock compatibility layer.
+- Do not treat decompiled third-party code as a normal source input for Hydraulic implementation.
 
 ## Bottom Line
 The fork is pointed in the right direction and is further along than the earlier assessment implied.
