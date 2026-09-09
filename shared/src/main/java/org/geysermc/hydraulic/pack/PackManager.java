@@ -13,6 +13,7 @@ import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.Item;
 import org.geysermc.event.Event;
 import org.geysermc.geyser.api.GeyserApi;
+import org.geysermc.hydraulic.cache.ArtifactCache;
 import org.geysermc.hydraulic.cache.ConversionKey;
 import org.geysermc.hydraulic.Constants;
 import org.geysermc.hydraulic.HydraulicImpl;
@@ -54,6 +55,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.ServiceLoader;
 import java.util.Set;
+import java.util.TreeMap;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.stream.Stream;
@@ -86,6 +88,7 @@ public class PackManager {
     private final Path vanillaPath;
     private final PerformanceReportTracker performanceTracker;
     private final PackValidationTracker packValidationTracker;
+    private final ArtifactCache artifactCache;
     private final PackValidator packValidator = new PackValidator();
     private final List<PackModule<?>> modules = new ArrayList<>();
 
@@ -97,6 +100,14 @@ public class PackManager {
     private MetadataIndex metadataIndex = MetadataIndex.empty();
     private CompatibilityRegistry compatibilityRegistry = CompatibilityRegistry.empty();
     private CompatibilityManager compatibilityManager;
+    private long indexCacheHits;
+    private long indexCacheMisses;
+    private long compatibilityCacheHits;
+    private long compatibilityCacheMisses;
+    private long conversionCacheHits;
+    private long conversionCacheMisses;
+    private long validationCacheHits;
+    private long validationCacheMisses;
 
     private List<ConverterPipeline<?, ?>> packConverters;
     private ModelStitcher.Provider modelProvider;
@@ -106,22 +117,31 @@ public class PackManager {
         this.vanillaPath = hydraulic.dataFolder(Constants.MOD_ID).resolve("cache/vanilla-assets.zip");
         this.performanceTracker = new PerformanceReportTracker(LOGGER, hydraulic.dataFolder(Constants.MOD_ID).resolve("reports/performance-report.json"));
         this.packValidationTracker = new PackValidationTracker(LOGGER, hydraulic.dataFolder(Constants.MOD_ID).resolve("reports/pack-validation-report.json"));
+        this.artifactCache = new ArtifactCache(LOGGER, hydraulic.dataFolder(Constants.MOD_ID).resolve("cache"));
     }
 
     /**
      * Initializes the pack manager.
      */
     public void initialize() {
+        this.artifactCache.ensureLayout();
+        if (this.artifactCache.loadIndexSnapshot() != null) {
+            this.indexCacheHits++;
+        } else {
+            this.indexCacheMisses++;
+        }
         long resourceIndexStarted = System.nanoTime();
         LookupSummary lookupSummary = initializeModLookups();
         long indexedResourcesMillis = nanosToMillis(System.nanoTime() - resourceIndexStarted);
+        this.artifactCache.storeIndexSnapshot(ArtifactCache.IndexSnapshot.from(this.modResourceIndexes));
 
         long metadataLoadStarted = System.nanoTime();
         this.metadataIndex = new MetadataLoader(LOGGER).load(this.hydraulic.dataFolder(Constants.MOD_ID).resolve("metadata"));
         long metadataLoadMillis = nanosToMillis(System.nanoTime() - metadataLoadStarted);
 
         long compatibilityStarted = System.nanoTime();
-        initializeCompatibilityRegistry();
+        ArtifactCache.CompatibilityCacheKey compatibilityCacheKey = this.compatibilityCacheKey();
+        initializeCompatibilityRegistry(compatibilityCacheKey);
         long compatibilityInitializationMillis = nanosToMillis(System.nanoTime() - compatibilityStarted);
 
         final Collection<ModInfo> mods = this.hydraulic.mods();
@@ -176,6 +196,7 @@ public class PackManager {
             this.metadataIndex.summary().patchCount(),
             this.metadataIndex.summary().validationIssueCount()
         ));
+        this.recordArtifactCacheMetrics();
 
         this.packConverters = new ArrayList<>(AssetConverters.converters(hydraulic.isDev()));
         this.packConverters.remove(AssetConverters.MODEL);
@@ -437,19 +458,31 @@ public class PackManager {
         );
     }
 
-    private void initializeCompatibilityRegistry() {
+    private void initializeCompatibilityRegistry(@NotNull ArtifactCache.CompatibilityCacheKey cacheKey) {
         Path dataPath = this.hydraulic.dataFolder(Constants.MOD_ID);
         Path metadataPath = dataPath.resolve("metadata");
         this.compatibilityManager = new CompatibilityManager(LOGGER, dataPath);
-        this.compatibilityRegistry = this.compatibilityManager.initialize(
-            this.hydraulic.mods(),
-            this.namespacesToMods,
-            this.modsToBlocks,
-            this.modsToItems,
-            this.modResourceIndexes,
-            this.metadataIndex,
-            this::shouldIgnoreMod
-        );
+        ArtifactCache.CompatibilitySnapshot cached = this.artifactCache.loadCompatibilitySnapshot(cacheKey);
+        if (cached != null) {
+            this.compatibilityCacheHits++;
+            this.compatibilityRegistry = new CompatibilityRegistry(this.metadataIndex, new MappingResolver(this.metadataIndex), cached.inventory(), cached.report());
+        } else {
+            this.compatibilityCacheMisses++;
+            this.compatibilityRegistry = this.compatibilityManager.initialize(
+                this.hydraulic.mods(),
+                this.namespacesToMods,
+                this.modsToBlocks,
+                this.modsToItems,
+                this.modResourceIndexes,
+                this.metadataIndex,
+                this::shouldIgnoreMod
+            );
+            this.artifactCache.storeCompatibilitySnapshot(new ArtifactCache.CompatibilitySnapshot(
+                compatibilityManifest(cacheKey),
+                this.compatibilityRegistry.inventory(),
+                this.compatibilityRegistry.report()
+            ));
+        }
 
         if (!this.metadataIndex.isEmpty()) {
             LOGGER.info(
@@ -510,11 +543,57 @@ public class PackManager {
         if (this.compatibilityManager != null) {
             this.compatibilityManager.writeReport(updatedReport);
         }
+        this.artifactCache.storeValidationArtifact(validationReport, this.compatibilityCacheKey().value());
+        this.recordArtifactCacheMetrics();
     }
 
     @NotNull
     PerformanceReport performanceReport() {
         return this.performanceTracker.snapshot();
+    }
+
+    void recordArtifactCacheMetrics(@NotNull PerformanceReport.ArtifactCacheMetrics metrics) {
+        this.performanceTracker.recordArtifactCache(metrics);
+    }
+
+    void recordConversionCacheUsage(long hits, long misses) {
+        this.conversionCacheHits += hits;
+        this.conversionCacheMisses += misses;
+        this.recordArtifactCacheMetrics();
+    }
+
+    @NotNull
+    ArtifactCache artifactCache() {
+        return this.artifactCache;
+    }
+
+    private void recordArtifactCacheMetrics() {
+        this.performanceTracker.recordArtifactCache(new PerformanceReport.ArtifactCacheMetrics(
+            new PerformanceReport.CacheMetrics(this.indexCacheHits, this.indexCacheMisses),
+            new PerformanceReport.CacheMetrics(this.compatibilityCacheHits, this.compatibilityCacheMisses),
+            new PerformanceReport.CacheMetrics(this.conversionCacheHits, this.conversionCacheMisses),
+            new PerformanceReport.CacheMetrics(this.validationCacheHits, this.validationCacheMisses)
+        ));
+    }
+
+    @NotNull
+    ArtifactCache.CompatibilityCacheKey compatibilityCacheKey() {
+        TreeMap<String, String> fingerprints = new TreeMap<>();
+        for (Map.Entry<String, ModResourceIndex> entry : this.modResourceIndexes.entrySet()) {
+            fingerprints.put(entry.getKey(), entry.getValue().fingerprint().stableValue());
+        }
+        String metadataFingerprint = PackUtil.metadataFingerprint(this.metadataIndex);
+        String joined = metadataFingerprint + "|" + Constants.GSON.toJson(fingerprints);
+        return new ArtifactCache.CompatibilityCacheKey(com.google.common.hash.Hashing.sha256().hashString(joined, java.nio.charset.StandardCharsets.UTF_8).toString());
+    }
+
+    @NotNull
+    private ArtifactCache.CompatibilityManifest compatibilityManifest(@NotNull ArtifactCache.CompatibilityCacheKey cacheKey) {
+        Map<String, String> fingerprints = new TreeMap<>();
+        for (Map.Entry<String, ModResourceIndex> entry : this.modResourceIndexes.entrySet()) {
+            fingerprints.put(entry.getKey(), entry.getValue().fingerprint().stableValue());
+        }
+        return new ArtifactCache.CompatibilityManifest(cacheKey.value(), PackUtil.metadataFingerprint(this.metadataIndex), fingerprints.size(), fingerprints);
     }
 
     private static long nanosToMillis(long nanos) {

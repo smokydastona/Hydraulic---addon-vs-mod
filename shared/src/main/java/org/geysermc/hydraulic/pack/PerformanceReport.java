@@ -9,26 +9,32 @@ import java.util.Map;
 public record PerformanceReport(
     @Nullable StartupMetrics startup,
     @Nullable PackConversionMetrics lastPackConversion,
-    @Nullable CacheMetrics modelResolutionCache
+    @Nullable CacheMetrics modelResolutionCache,
+    @Nullable ArtifactCacheMetrics artifactCache
 ) {
     @NotNull
     public static PerformanceReport empty() {
-        return new PerformanceReport(null, null, null);
+        return new PerformanceReport(null, null, null, null);
     }
 
     @NotNull
     public PerformanceReport withStartup(@NotNull StartupMetrics startup) {
-        return new PerformanceReport(startup, this.lastPackConversion, this.modelResolutionCache);
+        return new PerformanceReport(startup, this.lastPackConversion, this.modelResolutionCache, this.artifactCache);
     }
 
     @NotNull
     public PerformanceReport withPackConversion(@NotNull PackConversionMetrics packConversion) {
-        return new PerformanceReport(this.startup, packConversion, this.modelResolutionCache);
+        return new PerformanceReport(this.startup, packConversion, this.modelResolutionCache, this.artifactCache);
     }
 
     @NotNull
     public PerformanceReport withModelResolutionCache(@NotNull CacheMetrics cacheMetrics) {
-        return new PerformanceReport(this.startup, this.lastPackConversion, cacheMetrics);
+        return new PerformanceReport(this.startup, this.lastPackConversion, cacheMetrics, this.artifactCache);
+    }
+
+    @NotNull
+    public PerformanceReport withArtifactCache(@NotNull ArtifactCacheMetrics artifactCache) {
+        return new PerformanceReport(this.startup, this.lastPackConversion, this.modelResolutionCache, artifactCache);
     }
 
     public record StartupMetrics(
@@ -89,5 +95,13 @@ public record PerformanceReport(
         public long requests() {
             return this.hits + this.misses;
         }
+    }
+
+    public record ArtifactCacheMetrics(
+        @NotNull CacheMetrics index,
+        @NotNull CacheMetrics compatibility,
+        @NotNull CacheMetrics conversions,
+        @NotNull CacheMetrics validation
+    ) {
     }
 }

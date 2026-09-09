@@ -34,6 +34,11 @@ final class PerformanceReportTracker {
         this.write();
     }
 
+    synchronized void recordArtifactCache(@NotNull PerformanceReport.ArtifactCacheMetrics metrics) {
+        this.report = this.report.withArtifactCache(metrics);
+        this.write();
+    }
+
     @NotNull
     synchronized PerformanceReport snapshot() {
         return this.report;

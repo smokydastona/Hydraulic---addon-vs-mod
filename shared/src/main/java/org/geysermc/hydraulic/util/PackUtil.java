@@ -25,6 +25,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 /**
  * Utility class for packs.
@@ -107,36 +108,122 @@ public class PackUtil {
     @NotNull
     public static String metadataFingerprint(@NotNull MetadataIndex metadataIndex) {
         Hasher hasher = Hashing.sha256().newHasher();
-        hashSection(hasher, "summary", Constants.GSON.toJson(metadataIndex.summary()));
-        hashMappings(hasher, "blocks", metadataIndex.blockMappings());
-        hashMappings(hasher, "items", metadataIndex.itemMappings());
-        hashMappings(hasher, "recipes", metadataIndex.recipeMappings());
-        hashMappings(hasher, "entities", metadataIndex.entityMappings());
-        hashMappings(hasher, "menus", metadataIndex.menuMappings());
+        hashSummary(hasher, metadataIndex.summary());
+        hashBlockMappings(hasher, metadataIndex.blockMappings());
+        hashIdentifierMappings(hasher, "items", metadataIndex.itemMappings());
+        hashIdentifierMappings(hasher, "recipes", metadataIndex.recipeMappings());
+        hashIdentifierMappings(hasher, "entities", metadataIndex.entityMappings());
+        hashIdentifierMappings(hasher, "menus", metadataIndex.menuMappings());
         metadataIndex.contentPatches().entrySet().stream()
             .sorted(Map.Entry.comparingByKey(Comparator.comparing(Object::toString)))
             .forEach(entry -> {
                 hasher.putString("patches", StandardCharsets.UTF_8);
                 hasher.putString(entry.getKey().toString(), StandardCharsets.UTF_8);
                 for (ContentPatch patch : entry.getValue()) {
-                    hasher.putString(Constants.GSON.toJson(patch), StandardCharsets.UTF_8);
+                    hashContentPatch(hasher, patch);
                 }
             });
         for (MetadataValidationIssue issue : metadataIndex.validationIssues()) {
             hasher.putString("validation", StandardCharsets.UTF_8);
-            hasher.putString(Constants.GSON.toJson(issue), StandardCharsets.UTF_8);
+            hasher.putString(issue.code(), StandardCharsets.UTF_8);
+            hasher.putString(issue.severity(), StandardCharsets.UTF_8);
+            hasher.putString(Objects.toString(issue.message(), ""), StandardCharsets.UTF_8);
+            hasher.putString(Objects.toString(issue.sourcePath(), ""), StandardCharsets.UTF_8);
+            hasher.putString(Objects.toString(issue.target(), ""), StandardCharsets.UTF_8);
         }
         return hasher.hash().toString();
     }
 
-    private static void hashMappings(@NotNull Hasher hasher, @NotNull String section, @NotNull Map<?, ?> mappings) {
+    private static void hashSummary(@NotNull Hasher hasher, @NotNull MetadataIndex.Summary summary) {
+        hasher.putString("summary", StandardCharsets.UTF_8);
+        hasher.putInt(summary.fileCount());
+        hasher.putInt(summary.blockMappingCount());
+        hasher.putInt(summary.itemMappingCount());
+        hasher.putInt(summary.recipeMappingCount());
+        hasher.putInt(summary.entityMappingCount());
+        hasher.putInt(summary.menuMappingCount());
+        hasher.putInt(summary.patchCount());
+        hasher.putInt(summary.ruleCount());
+        hasher.putInt(summary.validationIssueCount());
+        summary.ownershipFileCounts().entrySet().stream()
+            .sorted(Map.Entry.comparingByKey())
+            .forEach(entry -> {
+                hasher.putString(entry.getKey(), StandardCharsets.UTF_8);
+                hasher.putInt(entry.getValue());
+            });
+    }
+
+    private static void hashBlockMappings(@NotNull Hasher hasher, @NotNull Map<?, BlockMapping> mappings) {
+        mappings.entrySet().stream()
+            .sorted(Map.Entry.comparingByKey(Comparator.comparing(Object::toString)))
+            .forEach(entry -> {
+                hasher.putString("blocks", StandardCharsets.UTF_8);
+                hasher.putString(entry.getKey().toString(), StandardCharsets.UTF_8);
+                hashBlockMapping(hasher, entry.getValue());
+            });
+    }
+
+    private static void hashIdentifierMappings(@NotNull Hasher hasher, @NotNull String section, @NotNull Map<?, IdentifierMapping> mappings) {
         mappings.entrySet().stream()
             .sorted(Map.Entry.comparingByKey(Comparator.comparing(Object::toString)))
             .forEach(entry -> {
                 hasher.putString(section, StandardCharsets.UTF_8);
                 hasher.putString(entry.getKey().toString(), StandardCharsets.UTF_8);
-                hasher.putString(Constants.GSON.toJson(entry.getValue()), StandardCharsets.UTF_8);
+                hashIdentifierMapping(hasher, entry.getValue());
             });
+    }
+
+    private static void hashBlockMapping(@NotNull Hasher hasher, @NotNull BlockMapping mapping) {
+        hasher.putString(mapping.javaIdentifier().toString(), StandardCharsets.UTF_8);
+        for (var rule : mapping.rules()) {
+            rule.javaWhen().entrySet().stream()
+                .sorted(Map.Entry.comparingByKey())
+                .forEach(entry -> {
+                    hasher.putString(entry.getKey(), StandardCharsets.UTF_8);
+                    hasher.putString(entry.getValue(), StandardCharsets.UTF_8);
+                });
+            hasher.putString(Objects.toString(rule.bedrockIdentifier(), ""), StandardCharsets.UTF_8);
+            if (rule.bedrockState() != null) {
+                rule.bedrockState().entrySet().stream()
+                    .sorted(Map.Entry.comparingByKey())
+                    .forEach(entry -> {
+                        hasher.putString(entry.getKey(), StandardCharsets.UTF_8);
+                        hasher.putString(entry.getValue(), StandardCharsets.UTF_8);
+                    });
+            }
+            hasher.putString(Objects.toString(rule.geometryId(), ""), StandardCharsets.UTF_8);
+            hasher.putString(Objects.toString(rule.materialId(), ""), StandardCharsets.UTF_8);
+            hasher.putBoolean(rule.behaviorRequired());
+            hasher.putString(Objects.toString(rule.behaviorTag(), ""), StandardCharsets.UTF_8);
+            hasher.putString(rule.ownership().name(), StandardCharsets.UTF_8);
+            hasher.putString(rule.sourcePath(), StandardCharsets.UTF_8);
+            hasher.putInt(rule.priority());
+            hasher.putInt(rule.order());
+        }
+    }
+
+    private static void hashIdentifierMapping(@NotNull Hasher hasher, @NotNull IdentifierMapping mapping) {
+        hasher.putString(mapping.javaIdentifier().toString(), StandardCharsets.UTF_8);
+        hasher.putString(mapping.bedrockIdentifier().toString(), StandardCharsets.UTF_8);
+        hasher.putString(mapping.ownership().name(), StandardCharsets.UTF_8);
+        hasher.putString(mapping.sourcePath(), StandardCharsets.UTF_8);
+        hasher.putInt(mapping.priority());
+        hasher.putInt(mapping.order());
+    }
+
+    private static void hashContentPatch(@NotNull Hasher hasher, @NotNull ContentPatch patch) {
+        hasher.putString(patch.target().toString(), StandardCharsets.UTF_8);
+        hasher.putString(Objects.toString(patch.contentType(), ""), StandardCharsets.UTF_8);
+        patch.operations().entrySet().stream()
+            .sorted(Map.Entry.comparingByKey())
+            .forEach(entry -> {
+                hasher.putString(entry.getKey(), StandardCharsets.UTF_8);
+                hasher.putString(entry.getValue(), StandardCharsets.UTF_8);
+            });
+        hasher.putString(patch.ownership().name(), StandardCharsets.UTF_8);
+        hasher.putString(patch.sourcePath(), StandardCharsets.UTF_8);
+        hasher.putInt(patch.priority());
+        hasher.putInt(patch.order());
     }
 
     private static void hashSection(@NotNull Hasher hasher, @NotNull String section, @NotNull String value) {

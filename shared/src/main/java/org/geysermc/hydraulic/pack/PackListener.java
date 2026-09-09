@@ -137,6 +137,7 @@ public class PackListener {
                 registeredFromCache++;
             }
         }
+        this.manager.recordConversionCacheUsage(registeredFromCache, packsToLoad.size());
 
         long start = System.currentTimeMillis();
         if (packsToLoad.isEmpty()) {
@@ -192,6 +193,12 @@ public class PackListener {
                         ModStorage storage = this.hydraulic.modStorage(mod);
                         storage.conversionKey(conversionKey);
                         storage.save();
+                        this.manager.artifactCache().storeConversionArtifact(mod.id(), new org.geysermc.hydraulic.cache.ArtifactCache.ConversionArtifact(
+                            mod.id(),
+                            conversionKey,
+                            entry.getValue().getRight().toString(),
+                            conversionKey.packUuid().toString()
+                        ));
                         convertedPacks.incrementAndGet();
                         convertedPackPaths.put(entry.getKey(), entry.getValue().getRight());
                         perModMetrics.put(entry.getKey(), metrics);
