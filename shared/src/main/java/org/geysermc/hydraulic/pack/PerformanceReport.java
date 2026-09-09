@@ -159,7 +159,8 @@ public record PerformanceReport(
         @NotNull CacheMetrics items,
         @NotNull CacheMetrics entities,
         @NotNull CacheMetrics menus,
-        @NotNull CacheMetrics blockEntities
+        @NotNull CacheMetrics blockEntities,
+        @NotNull CacheMetrics fluids
     ) {
     }
 }

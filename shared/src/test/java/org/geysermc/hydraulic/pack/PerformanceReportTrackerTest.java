@@ -38,7 +38,8 @@ class PerformanceReportTrackerTest {
             new PerformanceReport.CacheMetrics(7, 2),
             new PerformanceReport.CacheMetrics(8, 3),
             new PerformanceReport.CacheMetrics(9, 4),
-            new PerformanceReport.CacheMetrics(10, 5)
+            new PerformanceReport.CacheMetrics(10, 5),
+            new PerformanceReport.CacheMetrics(11, 6)
         ));
         tracker.recordPackConversion(new PerformanceReport.PackConversionMetrics(
             42,
@@ -74,6 +75,7 @@ class PerformanceReportTrackerTest {
         assertEquals(1, snapshot.artifactCache().index().hits());
         assertEquals(1, snapshot.artifactCache().compatibility().misses());
         assertEquals(7, snapshot.runtimeDispatch().items().hits());
+        assertEquals(11, snapshot.runtimeDispatch().fluids().hits());
         assertEquals(9, snapshot.lastPackConversion().perMod().get("examplemod").validationMillis());
         assertEquals(8, snapshot.lastPackConversion().perMod().get("examplemod").discoveredTextures());
         assertEquals("converted", snapshot.lastPackConversion().perMod().get("examplemod").outcome());
@@ -94,6 +96,7 @@ class PerformanceReportTrackerTest {
         assertEquals(1, written.lastPackConversion().perMod().get("examplemod").textureDependencySources());
         assertEquals(5, written.artifactCache().validation().misses());
         assertEquals(13, written.runtimeDispatch().menus().requests());
+        assertEquals(17, written.runtimeDispatch().fluids().requests());
         assertEquals(3, written.lastPackConversion().perMod().get("examplemod").validationManualActions());
         assertEquals(21, written.lastPackConversion().perMod().get("examplemod").millis());
     }

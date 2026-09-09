@@ -158,7 +158,7 @@ class RuntimeDispatchTableTest {
         assertTrue(blockEntityPlan.requiresRuntimeBridge(RuntimeBridgeKind.BLOCK_ENTITY_DATA));
         assertTrue(blockEntityPlan.requiresRuntimeBridge(RuntimeBridgeKind.BLOCK_ENTITY_BEHAVIOR));
 
-        var fluidPlan = registry.dispatchTable().plan("fluid", fluid.toString());
+        var fluidPlan = registry.dispatchTable().fluid(fluid);
         assertNotNull(fluidPlan);
         assertEquals(List.of(RuntimeBridgeKind.FLUID_TRANSLATOR, RuntimeBridgeKind.FLUID_RUNTIME), fluidPlan.runtimeBridgeKinds());
         assertEquals(List.of(fluidPlan), registry.dispatchTable().runtimeBridgePlans(RuntimeBridgeKind.FLUID_RUNTIME));
@@ -178,6 +178,8 @@ class RuntimeDispatchTableTest {
         assertEquals(2, registry.dispatchTable().metrics().entities().hits());
         assertEquals(1, registry.dispatchTable().metrics().menus().hits());
         assertEquals(1, registry.dispatchTable().metrics().blockEntities().hits());
+        assertEquals(1, registry.dispatchTable().metrics().fluids().hits());
+        assertEquals(0, registry.dispatchTable().metrics().fluids().misses());
     }
 
     private static CompatibilityObject object(

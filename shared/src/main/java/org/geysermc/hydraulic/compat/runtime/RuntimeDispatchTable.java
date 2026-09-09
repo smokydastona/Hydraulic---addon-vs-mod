@@ -64,7 +64,8 @@ public final class RuntimeDispatchTable {
             "item", new LookupCounters(),
             "entity", new LookupCounters(),
             "menu", new LookupCounters(),
-            "block_entity", new LookupCounters()
+            "block_entity", new LookupCounters(),
+            "fluid", new LookupCounters()
         );
     }
 
@@ -123,6 +124,11 @@ public final class RuntimeDispatchTable {
     @Nullable
     public CompiledCompatibilityPlan blockEntity(@NotNull Identifier javaIdentifier) {
         return this.plan("block_entity", javaIdentifier.toString());
+    }
+
+    @Nullable
+    public CompiledCompatibilityPlan fluid(@NotNull Identifier javaIdentifier) {
+        return this.plan("fluid", javaIdentifier.toString());
     }
 
     @Nullable
@@ -453,7 +459,8 @@ public final class RuntimeDispatchTable {
             this.cacheMetrics("item"),
             this.cacheMetrics("entity"),
             this.cacheMetrics("menu"),
-            this.cacheMetrics("block_entity")
+            this.cacheMetrics("block_entity"),
+            this.cacheMetrics("fluid")
         );
     }
 
