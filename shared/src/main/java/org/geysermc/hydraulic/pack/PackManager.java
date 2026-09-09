@@ -211,7 +211,13 @@ public class PackManager {
 
         this.performanceTracker.recordModelResolutionCache(toPerformanceCacheMetrics(StateDefinition.cacheMetrics()));
 
-        GeyserApi.api().eventBus().register(this.hydraulic, new PackListener(this.hydraulic, this));
+        PackListener packListener = new PackListener(this.hydraulic, this);
+        GeyserApi.api().eventBus().register(this.hydraulic, packListener);
+        try {
+            packListener.ensurePacksPrepared();
+        } catch (Throwable t) {
+            LOGGER.error("Failed to prepare Hydraulic resource packs during startup", t);
+        }
     }
 
     @SuppressWarnings({ "rawtypes", "unchecked" })

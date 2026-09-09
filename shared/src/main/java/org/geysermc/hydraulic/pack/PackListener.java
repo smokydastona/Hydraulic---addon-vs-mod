@@ -17,15 +17,17 @@ import org.geysermc.hydraulic.storage.ModStorage;
 import org.geysermc.hydraulic.util.FormatUtil;
 import org.geysermc.hydraulic.util.PackUtil;
 import org.geysermc.pack.bedrock.resource.Manifest;
+import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -46,6 +48,7 @@ public class PackListener {
 
     private final HydraulicImpl hydraulic;
     private final PackManager manager;
+    private volatile PreparedPacks preparedPacks;
 
     static {
         THREAD_POOL = Executors.newFixedThreadPool(
@@ -68,6 +71,28 @@ public class PackListener {
 
     @Subscribe(postOrder = PostOrder.LATE)
     public void onLoadResourcePacks(GeyserDefineResourcePacksEvent event) {
+        PreparedPacks prepared = this.ensurePacksPrepared();
+        prepared.registerablePacks().forEach((modId, packPath) -> {
+            if (!Files.exists(packPath)) {
+                LOGGER.warn("Skipping prepared pack registration for mod {} because {} no longer exists", modId, packPath);
+                return;
+            }
+
+            event.register(ResourcePack.create(PackCodec.path(packPath)), PriorityOption.NORMAL);
+        });
+    }
+
+    synchronized PreparedPacks ensurePacksPrepared() {
+        if (this.preparedPacks != null) {
+            return this.preparedPacks;
+        }
+
+        this.preparedPacks = this.preparePacks();
+        return this.preparedPacks;
+    }
+
+    @NotNull
+    private PreparedPacks preparePacks() {
         // Check if hydraulic has updated since the last pack conversion
         // This is so we can regenerate packs on update in case the pack generation logic has changed
         ModInfo hydraulicMod = this.hydraulic.mod(Constants.MOD_ID);
@@ -79,6 +104,7 @@ public class PackListener {
 
         // Go over all mods and load the pack or mark them for conversion
         Map<String, Pair<ModInfo, Path>> packsToLoad = new HashMap<>();
+        Map<String, Path> registerablePacks = new LinkedHashMap<>();
         int ignoredMods = 0;
         int generatedMods = 0;
         int skippedWithoutAssets = 0;
@@ -106,16 +132,15 @@ public class PackListener {
             if (this.hydraulic.isDev() || hydraulicUpdated || checkNeedsConversion(mod, packPath)) {
                 packsToLoad.put(mod.id(), Pair.of(mod, packPath));
             } else {
-                // We don't need to convert the pack, just register it
-                LOGGER.info("Registering already converted pack for mod {}", mod.id());
-                event.register(ResourcePack.create(PackCodec.path(packPath)), PriorityOption.NORMAL);
+                LOGGER.info("Using already converted pack for mod {}", mod.id());
+                registerablePacks.put(mod.id(), packPath);
                 registeredFromCache++;
             }
         }
 
         long start = System.currentTimeMillis();
         if (packsToLoad.isEmpty()) {
-            this.manager.recordPackConversionMetrics(new PerformanceReport.PackConversionMetrics(
+            PerformanceReport.PackConversionMetrics metrics = new PerformanceReport.PackConversionMetrics(
                 System.currentTimeMillis() - start,
                 this.hydraulic.mods().size(),
                 ignoredMods,
@@ -126,11 +151,12 @@ public class PackListener {
                 0,
                 0,
                 Map.of()
-            ));
+            );
+            this.manager.recordPackConversionMetrics(metrics);
             if (skippedWithoutAssets > 0) {
                 LOGGER.info("Skipped {} mods with no asset-pack files requiring Hydraulic conversion", skippedWithoutAssets);
             }
-            return;
+            return new PreparedPacks(registerablePacks, metrics);
         }
 
         LOGGER.info("Found {} packs to convert!", packsToLoad.size());
@@ -141,6 +167,7 @@ public class PackListener {
         AtomicInteger convertedPacks = new AtomicInteger();
         AtomicInteger failedPacks = new AtomicInteger();
         ConcurrentMap<String, PerformanceReport.ModConversionMetrics> perModMetrics = new ConcurrentHashMap<>();
+        ConcurrentMap<String, Path> convertedPackPaths = new ConcurrentHashMap<>();
 
         List<CompletableFuture<Void>> futures = new ArrayList<>();
         for (var entry : packsToLoad.entrySet()) {
@@ -159,8 +186,8 @@ public class PackListener {
                         result.validation().manualActionCount()
                     );
                     if (result.success()) {
-                        event.register(ResourcePack.create(PackCodec.path(entry.getValue().getRight())), PriorityOption.NORMAL);
                         convertedPacks.incrementAndGet();
+                        convertedPackPaths.put(entry.getKey(), entry.getValue().getRight());
                         perModMetrics.put(entry.getKey(), metrics);
                     } else {
                         failedPacks.incrementAndGet();
@@ -177,8 +204,10 @@ public class PackListener {
         // Wait for all futures to complete
         CompletableFuture.allOf(futures.toArray(new CompletableFuture<?>[0])).join();
 
+        registerablePacks.putAll(new LinkedHashMap<>(convertedPackPaths));
+
         long totalMillis = System.currentTimeMillis() - start;
-        this.manager.recordPackConversionMetrics(new PerformanceReport.PackConversionMetrics(
+        PerformanceReport.PackConversionMetrics metrics = new PerformanceReport.PackConversionMetrics(
             totalMillis,
             this.hydraulic.mods().size(),
             ignoredMods,
@@ -189,9 +218,11 @@ public class PackListener {
             convertedPacks.get(),
             failedPacks.get(),
             new LinkedHashMap<>(perModMetrics)
-        ));
+        );
+        this.manager.recordPackConversionMetrics(metrics);
 
         LOGGER.info("Converted {} packs for mods in {}", packsToLoad.size(), FormatUtil.humanReadableFormat(totalMillis));
+        return new PreparedPacks(registerablePacks, metrics);
     }
 
     /**
@@ -218,5 +249,14 @@ public class PackListener {
         String modUUID = PackUtil.getModUUID(mod.roots()).toString();
 
         return !modUUID.equals(packUUID);
+    }
+
+    record PreparedPacks(
+        @org.jetbrains.annotations.NotNull Map<String, Path> registerablePacks,
+        @org.jetbrains.annotations.NotNull PerformanceReport.PackConversionMetrics metrics
+    ) {
+        PreparedPacks {
+            registerablePacks = Map.copyOf(new LinkedHashMap<>(registerablePacks));
+        }
     }
 }

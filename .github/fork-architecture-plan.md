@@ -182,6 +182,7 @@ This separation is fundamental, not just a reporting refinement. A converted mod
 - `performance-report.json` startup snapshots now include indexed blockstate and item-asset totals alongside the existing timing breakdowns, making the startup indexing work observable in artifacts instead of only by code inspection.
 - `StateDefinition` model-resolution caching now emits cumulative hit/miss evidence into `performance-report.json`, so the first block hot-path cache is measurable from runtime artifacts instead of only from code.
 - Hydraulic now emits `pack-validation-report.json` with structured per-mod `errors`, `warnings`, and `manualActions` after generated pack export, and pack conversion metrics now record validator timing and validation counts.
+- Hydraulic now prepares converted packs during Hydraulic startup before later Geyser resource-pack registration, so pack-validation and conversion artifacts are no longer blocked by downstream Bedrock bootstrap failures.
 - `BlockPackModule` already consumes resolved state-aware block definitions during custom block registration.
 - `ItemPackModule` already uses compatibility-aware block placement for block items, consults item compatibility objects for non-block custom item registration, suppresses creative exposure when item behavior is only approximated, and continues to translate modern item components through `ComponentConverter`.
 - `ArmorPackModule` now generates humanoid armor attachables from direct equipment-asset loading and gates them through compatibility decisions.
@@ -231,7 +232,8 @@ PackManager.initialize
     -> write reports/compatibility-report.json
     -> create CompatibilityRegistry + MappingResolver
     -> CompatibilityDecisions resolves current runtime bridges through CapabilityAdapterRegistry
-  -> normal pack conversion pipeline
+  -> prepare and validate generated packs
+  -> later Geyser resource-pack event registers prepared packs
   -> BlockPackModule consumes resolved block mappings during custom block registration
     -> ItemPackModule consumes compatibility-aware block placement mapping plus adapter-aware registration/exposure decisions
     -> ArmorPackModule consumes adapter-aware wearable decisions for attachable generation
@@ -1021,6 +1023,7 @@ The project is no longer at pure scaffolding stage. The repo now already contain
 - per-mod resource indexing in `ModResourceIndex`
 - performance artifacts through `performance-report.json`, now including startup indexed blockstate and item-asset totals plus cumulative `StateDefinition` cache hit/miss evidence
 - post-generation validation artifacts through `pack-validation-report.json`, plus validator timing and issue counts inside per-mod conversion metrics
+- eager pack preparation before `GeyserDefineResourcePacksEvent`, so Hydraulic conversion evidence survives later Geyser HTTPS/bootstrap failures
 - a live `CapabilityAdapterRegistry`
 - first metadata-backed menu and block-entity runtime bridges
 
@@ -1058,6 +1061,8 @@ That means the next roadmap should finish and generalize partially landed system
 - keep metadata expressive at load time but compact at runtime
 - finish the partially landed performance substrate before widening broad runtime bridge scope
 - keep README and this architecture plan aligned with what was actually validated
+
+Current runtime validation note: the original local `GeyserPluginConfig` bootstrap failure is no longer the active blocker in this workspace state. The currently observed runtime blocker is external HTTPS access from Geyser and Mojang client bootstrap (`api.minecraftservices.com` and `client.discovery.minecraft-services.net`), which can still prevent late Bedrock startup even though Hydraulic initialization and eager pack preparation succeed.
 
 ## External Tooling Deep Dive
 
