@@ -155,6 +155,7 @@ public class PackListener {
             );
             this.manager.recordPackConversionMetrics(metrics);
             this.manager.syncCompatibilityValidation();
+            this.manager.recordRuntimeDispatchMetrics();
             if (skippedWithoutAssets > 0) {
                 LOGGER.info("Skipped {} mods with no asset-pack files requiring Hydraulic conversion", skippedWithoutAssets);
             }
@@ -234,6 +235,7 @@ public class PackListener {
         );
         this.manager.recordPackConversionMetrics(metrics);
         this.manager.syncCompatibilityValidation();
+        this.manager.recordRuntimeDispatchMetrics();
 
         LOGGER.info("Converted {} packs for mods in {}", packsToLoad.size(), FormatUtil.humanReadableFormat(totalMillis));
         return new PreparedPacks(registerablePacks, metrics);

@@ -556,6 +556,10 @@ public class PackManager {
         this.performanceTracker.recordArtifactCache(metrics);
     }
 
+    public void recordRuntimeDispatchMetrics() {
+        this.performanceTracker.recordRuntimeDispatch(this.compatibilityRegistry.dispatchTable().metrics());
+    }
+
     void recordConversionCacheUsage(long hits, long misses) {
         this.conversionCacheHits += hits;
         this.conversionCacheMisses += misses;

@@ -48,6 +48,8 @@ public final class EntityPackModule extends PackModule<EntityPackModule> {
             }
         }
 
+        context.hydraulic().getPackManager().recordRuntimeDispatchMetrics();
+
         if (registered > 0) {
             context.logger().info("Registered {} compatibility-backed custom entities", registered);
         }

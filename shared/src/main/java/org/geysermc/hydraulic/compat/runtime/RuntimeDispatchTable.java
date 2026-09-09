@@ -22,10 +22,12 @@ import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicLong;
 
 public final class RuntimeDispatchTable {
     private final Map<String, CompiledCompatibilityPlan> plansByTypeAndIdentifier;
     private final Map<String, List<CompiledCompatibilityPlan>> plansByModAndType;
+    private final Map<String, LookupCounters> countersByType;
 
     private RuntimeDispatchTable(
         @NotNull Map<String, CompiledCompatibilityPlan> plansByTypeAndIdentifier,
@@ -37,6 +39,13 @@ public final class RuntimeDispatchTable {
             copy.put(entry.getKey(), List.copyOf(entry.getValue()));
         }
         this.plansByModAndType = Collections.unmodifiableMap(copy);
+        this.countersByType = Map.of(
+            "block", new LookupCounters(),
+            "item", new LookupCounters(),
+            "entity", new LookupCounters(),
+            "menu", new LookupCounters(),
+            "block_entity", new LookupCounters()
+        );
     }
 
     @NotNull
@@ -85,12 +94,16 @@ public final class RuntimeDispatchTable {
 
     @Nullable
     public CompiledCompatibilityPlan plan(@NotNull String contentType, @NotNull String javaIdentifier) {
-        return this.plansByTypeAndIdentifier.get(key(contentType, javaIdentifier));
+        CompiledCompatibilityPlan plan = this.plansByTypeAndIdentifier.get(key(contentType, javaIdentifier));
+        this.recordLookup(contentType, plan != null);
+        return plan;
     }
 
     @NotNull
     public List<CompiledCompatibilityPlan> plans(@NotNull String modId, @NotNull String contentType) {
-        return this.plansByModAndType.getOrDefault(key(modId, contentType), List.of());
+        List<CompiledCompatibilityPlan> plans = this.plansByModAndType.getOrDefault(key(modId, contentType), List.of());
+        this.recordLookup(contentType, !plans.isEmpty());
+        return plans;
     }
 
     @NotNull
@@ -289,6 +302,54 @@ public final class RuntimeDispatchTable {
                 && item.components().get(DataComponents.EQUIPPABLE).assetId().isPresent();
         } catch (NullPointerException ignored) {
             return false;
+        }
+    }
+
+    @NotNull
+    public org.geysermc.hydraulic.pack.PerformanceReport.RuntimeDispatchMetrics metrics() {
+        return new org.geysermc.hydraulic.pack.PerformanceReport.RuntimeDispatchMetrics(
+            this.cacheMetrics("block"),
+            this.cacheMetrics("item"),
+            this.cacheMetrics("entity"),
+            this.cacheMetrics("menu"),
+            this.cacheMetrics("block_entity")
+        );
+    }
+
+    private void recordLookup(@NotNull String contentType, boolean hit) {
+        LookupCounters counters = this.countersByType.get(contentType);
+        if (counters == null) {
+            return;
+        }
+        counters.record(hit);
+    }
+
+    @NotNull
+    private org.geysermc.hydraulic.pack.PerformanceReport.CacheMetrics cacheMetrics(@NotNull String contentType) {
+        LookupCounters counters = this.countersByType.get(contentType);
+        return counters == null
+            ? new org.geysermc.hydraulic.pack.PerformanceReport.CacheMetrics(0, 0)
+            : new org.geysermc.hydraulic.pack.PerformanceReport.CacheMetrics(counters.hits(), counters.misses());
+    }
+
+    private static final class LookupCounters {
+        private final AtomicLong hits = new AtomicLong();
+        private final AtomicLong misses = new AtomicLong();
+
+        private void record(boolean hit) {
+            if (hit) {
+                this.hits.incrementAndGet();
+            } else {
+                this.misses.incrementAndGet();
+            }
+        }
+
+        private long hits() {
+            return this.hits.get();
+        }
+
+        private long misses() {
+            return this.misses.get();
         }
     }
 }

@@ -10,31 +10,37 @@ public record PerformanceReport(
     @Nullable StartupMetrics startup,
     @Nullable PackConversionMetrics lastPackConversion,
     @Nullable CacheMetrics modelResolutionCache,
-    @Nullable ArtifactCacheMetrics artifactCache
+    @Nullable ArtifactCacheMetrics artifactCache,
+    @Nullable RuntimeDispatchMetrics runtimeDispatch
 ) {
     @NotNull
     public static PerformanceReport empty() {
-        return new PerformanceReport(null, null, null, null);
+        return new PerformanceReport(null, null, null, null, null);
     }
 
     @NotNull
     public PerformanceReport withStartup(@NotNull StartupMetrics startup) {
-        return new PerformanceReport(startup, this.lastPackConversion, this.modelResolutionCache, this.artifactCache);
+        return new PerformanceReport(startup, this.lastPackConversion, this.modelResolutionCache, this.artifactCache, this.runtimeDispatch);
     }
 
     @NotNull
     public PerformanceReport withPackConversion(@NotNull PackConversionMetrics packConversion) {
-        return new PerformanceReport(this.startup, packConversion, this.modelResolutionCache, this.artifactCache);
+        return new PerformanceReport(this.startup, packConversion, this.modelResolutionCache, this.artifactCache, this.runtimeDispatch);
     }
 
     @NotNull
     public PerformanceReport withModelResolutionCache(@NotNull CacheMetrics cacheMetrics) {
-        return new PerformanceReport(this.startup, this.lastPackConversion, cacheMetrics, this.artifactCache);
+        return new PerformanceReport(this.startup, this.lastPackConversion, cacheMetrics, this.artifactCache, this.runtimeDispatch);
     }
 
     @NotNull
     public PerformanceReport withArtifactCache(@NotNull ArtifactCacheMetrics artifactCache) {
-        return new PerformanceReport(this.startup, this.lastPackConversion, this.modelResolutionCache, artifactCache);
+        return new PerformanceReport(this.startup, this.lastPackConversion, this.modelResolutionCache, artifactCache, this.runtimeDispatch);
+    }
+
+    @NotNull
+    public PerformanceReport withRuntimeDispatch(@NotNull RuntimeDispatchMetrics runtimeDispatch) {
+        return new PerformanceReport(this.startup, this.lastPackConversion, this.modelResolutionCache, this.artifactCache, runtimeDispatch);
     }
 
     public record StartupMetrics(
@@ -102,6 +108,15 @@ public record PerformanceReport(
         @NotNull CacheMetrics compatibility,
         @NotNull CacheMetrics conversions,
         @NotNull CacheMetrics validation
+    ) {
+    }
+
+    public record RuntimeDispatchMetrics(
+        @NotNull CacheMetrics blocks,
+        @NotNull CacheMetrics items,
+        @NotNull CacheMetrics entities,
+        @NotNull CacheMetrics menus,
+        @NotNull CacheMetrics blockEntities
     ) {
     }
 }

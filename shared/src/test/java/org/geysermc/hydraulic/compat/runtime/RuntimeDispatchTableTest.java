@@ -114,6 +114,11 @@ class RuntimeDispatchTableTest {
 
         assertNull(registry.dispatchTable().plan("item", "example:missing"));
         assertEquals(1, registry.dispatchTable().entityPlans("testmod").size());
+        assertEquals(1, registry.dispatchTable().metrics().items().hits());
+        assertEquals(1, registry.dispatchTable().metrics().items().misses());
+        assertEquals(2, registry.dispatchTable().metrics().entities().hits());
+        assertEquals(1, registry.dispatchTable().metrics().menus().hits());
+        assertEquals(1, registry.dispatchTable().metrics().blockEntities().hits());
     }
 
     private static CompatibilityObject object(

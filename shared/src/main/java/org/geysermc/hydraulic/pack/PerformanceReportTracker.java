@@ -39,6 +39,11 @@ final class PerformanceReportTracker {
         this.write();
     }
 
+    synchronized void recordRuntimeDispatch(@NotNull PerformanceReport.RuntimeDispatchMetrics metrics) {
+        this.report = this.report.withRuntimeDispatch(metrics);
+        this.write();
+    }
+
     @NotNull
     synchronized PerformanceReport snapshot() {
         return this.report;
