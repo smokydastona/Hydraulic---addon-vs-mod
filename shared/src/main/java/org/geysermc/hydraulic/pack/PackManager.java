@@ -662,8 +662,8 @@ public class PackManager {
             fingerprints.put(entry.getKey(), entry.getValue().fingerprint().stableValue());
         }
         String metadataFingerprint = PackUtil.metadataFingerprint(this.metadataIndex);
-        String joined = metadataFingerprint + "|" + Constants.GSON.toJson(fingerprints);
-        return new ArtifactCache.CompatibilityCacheKey(com.google.common.hash.Hashing.sha256().hashString(joined, java.nio.charset.StandardCharsets.UTF_8).toString());
+        String engineFingerprint = PackUtil.compatibilityEngineFingerprint();
+        return new ArtifactCache.CompatibilityCacheKey(PackUtil.compatibilityCacheFingerprint(metadataFingerprint, fingerprints, engineFingerprint));
     }
 
     @NotNull
@@ -672,7 +672,7 @@ public class PackManager {
         for (Map.Entry<String, ModResourceIndex> entry : this.modResourceIndexes.entrySet()) {
             fingerprints.put(entry.getKey(), entry.getValue().fingerprint().stableValue());
         }
-        return new ArtifactCache.CompatibilityManifest(cacheKey.value(), PackUtil.metadataFingerprint(this.metadataIndex), fingerprints.size(), fingerprints);
+        return new ArtifactCache.CompatibilityManifest(cacheKey.value(), PackUtil.metadataFingerprint(this.metadataIndex), PackUtil.compatibilityEngineFingerprint(), fingerprints.size(), fingerprints);
     }
 
     private static long nanosToMillis(long nanos) {

@@ -20,6 +20,7 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.TreeMap;
 import java.util.List;
 import java.util.Map;
 
@@ -237,5 +238,25 @@ class PackUtilTest {
 
         assertEquals(first, second);
         assertNotEquals("", first);
+    }
+
+    @Test
+    void compatibilityEngineFingerprintIsDeterministicAndNonEmpty() {
+        String first = PackUtil.compatibilityEngineFingerprint();
+        String second = PackUtil.compatibilityEngineFingerprint();
+
+        assertEquals(first, second);
+        assertNotEquals("", first);
+    }
+
+    @Test
+    void compatibilityCacheFingerprintChangesWhenEngineFingerprintChanges() {
+        TreeMap<String, String> modFingerprints = new TreeMap<>();
+        modFingerprints.put("example", "fingerprint-1");
+
+        String first = PackUtil.compatibilityCacheFingerprint("metadata-1", modFingerprints, "engine-1");
+        String second = PackUtil.compatibilityCacheFingerprint("metadata-1", modFingerprints, "engine-2");
+
+        assertNotEquals(first, second);
     }
 }

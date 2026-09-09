@@ -8,6 +8,16 @@ import net.minecraft.SharedConstants;
 import net.minecraft.resources.Identifier;
 import org.geysermc.hydraulic.Constants;
 import org.geysermc.hydraulic.cache.ConversionKey;
+import org.geysermc.hydraulic.compat.CompatibilityManager;
+import org.geysermc.hydraulic.compat.analysis.AnalyzerRegistry;
+import org.geysermc.hydraulic.compat.analysis.BlockAnalyzer;
+import org.geysermc.hydraulic.compat.analysis.BlockEntityAnalyzer;
+import org.geysermc.hydraulic.compat.analysis.EntityAnalyzer;
+import org.geysermc.hydraulic.compat.analysis.FluidAnalyzer;
+import org.geysermc.hydraulic.compat.analysis.ItemAnalyzer;
+import org.geysermc.hydraulic.compat.analysis.MenuAnalyzer;
+import org.geysermc.hydraulic.compat.analysis.RecipeAnalyzer;
+import org.geysermc.hydraulic.compat.adapter.CapabilityAdapterRegistry;
 import org.geysermc.hydraulic.compat.mapping.ContentPatch;
 import org.geysermc.hydraulic.metadata.BlockMapping;
 import org.geysermc.hydraulic.metadata.IdentifierMapping;
@@ -22,6 +32,8 @@ import org.slf4j.Logger;
 import team.unnamed.creative.model.Model;
 
 import java.nio.charset.StandardCharsets;
+import java.io.IOException;
+import java.io.InputStream;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -39,6 +51,19 @@ import java.util.Set;
 public class PackUtil {
     protected static final Logger LOGGER = LogUtils.getLogger();
     private static final String CONVERSION_KEY_ALGORITHM = "HYDRAULIC_CONVERSION_KEY_V3";
+    private static final String COMPATIBILITY_ENGINE_ALGORITHM = "HYDRAULIC_COMPATIBILITY_ENGINE_V1";
+    private static final List<Class<?>> COMPATIBILITY_ENGINE_CLASSES = List.of(
+        CompatibilityManager.class,
+        AnalyzerRegistry.class,
+        BlockAnalyzer.class,
+        ItemAnalyzer.class,
+        EntityAnalyzer.class,
+        FluidAnalyzer.class,
+        BlockEntityAnalyzer.class,
+        MenuAnalyzer.class,
+        RecipeAnalyzer.class,
+        CapabilityAdapterRegistry.class
+    );
 
     public static String getTextureName(@NotNull String modelName) {
         // TODO Sometimes things end up in the minecraft namespace when they shouldn't.
@@ -239,6 +264,32 @@ public class PackUtil {
         return hasher.hash().toString();
     }
 
+    @NotNull
+    public static String compatibilityEngineFingerprint() {
+        Hasher hasher = Hashing.sha256().newHasher();
+        hasher.putString(COMPATIBILITY_ENGINE_ALGORITHM, StandardCharsets.UTF_8);
+        hasher.putString(Constants.VERSION, StandardCharsets.UTF_8);
+        for (Class<?> type : COMPATIBILITY_ENGINE_CLASSES) {
+            hasher.putString(type.getName(), StandardCharsets.UTF_8);
+            hashClassBytes(hasher, type);
+        }
+        return hasher.hash().toString();
+    }
+
+    @NotNull
+    public static String compatibilityCacheFingerprint(@NotNull String metadataFingerprint, @NotNull Map<String, String> modFingerprints, @NotNull String engineFingerprint) {
+        Hasher hasher = Hashing.sha256().newHasher();
+        hasher.putString(engineFingerprint, StandardCharsets.UTF_8);
+        hasher.putString(metadataFingerprint, StandardCharsets.UTF_8);
+        modFingerprints.entrySet().stream()
+            .sorted(Map.Entry.comparingByKey())
+            .forEach(entry -> {
+                hasher.putString(entry.getKey(), StandardCharsets.UTF_8);
+                hasher.putString(entry.getValue(), StandardCharsets.UTF_8);
+            });
+        return hasher.hash().toString();
+    }
+
     private static void hashSummary(@NotNull Hasher hasher, @NotNull MetadataIndex.Summary summary) {
         hasher.putString("summary", StandardCharsets.UTF_8);
         hasher.putInt(summary.fileCount());
@@ -262,6 +313,25 @@ public class PackUtil {
     }
 
     private record ModelDependencyNode(@NotNull String modId, @NotNull Key modelKey) {
+    }
+
+    private static void hashClassBytes(@NotNull Hasher hasher, @NotNull Class<?> type) {
+        String resourceName = type.getSimpleName() + ".class";
+        try (InputStream inputStream = type.getResourceAsStream(resourceName)) {
+            if (inputStream == null) {
+                hasher.putString("missing", StandardCharsets.UTF_8);
+                return;
+            }
+
+            byte[] buffer = new byte[8192];
+            int read;
+            while ((read = inputStream.read(buffer)) != -1) {
+                hasher.putBytes(buffer, 0, read);
+            }
+        } catch (IOException exception) {
+            LOGGER.warn("Failed to hash compatibility engine class bytes for {}", type.getName(), exception);
+            hasher.putString("io-error", StandardCharsets.UTF_8);
+        }
     }
 
     private static void hashBlockMappings(@NotNull Hasher hasher, @NotNull Map<?, BlockMapping> mappings) {

@@ -168,10 +168,12 @@ public final class ArtifactCache {
     public record CompatibilityManifest(
         @NotNull String cacheKey,
         @NotNull String metadataFingerprint,
+        @NotNull String engineFingerprint,
         int modCount,
         @NotNull Map<String, String> modFingerprints
     ) {
         public CompatibilityManifest {
+            engineFingerprint = engineFingerprint == null ? "" : engineFingerprint;
             modFingerprints = Map.copyOf(new LinkedHashMap<>(modFingerprints));
         }
     }

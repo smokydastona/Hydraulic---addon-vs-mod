@@ -41,7 +41,7 @@ class ArtifactCacheTest {
         ContentInventory inventory = sampleInventory();
         CompatibilityReport report = sampleReport();
         cache.storeCompatibilitySnapshot(new ArtifactCache.CompatibilitySnapshot(
-            new ArtifactCache.CompatibilityManifest(key.value(), "metadata-1", 1, Map.of("testmod", "fingerprint-1")),
+            new ArtifactCache.CompatibilityManifest(key.value(), "metadata-1", "engine-1", 1, Map.of("testmod", "fingerprint-1")),
             inventory,
             report
         ));
@@ -49,6 +49,7 @@ class ArtifactCacheTest {
         ArtifactCache.CompatibilitySnapshot loaded = cache.loadCompatibilitySnapshot(key);
         assertNotNull(loaded);
         assertEquals("compat-key-1", loaded.manifest().cacheKey());
+        assertEquals("engine-1", loaded.manifest().engineFingerprint());
         assertEquals(1, loaded.inventory().mods().size());
         assertEquals("testmod", loaded.report().profile("testmod").modId());
         assertNull(cache.loadCompatibilitySnapshot(new ArtifactCache.CompatibilityCacheKey("compat-key-2")));
