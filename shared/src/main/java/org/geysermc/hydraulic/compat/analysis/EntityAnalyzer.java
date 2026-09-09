@@ -32,6 +32,11 @@ public final class EntityAnalyzer implements CompatibilityAnalyzer {
     public @NotNull CompatibilityObject analyze(@NotNull ContentInventory.ContentDescriptor descriptor, @NotNull ContentInventory.ModContentInventory inventory, @NotNull MetadataIndex metadataIndex) {
         IdentifierMapping mapping = metadataIndex.entityMapping(Identifier.parse(descriptor.javaIdentifier()));
         List<ContentPatch> patches = metadataIndex.contentPatches(Identifier.parse(descriptor.javaIdentifier()));
+        String interactionPrompt = patches.stream()
+            .map(patch -> patch.operation("interaction.prompt"))
+            .filter(prompt -> prompt != null && !prompt.isBlank())
+            .findFirst()
+            .orElse(null);
         boolean behaviorRequired = patches.stream().anyMatch(patch -> patch.booleanOperation("behavior.required") || patch.hasOperationPrefix("behavior."));
         String behaviorTag = patches.stream()
             .map(patch -> patch.operation("behavior.tag"))
@@ -53,7 +58,7 @@ public final class EntityAnalyzer implements CompatibilityAnalyzer {
         List<CapabilityResult> results = List.of(
             AnalyzerSupport.result(registered, descriptor.registered(), "Registry lookup from BuiltInRegistries.ENTITY_TYPE."),
             AnalyzerSupport.result(presentation, mapping != null || !patches.isEmpty(), "Entity support currently depends on metadata or patch evidence only."),
-            AnalyzerSupport.result(interaction, false, "Runtime entity bridges are not implemented yet."),
+            AnalyzerSupport.result(interaction, interactionPrompt != null, interactionPrompt != null ? "Metadata patch declares a Bedrock interaction prompt for the existing Java interaction path." : "Runtime entity bridges are not implemented yet."),
             AnalyzerSupport.result(behavior, false, "Behavior representation for entities is not implemented yet.")
         );
 
@@ -61,11 +66,21 @@ public final class EntityAnalyzer implements CompatibilityAnalyzer {
         Map<String, SupportResult> supportResults = new LinkedHashMap<>();
         supportResults.put("content", AnalyzerSupport.support("content", SupportLevel.AUTOMATIC, List.of(results.get(0)), List.of("Entity discovery is registry-backed.")));
         supportResults.put("presentation", AnalyzerSupport.support("presentation", mapping != null || !patches.isEmpty() ? SupportLevel.ADAPTED : SupportLevel.UNSUPPORTED, List.of(results.get(1)), List.of("Entity presentation currently relies on explicit metadata rather than automatic translators.")));
-        supportResults.put("interaction", AnalyzerSupport.support("interaction", SupportLevel.UNSUPPORTED, List.of(results.get(2)), List.of("Entity interaction bridges are still missing.")));
+        supportResults.put("interaction", AnalyzerSupport.support("interaction", interactionPrompt != null ? SupportLevel.ADAPTED : SupportLevel.UNSUPPORTED, List.of(results.get(2)), List.of(interactionPrompt != null ? "Metadata patches can surface a Bedrock interaction prompt while reusing the existing Java interaction packet path." : "Entity interaction bridges are still missing.")));
         supportResults.put("behavior", AnalyzerSupport.support("behavior", SupportLevel.UNSUPPORTED, List.of(results.get(3)), List.of("Entity runtime translation is not implemented.")));
 
         List<CompatibilityFinding> findings = List.of(
-            new CompatibilityFinding("entity.bridge.missing", CompatibilityFinding.Severity.WARNING, "behavior", "Entity runtime support is not implemented for " + descriptor.javaIdentifier(), "Current entity coverage is metadata-declared rather than behavior-backed.", "Implement entity bridges before treating entity support as functional.", null)
+            new CompatibilityFinding(
+                "entity.bridge.partial",
+                CompatibilityFinding.Severity.WARNING,
+                interactionPrompt != null ? "behavior" : "interaction",
+                "Entity support is partial for " + descriptor.javaIdentifier(),
+                interactionPrompt != null
+                    ? "Hydraulic can surface a Bedrock interaction prompt for this entity, but runtime behavior translation is still missing."
+                    : "Current entity coverage is metadata-declared rather than interaction- or behavior-backed.",
+                "Implement the remaining entity bridges before treating entity support as functional.",
+                null
+            )
         );
         List<String> metadataSources = new ArrayList<>();
         if (mapping != null) {
@@ -73,6 +88,9 @@ public final class EntityAnalyzer implements CompatibilityAnalyzer {
         }
 
         Map<String, String> inventoryFacts = AnalyzerSupport.inventoryFacts(descriptor.registered(), descriptor.assetPresent(), mapping != null ? 1 : 0, patches.size());
+        if (interactionPrompt != null) {
+            inventoryFacts.put("interaction_prompt", interactionPrompt);
+        }
         inventoryFacts.put("behavior_required", Boolean.toString(behaviorRequired));
         if (behaviorTag != null) {
             inventoryFacts.put("behavior_tag", behaviorTag);
@@ -85,7 +103,7 @@ public final class EntityAnalyzer implements CompatibilityAnalyzer {
             inventoryFacts,
             profile,
             supportResults,
-            new Confidence(mapping != null || !patches.isEmpty() ? 0.38D : 0.18D, "Entity analysis is currently metadata-backed and runtime-constrained."),
+            new Confidence(interactionPrompt != null ? 0.46D : mapping != null || !patches.isEmpty() ? 0.38D : 0.18D, interactionPrompt != null ? "Entity analysis is metadata-backed with an explicit interaction prompt bridge, but runtime behavior remains constrained." : "Entity analysis is currently metadata-backed and runtime-constrained."),
             AnalyzerSupport.provenance(this.getClass().getSimpleName(), mapping != null || !patches.isEmpty(), patches, metadataSources),
             findings
         );

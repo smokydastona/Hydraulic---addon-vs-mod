@@ -39,6 +39,7 @@ public record CompiledCompatibilityPlan(
     boolean supportsAttachablePresentation,
     boolean requiresMenuBridge,
     @Nullable ContainerType menuFallbackContainerType,
+    @Nullable String interactionPrompt,
     @NotNull List<String> menuRuntimeRequirements,
     @NotNull List<String> blockEntityRuntimeRequirements,
     @NotNull List<String> fluidRuntimeRequirements,

@@ -190,6 +190,7 @@ class BlockEntityPatchTranslatorFactoryTest {
             false,
             false,
             null,
+            null,
             List.of(),
             List.of(runtimeBridgeKind.requirementId()),
             List.of(),

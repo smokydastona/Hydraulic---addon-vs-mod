@@ -4,6 +4,7 @@
   "package": "org.geysermc.hydraulic.mixin",
   "compatibilityLevel": "JAVA_25",
   "mixins": [
+    "ext.BedrockInteractTranslatorMixin",
     "ext.BlockStateSerializerMixin",
     "ext.JavaBlockEntityDataTranslatorMixin",
     "ext.JavaOpenScreenTranslatorMixin",

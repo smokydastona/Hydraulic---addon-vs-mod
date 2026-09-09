@@ -7,6 +7,7 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import org.cloudburstmc.math.vector.Vector3i;
+import org.geysermc.geyser.entity.type.Entity;
 import org.geysermc.geyser.session.GeyserSession;
 import org.geysermc.hydraulic.HydraulicImpl;
 import org.geysermc.hydraulic.compat.CompatibilityRegistry;
@@ -121,6 +122,26 @@ public final class CompatibilityRuntimeDiagnostics {
             }
 
             Identifier identifier = BuiltInRegistries.MENU.getKey(menu.getType());
+            return identifier != null ? identifier.toString() : null;
+        } catch (IllegalStateException ignored) {
+            return null;
+        }
+    }
+
+    @Nullable
+    public static String resolveJavaEntityIdentifier(@NotNull GeyserSession session, @NotNull Entity entity) {
+        try {
+            ServerPlayer player = HydraulicImpl.instance().server().getPlayerList().getPlayer(session.javaUuid());
+            if (player == null) {
+                return null;
+            }
+
+            net.minecraft.world.entity.Entity javaEntity = player.level().getEntity(entity.getEntityId());
+            if (javaEntity == null || javaEntity.getType() == null) {
+                return null;
+            }
+
+            Identifier identifier = BuiltInRegistries.ENTITY_TYPE.getKey(javaEntity.getType());
             return identifier != null ? identifier.toString() : null;
         } catch (IllegalStateException ignored) {
             return null;

@@ -41,6 +41,13 @@ class BridgeAdapterSupportTest {
         assertFalse(BridgeAdapterSupport.supportsBlockEntityPatch(blockEntityPlan(true, RuntimeBridgeKind.BLOCK_ENTITY_BEHAVIOR)));
     }
 
+    @Test
+    void entityInteractionPromptRequiresExplicitAdapterBinding() {
+        assertTrue(BridgeAdapterSupport.supportsEntityInteractionPrompt(entityPlan(true, "Open Barrel Cube")));
+        assertFalse(BridgeAdapterSupport.supportsEntityInteractionPrompt(entityPlan(false, "Open Barrel Cube")));
+        assertFalse(BridgeAdapterSupport.supportsEntityInteractionPrompt(entityPlan(true, null)));
+    }
+
     private static CompiledCompatibilityPlan menuPlan(boolean includeAdapter, RuntimeBridgeKind runtimeBridgeKind) {
         return new CompiledCompatibilityPlan(
             "testmod",
@@ -65,6 +72,7 @@ class BridgeAdapterSupportTest {
             false,
             true,
             ContainerType.GENERIC_9X3,
+            null,
             List.of(runtimeBridgeKind.requirementId()),
             List.of(),
             List.of(),
@@ -100,6 +108,7 @@ class BridgeAdapterSupportTest {
             false,
             false,
             null,
+            null,
             List.of(),
             List.of(runtimeBridgeKind.requirementId()),
             List.of(),
@@ -113,6 +122,42 @@ class BridgeAdapterSupportTest {
                 0
             ))),
             true,
+            false,
+            SupportLevel.UNSUPPORTED,
+            null
+        );
+    }
+
+    private static CompiledCompatibilityPlan entityPlan(boolean includeAdapter, String interactionPrompt) {
+        return new CompiledCompatibilityPlan(
+            "testmod",
+            "entity",
+            Identifier.fromNamespaceAndPath("example", "test_entity").toString(),
+            Identifier.fromNamespaceAndPath("example", "bedrock_entity").toString(),
+            SupportLevel.ADAPTED,
+            CompatibilityStatus.PARTIAL,
+            75,
+            new Confidence(0.8D, "test"),
+            includeAdapter ? List.of(new AdapterBinding("entity.interaction_prompt", AdapterFeature.ENTITY_INTERACTION_PROMPT, "test")) : List.of(),
+            List.of(),
+            List.of(),
+            interactionPrompt == null ? Map.of() : Map.of("interaction_prompt", interactionPrompt),
+            false,
+            null,
+            false,
+            null,
+            false,
+            false,
+            false,
+            false,
+            false,
+            null,
+            interactionPrompt,
+            List.of(),
+            List.of(),
+            List.of(),
+            null,
+            false,
             false,
             SupportLevel.UNSUPPORTED,
             null

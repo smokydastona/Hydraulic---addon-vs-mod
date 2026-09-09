@@ -107,6 +107,7 @@ Supported fields today:
 - `bedrock_state`: optional Bedrock state values to inject into the generated custom block state
 - `geometry`: optional Bedrock geometry override
 - `material`: optional Bedrock material override
+- `interaction_prompt`: records a metadata-backed Bedrock entity interaction prompt in compatibility output when present
 - `behavior_required`: marks content that still needs a runtime bridge or behavior-layer support
 - `behavior_tag`: declares the bridge category Hydraulic should report and route through capability adapters
 
@@ -181,6 +182,7 @@ Supported patch paths today:
 - `visual.geometry`
 - `visual.material`
 - `java.when.<key>`
+- `interaction.prompt`
 - `behavior.required`
 - `behavior.tag`
 
@@ -259,7 +261,9 @@ When Geyser receives Java block entity data that falls through to its default `E
 
 Metadata V2 can now also drive a first real block-entity data bridge. A `block_entity` patch with `bedrock.block_entity.id` and `bedrock.block_entity.data.*` synthesizes Bedrock block-entity tag output at the same Geyser seam before Hydraulic falls back to the unsupported-runtime warning path. Those patch values can now be either constants or explicit `$java.<path>` copies from the live Java block-entity tag, which makes the bridge useful for carrying through names and other discovered state instead of only stamping fixed literals. Numeric path segments now also traverse list-backed Java NBT on that live runtime path, so block-entity patches can pull values out of list elements as well as nested compounds, and numeric destination segments now synthesize list-backed Bedrock tag structures instead of only nested compounds. That translator still requires the compiled `block_entity.patch_translator` adapter binding, so runtime activation follows analyzer-backed capability selection rather than raw patch presence alone. This is intentionally limited to data translation; interaction and behavior bridges are still missing.
 
-The current report is still conservative. It is intended to answer "what do we know right now from registries, assets, metadata, and patches?" not "is this mod fully playable end-to-end on Bedrock?" Behavior-heavy entities, fluids, menus, and block entities will still show low support until dedicated runtime bridges are implemented. For items, behavior-tagged patches already affect runtime exposure decisions, and explicit typed `ITEM_BEHAVIOR` bridge requirements now keep those items out of Bedrock creative exposure even when a wearable or bow presentation adapter still applies. For entities, metadata-backed identifier mappings only drive custom entity registration when the compiled plan still requires entity bridges but metadata explicitly marks that downgrade as `visual_only_runtime`; that keeps the current visual placeholder seam opt-in instead of silently treating unsupported entity behavior as acceptable.
+Metadata V2 can now also drive a first real entity interaction bridge. An `entity` patch with `interaction.prompt` marks interaction support as adapted, records that prompt in `compatibility-report.json`, binds the explicit `entity.interaction_prompt` adapter, and overrides Bedrock hover text at Geyser's `BedrockInteractTranslator` seam while still reusing the existing downstream Java interact packet path. The bundled `barrel_cube` test entity now also opens its test menu on Java interaction, so the bridge is tied to a real controlled runtime outcome instead of a report-only label. This slice is intentionally narrow: it improves discoverability and routing for explicit metadata-backed entity interactions, but richer entity behavior remains unsupported.
+
+The current report is still conservative. It is intended to answer "what do we know right now from registries, assets, metadata, and patches?" not "is this mod fully playable end-to-end on Bedrock?" Behavior-heavy entities, fluids, menus, and block entities will still show low support until dedicated runtime bridges are implemented. For items, behavior-tagged patches already affect runtime exposure decisions, and explicit typed `ITEM_BEHAVIOR` bridge requirements now keep those items out of Bedrock creative exposure even when a wearable or bow presentation adapter still applies. For entities, metadata-backed identifier mappings only drive custom entity registration when the compiled plan still requires behavior-layer runtime support but metadata explicitly marks that downgrade as `visual_only_runtime`; metadata-backed `interaction.prompt` patches now also surface a real Bedrock hover prompt and clear `entity_interaction_bridge` from the report when Hydraulic can truthfully reuse the existing Java interaction packet path.
 
 ## Contributing
 Any contributions are appreciated. Please feel free to reach out to us on [Discord](https://discord.gg/geysermc) if

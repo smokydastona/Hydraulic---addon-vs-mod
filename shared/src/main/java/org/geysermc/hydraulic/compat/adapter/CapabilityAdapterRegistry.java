@@ -24,7 +24,8 @@ public final class CapabilityAdapterRegistry {
         new CustomItemRegistrationAdapter(),
         new WearableItemAdapter(),
         new BowItemAdapter(),
-        new EntityDefinitionAdapter()
+        new EntityDefinitionAdapter(),
+        new EntityInteractionPromptAdapter()
     );
 
     private CapabilityAdapterRegistry() {
@@ -77,7 +78,10 @@ public final class CapabilityAdapterRegistry {
                 AdapterFeature.ATTACHABLE_ITEM_PRESENTATION,
                 AdapterFeature.ITEM_CREATIVE_EXPOSURE
             );
-            case "entity" -> List.of(AdapterFeature.CUSTOM_ENTITY_REGISTRATION);
+            case "entity" -> List.of(
+                AdapterFeature.CUSTOM_ENTITY_REGISTRATION,
+                AdapterFeature.ENTITY_INTERACTION_PROMPT
+            );
             default -> List.of();
         };
     }
@@ -112,6 +116,11 @@ public final class CapabilityAdapterRegistry {
             }
         }
         return false;
+    }
+
+    private static boolean hasInventoryFact(@NotNull CompatibilityObject object, @NotNull String key) {
+        String value = object.inventoryFacts().get(key);
+        return value != null && !value.isBlank();
     }
 
     private static boolean isUnsupported(@Nullable SupportResult supportResult) {
@@ -379,6 +388,36 @@ public final class CapabilityAdapterRegistry {
         @Override
         public @NotNull String reason(@NotNull CompatibilityObject compatibilityObject, @Nullable Object runtimeObject, @NotNull AdapterFeature feature) {
             return "existing metadata-backed custom entity definition bridge applies";
+        }
+    }
+
+    private static final class EntityInteractionPromptAdapter implements CapabilityAdapter {
+        @Override
+        public @NotNull String id() {
+            return "entity.interaction_prompt";
+        }
+
+        @Override
+        public @NotNull Set<AdapterFeature> features() {
+            return Set.of(AdapterFeature.ENTITY_INTERACTION_PROMPT);
+        }
+
+        @Override
+        public int priority() {
+            return 25;
+        }
+
+        @Override
+        public boolean supports(@NotNull CompatibilityObject compatibilityObject, @Nullable Object runtimeObject, @NotNull AdapterFeature feature) {
+            return contentSupported(compatibilityObject)
+                && presentationSupported(compatibilityObject)
+                && supportsCapability(compatibilityObject, "interaction", "entity_interaction")
+                && hasInventoryFact(compatibilityObject, "interaction_prompt");
+        }
+
+        @Override
+        public @NotNull String reason(@NotNull CompatibilityObject compatibilityObject, @Nullable Object runtimeObject, @NotNull AdapterFeature feature) {
+            return "existing metadata-backed Bedrock interaction prompt bridge applies";
         }
     }
 }
