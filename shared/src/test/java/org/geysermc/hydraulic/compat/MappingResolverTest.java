@@ -6,6 +6,7 @@ import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.resources.Identifier;
 import net.minecraft.core.Direction;
+import org.geysermc.mcprotocollib.protocol.data.game.inventory.ContainerType;
 import org.geysermc.hydraulic.metadata.IdentifierMapping;
 import org.geysermc.hydraulic.metadata.BlockMapping;
 import org.geysermc.hydraulic.metadata.BlockStateRule;
@@ -178,7 +179,7 @@ class MappingResolverTest {
 
         assertNotNull(menuTemplate);
         assertNotNull(blockEntityTemplate);
-        assertEquals("GENERIC_9X3", menuTemplate.fallbackContainerType());
+        assertEquals(ContainerType.GENERIC_9X3, menuTemplate.fallbackContainerType());
         assertEquals("Barrel", blockEntityTemplate.bedrockIdentifier());
         assertEquals(1, blockEntityTemplate.mutations().size());
         assertNull(resolver.menuPatchTemplate(Identifier.fromNamespaceAndPath("example", "missing_menu")));

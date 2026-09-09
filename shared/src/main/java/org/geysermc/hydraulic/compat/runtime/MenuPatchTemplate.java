@@ -8,37 +8,19 @@ import org.jetbrains.annotations.Nullable;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 public final class MenuPatchTemplate {
     private static final String FALLBACK_CONTAINER_TYPE = "bedrock.menu.container_type";
-    private static final Set<String> SUPPORTED_CONTAINER_TYPES = Set.of(
-        "GENERIC_9X1",
-        "GENERIC_9X2",
-        "GENERIC_9X3",
-        "GENERIC_9X4",
-        "GENERIC_9X5",
-        "GENERIC_9X6",
-        "GENERIC_3X3",
-        "CRAFTER_3X3",
-        "ANVIL",
-        "BEACON",
-        "BLAST_FURNACE",
-        "BREWING_STAND",
-        "CRAFTING",
-        "ENCHANTMENT",
-        "FURNACE",
-        "GRINDSTONE",
-        "HOPPER",
-        "LECTERN",
-        "LOOM",
-        "MERCHANT",
-        "SHULKER_BOX",
-        "SMITHING",
-        "SMOKER",
-        "CARTOGRAPHY",
-        "STONECUTTER"
-    );
+    private static final Map<String, ContainerType> CONTAINER_TYPES_BY_NORMALIZED_NAME =
+        java.util.Arrays.stream(ContainerType.values())
+            .collect(Collectors.toUnmodifiableMap(
+                type -> normalizeContainerTypeName(type.name()),
+                type -> type,
+                (left, right) -> left
+            ));
 
     private final @NotNull ContainerType fallbackContainerType;
 
@@ -48,24 +30,27 @@ public final class MenuPatchTemplate {
 
     @Nullable
     public static MenuPatchTemplate resolve(@NotNull List<ContentPatch> patches) {
-        String fallbackContainerType = null;
+        ContainerType fallbackContainerType = null;
         for (ContentPatch patch : patches) {
-            String rawValue = patch.operation(FALLBACK_CONTAINER_TYPE);
-            if (rawValue == null) {
+            ContainerType resolved = parseContainerType(patch.operation(FALLBACK_CONTAINER_TYPE));
+            if (resolved == null) {
                 continue;
             }
 
-            String normalized = normalizeContainerTypeName(rawValue);
-            if (isSupportedContainerType(normalized)) {
-                fallbackContainerType = normalized;
-            }
+            fallbackContainerType = resolved;
         }
 
-        return fallbackContainerType != null ? new MenuPatchTemplate(ContainerType.valueOf(fallbackContainerType)) : null;
+        return fallbackContainerType != null ? new MenuPatchTemplate(fallbackContainerType) : null;
     }
 
     public static boolean supports(@NotNull List<ContentPatch> patches) {
         return resolve(patches) != null;
+    }
+
+    @Nullable
+    public static ContainerType parseContainerType(@Nullable String rawValue) {
+        String normalized = normalizeContainerTypeName(rawValue);
+        return normalized != null ? CONTAINER_TYPES_BY_NORMALIZED_NAME.get(normalized) : null;
     }
 
     @Nullable
@@ -92,6 +77,6 @@ public final class MenuPatchTemplate {
     }
 
     public static boolean isSupportedContainerType(@Nullable String normalizedContainerType) {
-        return normalizedContainerType != null && SUPPORTED_CONTAINER_TYPES.contains(normalizedContainerType);
+        return normalizedContainerType != null && CONTAINER_TYPES_BY_NORMALIZED_NAME.containsKey(normalizedContainerType);
     }
 }

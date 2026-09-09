@@ -28,7 +28,23 @@ class MenuPatchTemplateTest {
         )));
 
         assertNotNull(template);
-    assertEquals(ContainerType.GENERIC_9X3, template.fallbackContainerType());
+        assertEquals(ContainerType.GENERIC_9X3, template.fallbackContainerType());
+    }
+
+    @Test
+    void resolvesCrafterContainerTypeUsingProtocolEnumName() {
+        MenuPatchTemplate template = MenuPatchTemplate.resolve(List.of(new ContentPatch(
+            Identifier.fromNamespaceAndPath("test", "crafter_menu"),
+            "menu",
+            Map.of("bedrock.menu.container_type", "crafter_3x3"),
+            MappingOwnership.USER,
+            "user/menus.json",
+            MappingOwnership.USER.priority(),
+            0
+        )));
+
+        assertNotNull(template);
+        assertEquals(ContainerType.CRAFTER_3x3, template.fallbackContainerType());
     }
 
     @Test

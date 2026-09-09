@@ -3,6 +3,7 @@ package org.geysermc.hydraulic.metadata;
 import net.minecraft.resources.Identifier;
 import org.geysermc.hydraulic.compat.mapping.ContentPatch;
 import org.geysermc.hydraulic.compat.MappingOwnership;
+import org.geysermc.mcprotocollib.protocol.data.game.inventory.ContainerType;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.slf4j.LoggerFactory;
@@ -268,7 +269,34 @@ class MetadataLoaderTest {
         assertEquals(0, index.summary().validationIssueCount());
         ContentPatch patch = index.contentPatches(Identifier.fromNamespaceAndPath("test", "barrel_menu")).getFirst();
         assertEquals("generic_9x3", patch.operations().get("bedrock.menu.container_type"));
-        assertEquals("GENERIC_9X3", index.menuPatchTemplate(Identifier.fromNamespaceAndPath("test", "barrel_menu")).fallbackContainerType());
+        assertEquals(ContainerType.GENERIC_9X3, index.menuPatchTemplate(Identifier.fromNamespaceAndPath("test", "barrel_menu")).fallbackContainerType());
+    }
+
+    @Test
+    void loadsCrafterMenuPatchMetadataWithoutValidationWarnings(@TempDir Path tempDir) throws IOException {
+        Files.writeString(tempDir.resolve("crafter-menu-patches.json"), """
+            {
+              "patches": [
+                {
+                  "target": "test:crafter_menu",
+                  "content_type": "menu",
+                  "patch": {
+                    "bedrock": {
+                      "menu": {
+                        "container_type": "crafter_3x3"
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+            """);
+
+        MetadataIndex index = new MetadataLoader(LoggerFactory.getLogger("MetadataLoaderTest")).load(tempDir);
+
+        assertEquals(1, index.summary().patchCount());
+        assertEquals(0, index.summary().validationIssueCount());
+        assertEquals(ContainerType.CRAFTER_3x3, index.menuPatchTemplate(Identifier.fromNamespaceAndPath("test", "crafter_menu")).fallbackContainerType());
     }
 
     @Test
