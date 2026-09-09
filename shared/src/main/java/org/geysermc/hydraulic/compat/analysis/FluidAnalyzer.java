@@ -22,8 +22,8 @@ import java.util.Map;
 
 public final class FluidAnalyzer implements CompatibilityAnalyzer {
     @Override
-    public boolean supports(@NotNull ContentInventory.ContentDescriptor descriptor) {
-        return descriptor.kind().equals("fluid");
+    public @NotNull String kind() {
+        return "fluid";
     }
 
     @Override

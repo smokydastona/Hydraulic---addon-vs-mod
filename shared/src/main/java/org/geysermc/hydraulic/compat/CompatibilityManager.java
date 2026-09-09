@@ -6,6 +6,7 @@ import net.minecraft.core.DefaultedRegistry;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.Identifier;
 import org.geysermc.hydraulic.compat.analysis.BlockAnalyzer;
+import org.geysermc.hydraulic.compat.analysis.AnalyzerRegistry;
 import org.geysermc.hydraulic.compat.analysis.BlockEntityAnalyzer;
 import org.geysermc.hydraulic.compat.analysis.CompatibilityAnalyzer;
 import org.geysermc.hydraulic.compat.analysis.EntityAnalyzer;
@@ -51,6 +52,7 @@ public final class CompatibilityManager {
         new MenuAnalyzer(),
         new RecipeAnalyzer()
     );
+    private static final AnalyzerRegistry ANALYZER_REGISTRY = AnalyzerRegistry.create(ANALYZERS);
 
     private final Logger logger;
     private final Path dataPath;
@@ -233,10 +235,7 @@ public final class CompatibilityManager {
     private List<CompatibilityObject> analyzeObjects(@NotNull ContentInventory.ModContentInventory modInventory, @NotNull MetadataIndex metadataIndex) {
         List<CompatibilityObject> objects = new ArrayList<>();
         for (ContentInventory.ContentDescriptor descriptor : modInventory.contentDescriptors()) {
-            CompatibilityAnalyzer analyzer = ANALYZERS.stream()
-                .filter(candidate -> candidate.supports(descriptor))
-                .findFirst()
-                .orElse(null);
+            CompatibilityAnalyzer analyzer = ANALYZER_REGISTRY.analyzer(descriptor.kind());
             if (analyzer == null) {
                 continue;
             }

@@ -25,8 +25,8 @@ import java.util.Map;
 
 public final class BlockAnalyzer implements CompatibilityAnalyzer {
     @Override
-    public boolean supports(@NotNull ContentInventory.ContentDescriptor descriptor) {
-        return descriptor.kind().equals("block");
+    public @NotNull String kind() {
+        return "block";
     }
 
     @Override

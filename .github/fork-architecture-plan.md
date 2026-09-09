@@ -228,6 +228,7 @@ The compatibility layer stays above the current Hydraulic conversion pipeline, b
   - `Provenance`
   - `ModFingerprint`
 - Analyzer-backed compatibility reporting already exists for blocks, items, recipes, entities, menus, fluids, and block entities.
+- Compatibility analysis no longer linearly scans the analyzer set per content descriptor. Hydraulic now routes the current block, item, entity, fluid, block-entity, menu, and recipe analyzers through an explicit kind-keyed `AnalyzerRegistry`.
 - `MappingResolver` already carries compact resolved block metadata for current block runtime consumers.
 - `MetadataIndex` already precompiles compact menu and block-entity patch templates.
 - Hydraulic already emits `content-inventory.json`, `compatibility-report.json`, `performance-report.json`, and `pack-validation-report.json`.
@@ -271,7 +272,7 @@ The compatibility layer stays above the current Hydraulic conversion pipeline, b
 - Texture-path reuse is now centralized and measured, texture conversion now consults a real dependency graph, block-texture post-processing now uses indexed texture paths plus lazy animation metadata reads, block material persistence is now demand-driven, block preprocessing now loads indexed blockstates only for relevant registered blocks, item preprocessing now loads indexed item assets only for relevant registered items, and conversion invalidation now follows indexed cross-mod dependencies. The remaining gap is that the current fixture packs still reference every discovered texture, and other resource categories still have eager seams.
 - Runtime dispatch is now identifier-driven for the shipped bridge seams, unsupported diagnostics, and the first block-state registration paths, but transfer-heavy paths and deeper behavior surfaces still have too much flexible runtime reasoning.
 - Block-entity runtime translation is now more useful for metadata-backed data bridges because compiled templates can carry live Java tag values through to Bedrock output, but the seam is still patch-driven and does not yet cover interaction or behavior.
-- Compatibility analysis still reconstructs facts too often and still depends on repeated asset discovery.
+- Compatibility analysis now has explicit kind-keyed analyzer dispatch, but it still reconstructs facts too often and still depends on repeated asset discovery.
 - Non-block compatibility remains shallower than the block path.
 - Fluids, machines, transfer systems, richer menu behavior, entity interaction, custom networking, and custom rendering analysis remain incomplete.
 - There is still no universal compiled runtime plan that removes compatibility reasoning from hot paths.
@@ -1457,6 +1458,7 @@ Current state:
 - first `CompiledCompatibilityPlan` projections now compile from the generated compatibility report into an in-memory `RuntimeDispatchTable`
 - current block, item, armor, bow, entity, menu, and block-entity runtime consumers now use direct identifier-driven plan lookup instead of re-reading flexible report and metadata structures on hot paths
 - item presentation compilation now avoids early component-binding hazards by using safe runtime probes and conservative fallbacks when item components are not yet bound
+- compatibility analysis now also has a first explicit `AnalyzerRegistry`, so descriptor-to-analyzer routing is direct by content kind instead of a repeated `supports(...)` scan
 - deeper resource IR and broader lazy resource loading are still pending
 
 Build:
@@ -1600,7 +1602,7 @@ The best next implementation slice from the current repo state is:
 3. turn current analyzer/runtime requirement output for transfer-heavy and fluid behavior into actual bridge adapters instead of reporting-only findings
 4. keep narrowing cache invalidation and runtime lookup surfaces only where fresh runtime evidence shows remaining broad scans or coarse dependencies
 
-The indexed model-conversion slice, the first broader texture-read slice, the first dependency-aware invalidation slice, the first explicit resource-edge invalidation slice, the first diagnostic precompilation slice, the first compiled block-state registration slice, the first structural texture-coverage validation slice, and the first live Java-tag block-entity patch copy slice are now all shipped. The next smallest slice is widening the compiled runtime plan into transfer-heavy and deeper behavior paths, because the cache, validation, and indexed-discovery substrate is now strong enough that the remaining hot-path flexibility sits more in those richer runtime decisions than in the already-compiled menu, block-entity, block-state, dependency-invalidation, and pack-validation seams.
+The indexed model-conversion slice, the first broader texture-read slice, the first dependency-aware invalidation slice, the first explicit resource-edge invalidation slice, the first diagnostic precompilation slice, the first compiled block-state registration slice, the first structural texture-coverage validation slice, the first live Java-tag block-entity patch copy slice, and the first explicit analyzer-registry slice are now all shipped. The next smallest slice is widening the compiled runtime plan into transfer-heavy and deeper behavior paths, because the cache, validation, and indexed-discovery substrate is now strong enough that the remaining hot-path flexibility sits more in those richer runtime decisions than in the already-compiled menu, block-entity, block-state, dependency-invalidation, pack-validation, and analyzer-routing seams.
 
 ## What Not To Do
 - Do not keep extending `BlockStateRule` with every future concern.

@@ -24,8 +24,8 @@ import java.util.Map;
 
 public final class RecipeAnalyzer implements CompatibilityAnalyzer {
     @Override
-    public boolean supports(@NotNull ContentInventory.ContentDescriptor descriptor) {
-        return descriptor.kind().equals("recipe");
+    public @NotNull String kind() {
+        return "recipe";
     }
 
     @Override

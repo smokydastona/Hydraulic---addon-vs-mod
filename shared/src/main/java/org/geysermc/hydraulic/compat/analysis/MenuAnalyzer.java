@@ -24,8 +24,8 @@ import java.util.Map;
 
 public final class MenuAnalyzer implements CompatibilityAnalyzer {
     @Override
-    public boolean supports(@NotNull ContentInventory.ContentDescriptor descriptor) {
-        return descriptor.kind().equals("menu");
+    public @NotNull String kind() {
+        return "menu";
     }
 
     @Override

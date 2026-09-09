@@ -24,8 +24,8 @@ import java.util.Map;
 
 public final class EntityAnalyzer implements CompatibilityAnalyzer {
     @Override
-    public boolean supports(@NotNull ContentInventory.ContentDescriptor descriptor) {
-        return descriptor.kind().equals("entity");
+    public @NotNull String kind() {
+        return "entity";
     }
 
     @Override
