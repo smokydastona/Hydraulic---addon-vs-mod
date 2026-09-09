@@ -103,38 +103,6 @@ public class BlockPackModule extends TexturePackModule<BlockPackModule> {
             this.blockStates.put(blockState.key().toString(), new StateDefinition(blockState, context.modelProvider()));
         }
 
-        ModStorage storage = context.storage();
-        if (storage.materials().materials().isEmpty()) {
-            PackLogListener packLogListener = new PackLogListener(context.logger());
-
-            Materials materials = new Materials();
-            for (Model model : context.assets(ResourcePack::models)) {
-                Model stitchedModel = new ModelStitcher(context.modelProvider(), model, packLogListener).stitch();
-                if (stitchedModel == null) {
-                    context.logger().warn("Could not find a stitched model for block {}", model.key());
-                    continue;
-                }
-
-                Map<String, String> textures = new HashMap<>();
-                Map<String, ModelTexture> modelTextures = getTextures(stitchedModel.textures());
-                for (Map.Entry<String, ModelTexture> entry : modelTextures.entrySet()) {
-                    ModelTexture modelTexture = getModelTexture(modelTextures, entry.getKey());
-                    if (modelTexture == null || modelTexture.key() == null) {
-                        // LOGGER.warn("Could not find a texture for key {} in model {}", entry.getKey(), model.key());
-                        continue;
-                    }
-
-                    textures.put(entry.getKey(), modelTexture.key().toString());
-                }
-
-                Materials.Material material = new Materials.Material(textures);
-                materials.addMaterial(model.key().toString(), material);
-            }
-
-            storage.materials(materials);
-            storage.save();
-        }
-
         // Check for empty models
         List<Block> blocks = context.registryValues(BuiltInRegistries.BLOCK);
         DefaultedRegistry<Block> registry = BuiltInRegistries.BLOCK;
@@ -218,6 +186,8 @@ public class BlockPackModule extends TexturePackModule<BlockPackModule> {
     private void onDefineCustomBlocks(PackEventContext<GeyserDefineCustomBlocksEvent, BlockPackModule> context) {
         GeyserDefineCustomBlocksEvent event = context.event();
         List<Block> blocks = context.registryValues(BuiltInRegistries.BLOCK);
+        Materials materials = context.storage().materials();
+        boolean storageDirty = false;
 
         DefaultedRegistry<Block> registry = BuiltInRegistries.BLOCK;
         for (Block block : blocks) {
@@ -339,13 +309,19 @@ public class BlockPackModule extends TexturePackModule<BlockPackModule> {
                     tintMethod = "default_foliage";
                 }
 
-                Materials materials = context.storage().materials();
                 String materialKey = key.toString();
                 if (resolvedMetadata.materialId() != null) {
                     materialKey = resolvedMetadata.materialId();
                 }
 
                 Materials.Material material = materials.material(materialKey);
+                if (material == null) {
+                    material = buildMaterial(context, materialKey, model);
+                    if (material != null) {
+                        materials.addMaterial(materialKey, material);
+                        storageDirty = true;
+                    }
+                }
                 if (material != null) {
                     // Add a default texture, can be replaced by the below (I think)
                     Map.Entry<String, String> firstEntry = material.textures().entrySet().iterator().next();
@@ -508,6 +484,48 @@ public class BlockPackModule extends TexturePackModule<BlockPackModule> {
                 }
             }
         }
+
+        if (storageDirty) {
+            context.storage().save();
+        }
+    }
+
+    @Nullable
+    private Materials.Material buildMaterial(
+        @NotNull PackEventContext<GeyserDefineCustomBlocksEvent, BlockPackModule> context,
+        @NotNull String materialKey,
+        @NotNull Model fallbackModel
+    ) {
+        Model sourceModel = fallbackModel;
+        if (fallbackModel.key() == null || !materialKey.equals(fallbackModel.key().toString())) {
+            sourceModel = context.modelProvider().model(Key.key(materialKey));
+            if (sourceModel == null) {
+                context.logger().warn("Missing material model {} for mod {}", materialKey, context.mod().id());
+                return null;
+            }
+        }
+
+        Model stitchedModel = new ModelStitcher(context.modelProvider(), sourceModel, new PackLogListener(context.logger())).stitch();
+        if (stitchedModel == null) {
+            context.logger().warn("Could not stitch material model {} for mod {}", materialKey, context.mod().id());
+            return null;
+        }
+
+        Map<String, String> textures = new HashMap<>();
+        Map<String, ModelTexture> modelTextures = getTextures(stitchedModel.textures());
+        for (Map.Entry<String, ModelTexture> entry : modelTextures.entrySet()) {
+            ModelTexture modelTexture = getModelTexture(modelTextures, entry.getKey());
+            if (modelTexture == null || modelTexture.key() == null) {
+                continue;
+            }
+
+            textures.put(entry.getKey(), modelTexture.key().toString());
+        }
+
+        if (textures.isEmpty()) {
+            return null;
+        }
+        return new Materials.Material(textures);
     }
 
     @NotNull

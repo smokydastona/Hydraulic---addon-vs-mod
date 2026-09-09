@@ -363,7 +363,7 @@ public class PackManager {
     @SuppressWarnings({ "rawtypes", "unchecked" })
     private void callEvent(@NotNull ModInfo mod, @NotNull Event event) {
         for (PackModule<?> module : this.modules) {
-            module.call(event.getClass(), new PackEventContext(this.hydraulic, mod, module, event));
+            module.call(event.getClass(), new PackEventContext(this.hydraulic, mod, module, event, this.modelProvider));
         }
     }
 
