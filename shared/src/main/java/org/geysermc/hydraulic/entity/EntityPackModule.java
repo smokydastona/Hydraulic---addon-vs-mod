@@ -38,10 +38,11 @@ public final class EntityPackModule extends PackModule<EntityPackModule> {
             SupportLevel behaviorLevel = plan.behaviorLevel();
             String behaviorTag = plan.behaviorTag();
             if (behaviorLevel != null && behaviorLevel != SupportLevel.NATIVE && behaviorLevel != SupportLevel.AUTOMATIC && behaviorLevel != SupportLevel.ADAPTED) {
+                String bridgeRequirements = plan.runtimeBridgeRequirementIds().isEmpty() ? "none" : String.join(", ", plan.runtimeBridgeRequirementIds());
                 if (behaviorTag == null || behaviorTag.isBlank()) {
-                    context.logger().info("Registered metadata-backed custom entity definition for {} as {} while behavior support remains {}", plan.javaIdentifier(), plan.resolvedIdentifier(), behaviorLevel);
+                    context.logger().info("Registered metadata-backed custom entity definition for {} as {} while behavior support remains {} (runtime bridges: {})", plan.javaIdentifier(), plan.resolvedIdentifier(), behaviorLevel, bridgeRequirements);
                 } else {
-                    context.logger().info("Registered metadata-backed custom entity definition for {} as {} while behavior support remains {} (tag: {})", plan.javaIdentifier(), plan.resolvedIdentifier(), behaviorLevel, behaviorTag);
+                    context.logger().info("Registered metadata-backed custom entity definition for {} as {} while behavior support remains {} (tag: {}, runtime bridges: {})", plan.javaIdentifier(), plan.resolvedIdentifier(), behaviorLevel, behaviorTag, bridgeRequirements);
                 }
             } else {
                 context.logger().info("Registered custom entity definition for {} as {}", plan.javaIdentifier(), plan.resolvedIdentifier());

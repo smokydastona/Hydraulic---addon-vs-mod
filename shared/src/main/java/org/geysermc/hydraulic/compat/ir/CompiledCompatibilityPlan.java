@@ -7,6 +7,7 @@ import org.geysermc.hydraulic.compat.adapter.AdapterFeature;
 import org.geysermc.hydraulic.compat.model.Confidence;
 import org.geysermc.hydraulic.compat.model.SupportLevel;
 import org.geysermc.hydraulic.compat.runtime.BlockEntityPatchTemplate;
+import org.geysermc.hydraulic.compat.runtime.RuntimeBridgeKind;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -26,6 +27,7 @@ public record CompiledCompatibilityPlan(
     @NotNull Confidence confidence,
     @NotNull List<AdapterBinding> adapterBindings,
     @NotNull List<String> runtimeRequirements,
+    @NotNull List<RuntimeBridgeKind> runtimeBridgeKinds,
     @NotNull Map<String, String> inventoryFacts,
     boolean allowsCreativeExposure,
     @Nullable String creativeExposureReason,
@@ -47,6 +49,7 @@ public record CompiledCompatibilityPlan(
     public CompiledCompatibilityPlan {
         adapterBindings = List.copyOf(adapterBindings);
         runtimeRequirements = List.copyOf(runtimeRequirements);
+        runtimeBridgeKinds = List.copyOf(runtimeBridgeKinds);
         inventoryFacts = Collections.unmodifiableMap(new LinkedHashMap<>(inventoryFacts));
         menuRuntimeRequirements = List.copyOf(menuRuntimeRequirements);
         blockEntityRuntimeRequirements = List.copyOf(blockEntityRuntimeRequirements);
@@ -62,5 +65,19 @@ public record CompiledCompatibilityPlan(
 
     public boolean supportsAdapterFeature(@NotNull AdapterFeature feature) {
         return this.adapterBindings.stream().anyMatch(binding -> binding.feature() == feature);
+    }
+
+    public boolean requiresRuntimeBridge(@NotNull RuntimeBridgeKind kind) {
+        return this.runtimeBridgeKinds.contains(kind);
+    }
+
+    public boolean hasRuntimeBridges() {
+        return !this.runtimeBridgeKinds.isEmpty();
+    }
+
+    public @NotNull List<String> runtimeBridgeRequirementIds() {
+        return this.runtimeBridgeKinds.stream()
+            .map(RuntimeBridgeKind::requirementId)
+            .toList();
     }
 }

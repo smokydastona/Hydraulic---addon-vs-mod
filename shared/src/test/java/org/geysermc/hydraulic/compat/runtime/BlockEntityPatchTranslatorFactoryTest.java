@@ -80,6 +80,7 @@ class BlockEntityPatchTranslatorFactoryTest {
             new Confidence(0.8D, "test"),
             List.of(new AdapterBinding("block_entity.patch_translator", AdapterFeature.BLOCK_ENTITY_PATCH_TRANSLATION, "test")),
             List.of("block_entity_behavior_bridge"),
+            List.of(RuntimeBridgeKind.BLOCK_ENTITY_BEHAVIOR),
             Map.of(),
             false,
             null,

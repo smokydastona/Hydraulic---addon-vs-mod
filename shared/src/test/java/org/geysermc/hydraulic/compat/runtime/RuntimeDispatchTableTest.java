@@ -53,6 +53,7 @@ class RuntimeDispatchTableTest {
         Identifier entity = Identifier.fromNamespaceAndPath("example", "test_entity");
         Identifier menu = Identifier.fromNamespaceAndPath("example", "test_menu");
         Identifier blockEntity = Identifier.fromNamespaceAndPath("example", "test_block_entity");
+        Identifier fluid = Identifier.fromNamespaceAndPath("example", "test_fluid");
         Identifier northBlock = Identifier.fromNamespaceAndPath("example", "north_piston");
 
         MetadataIndex metadataIndex = new MetadataIndex(
@@ -107,7 +108,8 @@ class RuntimeDispatchTableTest {
                             object("item", bow.toString(), Map.of("behavior_tag", "chargeable_bow"), supportResults(SupportLevel.ADAPTED, SupportLevel.ADAPTED, SupportLevel.AUTOMATIC)),
                             object("entity", entity.toString(), Map.of("behavior_tag", "visual_only_runtime"), supportResults(SupportLevel.ADAPTED, SupportLevel.ADAPTED, SupportLevel.APPROXIMATED)),
                             object("menu", menu.toString(), Map.of(), supportResults(SupportLevel.AUTOMATIC, SupportLevel.AUTOMATIC, SupportLevel.AUTOMATIC)),
-                            object("block_entity", blockEntity.toString(), Map.of(), supportResults(SupportLevel.AUTOMATIC, SupportLevel.AUTOMATIC, SupportLevel.AUTOMATIC))
+                            object("block_entity", blockEntity.toString(), Map.of(), supportResults(SupportLevel.AUTOMATIC, SupportLevel.AUTOMATIC, SupportLevel.AUTOMATIC)),
+                            object("fluid", fluid.toString(), Map.of("behavior_tag", "fluid_tank"), supportResults(SupportLevel.AUTOMATIC, SupportLevel.UNSUPPORTED, SupportLevel.UNSUPPORTED))
                         ),
                         List.of(),
                         List.of()
@@ -153,6 +155,16 @@ class RuntimeDispatchTableTest {
         assertNotNull(blockEntityPlan.blockEntityPatchTemplate());
         assertEquals("BedrockChest", blockEntityPlan.blockEntityPatchTemplate().bedrockIdentifier());
         assertEquals(List.of("block_entity_behavior_bridge", "block_entity_data_bridge"), blockEntityPlan.blockEntityRuntimeRequirements());
+        assertTrue(blockEntityPlan.requiresRuntimeBridge(RuntimeBridgeKind.BLOCK_ENTITY_DATA));
+        assertTrue(blockEntityPlan.requiresRuntimeBridge(RuntimeBridgeKind.BLOCK_ENTITY_BEHAVIOR));
+
+        var fluidPlan = registry.dispatchTable().plan("fluid", fluid.toString());
+        assertNotNull(fluidPlan);
+        assertEquals(List.of(RuntimeBridgeKind.FLUID_TRANSLATOR, RuntimeBridgeKind.FLUID_RUNTIME), fluidPlan.runtimeBridgeKinds());
+        assertEquals(List.of(fluidPlan), registry.dispatchTable().runtimeBridgePlans(RuntimeBridgeKind.FLUID_RUNTIME));
+
+        assertEquals(1, registry.dispatchTable().runtimeBridgePlans(RuntimeBridgeKind.MENU_CONTAINER).size());
+        assertEquals(1, registry.dispatchTable().runtimeBridgePlans(RuntimeBridgeKind.BLOCK_ENTITY_DATA).size());
 
         assertNull(registry.dispatchTable().plan("item", "example:missing"));
         assertEquals(1, registry.dispatchTable().entityPlans("testmod").size());
@@ -183,6 +195,8 @@ class RuntimeDispatchTableTest {
                 ? List.of("runtime.requirement", "container_bridge")
                 : "block_entity".equals(contentType)
                     ? List.of("runtime.requirement", "block_entity_data_bridge", "block_entity_behavior_bridge")
+                    : "fluid".equals(contentType)
+                        ? List.of("runtime.requirement", "fluid_translator", "fluid_runtime_bridge")
                     : List.of("runtime.requirement"),
             supportResults,
             SupportLevel.ADAPTED,

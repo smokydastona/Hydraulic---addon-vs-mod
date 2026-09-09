@@ -20,6 +20,7 @@ Right now this fork adds:
 - shared cached texture-output resolution for model- and block-texture paths, with live hit and miss metrics in the performance report
 - a first metadata-backed menu fallback bridge that can route unsupported Java menu opens into an explicitly declared Bedrock `ContainerType`
 - capability-driven adapter dispatch for the live menu and block-entity bridge seams, so runtime translator creation now follows analyzer-produced adapter bindings
+- typed runtime bridge categories compiled into the runtime dispatch table, so analyzer-derived bridge requirements for blocks, items, entities, menus, block entities, and fluids are available as direct runtime categories instead of only raw strings in the report
 - override support for Bedrock block identifier, geometry, and material
 - typed compatibility objects with support levels, confidence, provenance, findings, and mod fingerprints
 - a first analyzer API with block, item, entity, fluid, block-entity, menu, and recipe analyzers
@@ -216,6 +217,8 @@ Block preprocessing no longer parses the full `ResourcePack` blockstate asset se
 Item preprocessing no longer depends on a full parsed `ResourcePack` item-definition walk either. Hydraulic now resolves indexed item asset paths per registered item, deserializes modern `assets/.../items/*.json` definitions only when present, and falls back to the existing lazy model-provider path for legacy `models/item/*.json` assets.
 
 The current compatibility report is now also compiled into a first in-memory runtime dispatch surface during startup. The first `CompiledCompatibilityPlan` slice covers block creative and placement decisions, item registration and creative exposure, armor and bow attachable presentation, metadata-backed custom entity registration, menu fallback translators, block-entity patch translators, the candidate indexes used by unsupported menu and block-entity runtime diagnostics, and precompiled state-aware block definition groupings plus per-state runtime metadata for block registration and block-item placement. The remaining block-item texture fallback decision path now also consumes compiled block plans instead of reading raw compatibility objects back out of the report during conversion. Current runtime bridges and warning paths now hit direct identifier-driven lookups or precompiled candidate lists instead of re-scanning compatibility profiles or metadata templates on each use.
+
+That compiled runtime slice now also classifies analyzer-derived runtime requirements into typed `RuntimeBridgeKind` categories. Current runtime consumers use those typed categories for clearer suppression and degradation diagnostics, and future bridge factories can bind to structured bridge classes like `MENU_CONTAINER`, `BLOCK_ENTITY_DATA`, or `FLUID_RUNTIME` without having to reinterpret freeform requirement strings.
 
 `compatibility-report.json` records per-object analyzer output, including:
 - support levels: `NATIVE`, `AUTOMATIC`, `ADAPTED`, `APPROXIMATED`, `VISUAL_ONLY`, `UNSUPPORTED`

@@ -257,7 +257,12 @@ public class BlockPackModule extends TexturePackModule<BlockPackModule> {
 
                 String creativeSuppressionReason = blockPlan != null ? blockPlan.creativeExposureReason() : null;
                 if (creativeSuppressionReason != null) {
-                    context.logger().info("Registering block {} as runtime-only for Bedrock because {}", blockLocation, creativeSuppressionReason);
+                    context.logger().info(
+                        "Registering block {} as runtime-only for Bedrock because {} (runtime bridges: {})",
+                        blockLocation,
+                        creativeSuppressionReason,
+                        blockPlan.runtimeBridgeRequirementIds().isEmpty() ? "none" : String.join(", ", blockPlan.runtimeBridgeRequirementIds())
+                    );
                 }
 
                 CreativeMappings.setupBlock(block, builder);

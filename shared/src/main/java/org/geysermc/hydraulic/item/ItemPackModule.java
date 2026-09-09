@@ -276,7 +276,12 @@ public class ItemPackModule extends TexturePackModule<ItemPackModule> {
                 } else if (itemPlan == null || itemPlan.allowsCreativeExposure()) {
                     CreativeMappings.setup(item, customItemOptions);
                 } else {
-                    context.logger().info("Skipping creative exposure for {} because {}", itemLocation, itemPlan.creativeExposureReason());
+                    context.logger().info(
+                        "Skipping creative exposure for {} because {} (runtime bridges: {})",
+                        itemLocation,
+                        itemPlan.creativeExposureReason(),
+                        itemPlan.runtimeBridgeRequirementIds().isEmpty() ? "none" : String.join(", ", itemPlan.runtimeBridgeRequirementIds())
+                    );
                 }
 
                 // Set all bedrock components using what java components we have
@@ -335,7 +340,11 @@ public class ItemPackModule extends TexturePackModule<ItemPackModule> {
                             GeyserBlockPlacer.of(HydraulicKey.of(resolvedPlacement.identifier()), !is2d)
                         );
                     } else {
-                        context.logger().info("Skipping block placement bridge for {} because compatibility analysis does not support placement", itemLocation);
+                        context.logger().info(
+                            "Skipping block placement bridge for {} because compatibility analysis does not support placement (runtime bridges: {})",
+                            itemLocation,
+                            blockPlan.runtimeBridgeRequirementIds().isEmpty() ? "none" : String.join(", ", blockPlan.runtimeBridgeRequirementIds())
+                        );
                     }
 
                     if (blockPlan == null || blockPlan.allowsCreativeExposure()) {

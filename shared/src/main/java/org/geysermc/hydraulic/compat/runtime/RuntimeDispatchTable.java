@@ -20,6 +20,7 @@ import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.EnumMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -30,6 +31,7 @@ public final class RuntimeDispatchTable {
     private final Map<String, List<CompiledCompatibilityPlan>> plansByModAndType;
     private final Map<String, List<MappingResolver.ResolvedBlockDefinition>> blockDefinitionsByIdentifier;
     private final Map<String, MappingResolver.ResolvedBlockState> blockStatesByIdentifierAndState;
+    private final Map<RuntimeBridgeKind, List<CompiledCompatibilityPlan>> plansByRuntimeBridgeKind;
     private final List<CompiledCompatibilityPlan> menuBridgePlans;
     private final List<CompiledCompatibilityPlan> blockEntityBridgePlans;
     private final Map<String, LookupCounters> countersByType;
@@ -39,6 +41,7 @@ public final class RuntimeDispatchTable {
         @NotNull Map<String, List<CompiledCompatibilityPlan>> plansByModAndType,
         @NotNull Map<String, List<MappingResolver.ResolvedBlockDefinition>> blockDefinitionsByIdentifier,
         @NotNull Map<String, MappingResolver.ResolvedBlockState> blockStatesByIdentifierAndState,
+        @NotNull Map<RuntimeBridgeKind, List<CompiledCompatibilityPlan>> plansByRuntimeBridgeKind,
         @NotNull List<CompiledCompatibilityPlan> menuBridgePlans,
         @NotNull List<CompiledCompatibilityPlan> blockEntityBridgePlans
     ) {
@@ -54,6 +57,11 @@ public final class RuntimeDispatchTable {
         }
         this.blockDefinitionsByIdentifier = Collections.unmodifiableMap(blockDefinitionCopy);
         this.blockStatesByIdentifierAndState = Collections.unmodifiableMap(new LinkedHashMap<>(blockStatesByIdentifierAndState));
+        Map<RuntimeBridgeKind, List<CompiledCompatibilityPlan>> bridgeKindCopy = new EnumMap<>(RuntimeBridgeKind.class);
+        for (Map.Entry<RuntimeBridgeKind, List<CompiledCompatibilityPlan>> entry : plansByRuntimeBridgeKind.entrySet()) {
+            bridgeKindCopy.put(entry.getKey(), List.copyOf(entry.getValue()));
+        }
+        this.plansByRuntimeBridgeKind = Collections.unmodifiableMap(bridgeKindCopy);
         this.menuBridgePlans = List.copyOf(menuBridgePlans);
         this.blockEntityBridgePlans = List.copyOf(blockEntityBridgePlans);
         this.countersByType = Map.of(
@@ -67,7 +75,7 @@ public final class RuntimeDispatchTable {
 
     @NotNull
     public static RuntimeDispatchTable empty() {
-        return new RuntimeDispatchTable(Map.of(), Map.of(), Map.of(), Map.of(), List.of(), List.of());
+        return new RuntimeDispatchTable(Map.of(), Map.of(), Map.of(), Map.of(), Map.of(), List.of(), List.of());
     }
 
     @NotNull
@@ -76,6 +84,7 @@ public final class RuntimeDispatchTable {
         Map<String, List<CompiledCompatibilityPlan>> plansByModAndType = new LinkedHashMap<>();
         Map<String, List<MappingResolver.ResolvedBlockDefinition>> blockDefinitionsByIdentifier = new LinkedHashMap<>();
         Map<String, MappingResolver.ResolvedBlockState> blockStatesByIdentifierAndState = new LinkedHashMap<>();
+        Map<RuntimeBridgeKind, List<CompiledCompatibilityPlan>> plansByRuntimeBridgeKind = new EnumMap<>(RuntimeBridgeKind.class);
         List<CompiledCompatibilityPlan> menuBridgePlans = new ArrayList<>();
         List<CompiledCompatibilityPlan> blockEntityBridgePlans = new ArrayList<>();
         for (CompatibilityProfile profile : report.mods().values()) {
@@ -84,6 +93,9 @@ public final class RuntimeDispatchTable {
                 plansByIdentifier.put(key(object.contentType(), object.javaIdentifier()), plan);
                 plansByModAndType.computeIfAbsent(key(profile.modId(), object.contentType()), ignored -> new ArrayList<>()).add(plan);
                 compileBlockStatePlans(object, mappingResolver, blockDefinitionsByIdentifier, blockStatesByIdentifierAndState);
+                for (RuntimeBridgeKind kind : plan.runtimeBridgeKinds()) {
+                    plansByRuntimeBridgeKind.computeIfAbsent(kind, ignored -> new ArrayList<>()).add(plan);
+                }
                 if (plan.requiresMenuBridge()) {
                     menuBridgePlans.add(plan);
                 }
@@ -99,6 +111,7 @@ public final class RuntimeDispatchTable {
             plansByModAndType,
             blockDefinitionsByIdentifier,
             blockStatesByIdentifierAndState,
+            plansByRuntimeBridgeKind,
             menuBridgePlans,
             blockEntityBridgePlans
         );
@@ -173,6 +186,11 @@ public final class RuntimeDispatchTable {
     }
 
     @NotNull
+    public List<CompiledCompatibilityPlan> runtimeBridgePlans(@NotNull RuntimeBridgeKind kind) {
+        return this.plansByRuntimeBridgeKind.getOrDefault(kind, List.of());
+    }
+
+    @NotNull
     private static CompiledCompatibilityPlan compilePlan(@NotNull CompatibilityObject object, @NotNull MappingResolver mappingResolver) {
         Identifier javaIdentifier = Identifier.parse(object.javaIdentifier());
         Block block = "block".equals(object.contentType()) ? BuiltInRegistries.BLOCK.getValue(javaIdentifier) : null;
@@ -214,15 +232,10 @@ public final class RuntimeDispatchTable {
 
         SupportLevel behaviorLevel = object.supportResults().containsKey("behavior") ? object.supportResults().get("behavior").level() : null;
         String behaviorTag = object.inventoryFacts().get("behavior_tag");
-        boolean requiresMenuBridge = object.runtimeRequirements().contains("container_bridge");
-        List<String> menuRuntimeRequirements = object.runtimeRequirements().stream()
-            .filter(requirement -> requirement.equals("container_bridge") || requirement.startsWith("menu_"))
-            .sorted()
-            .toList();
-        List<String> blockEntityRuntimeRequirements = object.runtimeRequirements().stream()
-            .filter(requirement -> requirement.startsWith("block_entity_"))
-            .sorted()
-            .toList();
+        List<RuntimeBridgeKind> runtimeBridgeKinds = RuntimeBridgeKind.resolve(object.runtimeRequirements());
+        boolean requiresMenuBridge = runtimeBridgeKinds.contains(RuntimeBridgeKind.MENU_CONTAINER);
+        List<String> menuRuntimeRequirements = bridgeRequirements(runtimeBridgeKinds, "menu");
+        List<String> blockEntityRuntimeRequirements = bridgeRequirements(runtimeBridgeKinds, "block_entity");
 
         return new CompiledCompatibilityPlan(
             object.modId(),
@@ -235,6 +248,7 @@ public final class RuntimeDispatchTable {
             object.confidence(),
             object.adapterBindings(),
             object.runtimeRequirements(),
+            runtimeBridgeKinds,
             object.inventoryFacts(),
             allowsCreativeExposure,
             creativeExposureReason,
@@ -253,6 +267,15 @@ public final class RuntimeDispatchTable {
             behaviorLevel,
             behaviorTag
         );
+    }
+
+    @NotNull
+    private static List<String> bridgeRequirements(@NotNull List<RuntimeBridgeKind> runtimeBridgeKinds, @NotNull String contentType) {
+        return runtimeBridgeKinds.stream()
+            .filter(kind -> kind.contentType().equals(contentType))
+            .map(RuntimeBridgeKind::requirementId)
+            .sorted()
+            .toList();
     }
 
     @NotNull

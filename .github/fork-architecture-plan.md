@@ -243,6 +243,7 @@ The compatibility layer stays above the current Hydraulic conversion pipeline, b
 - Unsupported menu-open handling now also preserves the resolved live Java menu identifier across the mixin, fallback, and warning paths, so the runtime warning can bind directly to the matched compiled menu plan and its explicit menu bridge requirements instead of only reporting a container type plus global candidates.
 - State-aware block identifier grouping and per-state runtime metadata now also compile into the runtime dispatch table, so block registration and block-item placement no longer need to re-derive those mappings through `MappingResolver` when compiled entries already exist.
 - The remaining block-item texture fallback decision path now also consumes compiled block compatibility plans instead of looking raw objects back up from the compatibility report during conversion.
+- Runtime requirements are no longer compiled only as opaque strings. `RuntimeDispatchTable` now also indexes typed `RuntimeBridgeKind` categories for the currently known bridge requirements, so current runtime consumers and future bridge factories can bind directly to structured categories such as menu, block-entity, item, entity, block, and fluid bridge kinds.
 - Post-generation pack validation now also consumes the texture dependency graph's concrete selected texture set, so `pack-validation-report.json` can structurally fail missing generated texture outputs and warn on leftover unreferenced texture files instead of only validating archive shape.
 - Conversion invalidation now also preserves explicit indexed model and equipment dependency edges and hashes only the concrete referenced model and texture file stamps they traverse, so unrelated asset churn in a dependent namespace no longer invalidates another mod's cached pack output.
 
@@ -274,6 +275,7 @@ The compatibility layer stays above the current Hydraulic conversion pipeline, b
 - Texture-path reuse is now centralized and measured, texture conversion now consults a real dependency graph and load indexed file-backed textures directly for the active mod, block-texture post-processing now uses indexed texture paths plus lazy animation metadata reads, block material persistence is now demand-driven, block preprocessing now loads indexed blockstates only for relevant registered blocks, item preprocessing now loads indexed item assets only for relevant registered items, and conversion invalidation now follows indexed cross-mod dependencies. The remaining gap is that the current fixture packs still reference every discovered texture, and other resource categories still have eager seams.
 - Runtime dispatch is now identifier-driven for the shipped bridge seams, unsupported diagnostics, and the first block-state registration paths, but transfer-heavy paths and deeper behavior surfaces still have too much flexible runtime reasoning.
 - Runtime dispatch now also compiles the current menu fallback seam into a typed container enum instead of keeping that bridge input as a late-parsed string, but transfer-heavy paths and deeper behavior surfaces still have too much flexible runtime reasoning.
+- Runtime bridge requirements now also compile into typed categories instead of only freeform requirement strings, but those categories are still mostly feeding reporting, diagnostics, and suppression decisions rather than full machine, transfer, and fluid bridge execution.
 - Block-entity runtime translation is now more useful for metadata-backed data bridges because compiled templates can carry live Java tag values through to Bedrock output, but the seam is still patch-driven and does not yet cover interaction or behavior.
 - Compatibility analysis now has explicit kind-keyed analyzer dispatch, but it still reconstructs facts too often and still depends on repeated asset discovery.
 - Non-block compatibility remains shallower than the block path.
@@ -1462,6 +1464,7 @@ Current state:
 - current block, item, armor, bow, entity, menu, and block-entity runtime consumers now use direct identifier-driven plan lookup instead of re-reading flexible report and metadata structures on hot paths
 - item presentation compilation now avoids early component-binding hazards by using safe runtime probes and conservative fallbacks when item components are not yet bound
 - compatibility analysis now also has a first explicit `AnalyzerRegistry`, so descriptor-to-analyzer routing is direct by content kind instead of a repeated `supports(...)` scan
+- runtime requirement compilation now also produces typed `RuntimeBridgeKind` indexes, so the compiled plan can distinguish menu, block-entity, block, item, entity, and fluid bridge categories without leaving future runtime consumers to reinterpret freeform strings
 - deeper resource IR and broader lazy resource loading are still pending
 
 Build:
@@ -1568,7 +1571,7 @@ Use the live Hydraulic repo and its runtime artifacts as the control document fo
 5. compile compatibility decisions into runtime plans and direct dispatch tables
 6. deepen the resource IR, model dependency graph, and texture dependency graph
 7. compile block-state and metadata-heavy paths into compact runtime structures
-8. widen generic bridges for menus, block entities, machines, fluids, and transfer systems; block-entity patch translation now also carries explicit Java-tag copies, but richer behavior bridges are still missing
+8. widen generic bridges for menus, block entities, machines, fluids, and transfer systems; block-entity patch translation now also carries explicit Java-tag copies, and runtime bridge requirements now compile into typed categories, but richer behavior bridges are still missing
 9. add knowledge and classifier layers after generalized bridge seams exist
 10. add mod-specific adapters after the substrate is stable
 11. expand pack delivery and CI-scale compatibility matrices
@@ -1601,11 +1604,11 @@ This order is intentional. Do not start writing dozens of adapters before the un
 The best next implementation slice from the current repo state is:
 
 1. push lazy indexed access past the now-indexed model conversion path into broader texture and adjacent resource reads so the dependency graph can prune larger packs instead of only reporting current fixture usage
-2. widen the compiled-plan surface from current registration and patch seams into richer block-state, menu, block-entity, and transfer-bridge runtime tables
+2. consume the new typed runtime bridge categories in additional bridge factories and dispatch tables so transfer-heavy, fluid, and richer interaction paths stop depending on ad hoc requirement-string interpretation
 3. turn current analyzer/runtime requirement output for transfer-heavy and fluid behavior into actual bridge adapters instead of reporting-only findings
 4. keep narrowing cache invalidation and runtime lookup surfaces only where fresh runtime evidence shows remaining broad scans or coarse dependencies
 
-The indexed model-conversion slice, the first broader texture-read slice, the first dependency-aware invalidation slice, the first explicit resource-edge invalidation slice, the first diagnostic precompilation slice, the first compiled block-state registration slice, the first structural texture-coverage validation slice, the first live Java-tag block-entity patch copy slice, the first explicit analyzer-registry slice, and the typed menu-fallback compile slice are now all shipped. The next smallest slice is widening the compiled runtime plan into transfer-heavy and deeper behavior paths, because the cache, validation, and indexed-discovery substrate is now strong enough that the remaining hot-path flexibility sits more in those richer runtime decisions than in the already-compiled menu, block-entity, block-state, dependency-invalidation, pack-validation, and analyzer-routing seams.
+The indexed model-conversion slice, the first broader texture-read slice, the first dependency-aware invalidation slice, the first explicit resource-edge invalidation slice, the first diagnostic precompilation slice, the first compiled block-state registration slice, the first structural texture-coverage validation slice, the first live Java-tag block-entity patch copy slice, the first explicit analyzer-registry slice, the typed menu-fallback compile slice, and the typed runtime-bridge category slice are now all shipped. The next smallest slice is consuming those typed bridge categories in real transfer-heavy and deeper behavior paths, because the cache, validation, and indexed-discovery substrate is now strong enough that the remaining hot-path flexibility sits more in those richer runtime decisions than in the already-compiled menu, block-entity, block-state, dependency-invalidation, pack-validation, analyzer-routing, and typed bridge-classification seams.
 
 ## What Not To Do
 - Do not keep extending `BlockStateRule` with every future concern.
