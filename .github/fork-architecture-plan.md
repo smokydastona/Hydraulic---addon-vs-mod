@@ -189,6 +189,7 @@ This separation is fundamental, not just a reporting refinement. A converted mod
 - Item discovery now falls back from modern `assets/<ns>/items/*.json` definitions to legacy `models/item/*.json` assets for compatibility inventory and conversion indexing.
 - Focused tests already exist for loader precedence, resolver behavior, compatibility decisions, equipment asset loading, item asset lookup, and report generation.
 - The local Fabric runtime has already produced report artifacts and logged metadata/report initialization successfully.
+- Geyser unsupported runtime paths now emit compatibility-backed diagnostics for unsupported Java menu opens and for block entity data packets that fall through to Geyser's default empty block-entity translator when Hydraulic already knows the affected object still needs block-entity bridges.
 
 ### What is materially better than the earlier fork assessment
 - The fork is no longer only a block metadata experiment.
@@ -958,6 +959,8 @@ Current verified runtime consumers:
 - armor attachable generation gating
 - bow attachable generation gating
 - metadata-backed custom entity registration
+- compatibility-backed unsupported menu diagnostics at the real Geyser close path
+- compatibility-backed unsupported block-entity data diagnostics at the real Geyser empty-translator path
 
 This phase is still early. Generic interaction, container, fluid, entity behavior, and block-entity bridges are not implemented.
 

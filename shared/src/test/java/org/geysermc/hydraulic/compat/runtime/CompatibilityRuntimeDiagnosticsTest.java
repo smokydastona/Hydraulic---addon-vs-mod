@@ -18,6 +18,7 @@ import org.junit.jupiter.api.Test;
 import java.util.List;
 import java.util.Map;
 
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class CompatibilityRuntimeDiagnosticsTest {
@@ -41,9 +42,38 @@ class CompatibilityRuntimeDiagnosticsTest {
         assertTrue(message.contains("no discovered menu objects"));
     }
 
+    @Test
+    void surfacesMatchingBlockEntityBridgeRequirements() {
+        CompatibilityRegistry registry = compatibilityRegistry();
+
+        String message = UnsupportedBlockEntityDiagnosticFormatter.format("BARREL", "example:test_block_entity", "(12, 64, 12)", registry);
+
+        assertTrue(message.contains("example:test_block_entity"));
+        assertTrue(message.contains("BARREL"));
+        assertTrue(message.contains("block_entity_data_bridge"));
+        assertTrue(message.contains("block_entity_behavior_bridge"));
+    }
+
+    @Test
+    void surfacesBlockEntityCandidatesWhenLiveIdentifierCannotBeResolved() {
+        CompatibilityRegistry registry = compatibilityRegistry();
+
+        String message = UnsupportedBlockEntityDiagnosticFormatter.format("BARREL", null, "(12, 64, 12)", registry);
+
+        assertTrue(message.contains("could not resolve the live Java block entity identifier"));
+        assertTrue(message.contains("example:test_block_entity"));
+    }
+
+    @Test
+    void suppressesBlockEntityWarningWhenNoCompatibilityEvidenceExists() {
+        String message = UnsupportedBlockEntityDiagnosticFormatter.format("BARREL", "example:untracked", "(12, 64, 12)", CompatibilityRegistry.empty());
+
+        assertNull(message);
+    }
+
     private static CompatibilityRegistry compatibilityRegistry() {
         MetadataIndex metadataIndex = MetadataIndex.empty();
-        CompatibilityObject object = new CompatibilityObject(
+        CompatibilityObject menuObject = new CompatibilityObject(
             "example:test_menu",
             "menu",
             "examplemod",
@@ -62,6 +92,29 @@ class CompatibilityRuntimeDiagnosticsTest {
             List.of(new Provenance("ANALYZER", "MenuAnalyzer", null, false)),
             List.of(new CompatibilityFinding("menu.bridge.missing", CompatibilityFinding.Severity.WARNING, "interaction", "Missing menu bridge", "No generic container bridge exists.", "Implement container bridge support.", null))
         );
+        CompatibilityObject blockEntityObject = new CompatibilityObject(
+            "example:test_block_entity",
+            "block_entity",
+            "examplemod",
+            Map.of(),
+            new org.geysermc.hydraulic.compat.capability.CapabilityProfile("example:test_block_entity", List.of(), List.of()),
+            List.of(),
+            List.of("block_entity_data_bridge", "block_entity_interaction_bridge", "block_entity_behavior_bridge"),
+            Map.of(
+                "state_data",
+                new SupportResult("state_data", SupportLevel.UNSUPPORTED, CompatibilityStatus.NONE, 0, List.of(), List.of("persistent_data"), List.of("Block entity data bridge is missing.")),
+                "interaction",
+                new SupportResult("interaction", SupportLevel.UNSUPPORTED, CompatibilityStatus.NONE, 0, List.of(), List.of("container_interaction"), List.of("Block entity interaction bridge is missing.")),
+                "behavior",
+                new SupportResult("behavior", SupportLevel.UNSUPPORTED, CompatibilityStatus.NONE, 0, List.of(), List.of("runtime_behavior"), List.of("Block entity behavior bridge is missing."))
+            ),
+            SupportLevel.UNSUPPORTED,
+            CompatibilityStatus.NONE,
+            0,
+            new Confidence(0.10D, "Block entity analysis is registry-backed with optional patch evidence only."),
+            List.of(new Provenance("ANALYZER", "BlockEntityAnalyzer", null, false)),
+            List.of(new CompatibilityFinding("block_entity.bridge.missing", CompatibilityFinding.Severity.WARNING, "behavior", "Missing block entity bridge", "No block entity bridge exists.", "Implement block entity bridge support.", null))
+        );
         CompatibilityProfile profile = new CompatibilityProfile(
             "examplemod",
             new ModFingerprint("examplemod", "example", "1.0.0", "unknown", "test", 0, 0, 0, 0, 1, 0, 0, false, false, false, false, false, false, false, false),
@@ -69,8 +122,8 @@ class CompatibilityRuntimeDiagnosticsTest {
             CompatibilityStatus.NONE,
             0,
             Map.of(),
-            Map.of(SupportLevel.UNSUPPORTED.name(), 1),
-            List.of(object),
+            Map.of(SupportLevel.UNSUPPORTED.name(), 2),
+            List.of(menuObject, blockEntityObject),
             List.of(),
             List.of()
         );
@@ -83,8 +136,8 @@ class CompatibilityRuntimeDiagnosticsTest {
                 "1.0.0",
                 List.of(),
                 profile.fingerprint(),
-                Map.of("menus", 1),
-                Map.of("menus", List.of("example:test_menu")),
+                Map.of("menus", 1, "block_entities", 1),
+                Map.of("menus", List.of("example:test_menu"), "block_entities", List.of("example:test_block_entity")),
                 Map.of(),
                 Map.of(),
                 Map.of(),
