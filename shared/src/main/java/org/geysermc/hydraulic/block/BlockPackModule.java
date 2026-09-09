@@ -240,8 +240,8 @@ public class BlockPackModule extends PackModule<BlockPackModule> {
                 Model model = definition.model();
                 Key key = model.key();
                 MappingResolver.ResolvedBlockState resolvedState = mappingResolver.resolveBlockState(blockLocation, state);
-                BlockStateRule metadataRule = resolvedState.rule();
-                Map<String, String> stateValues = customStateValues(context, blockLocation, stateDefinitions, state, metadataRule);
+                BlockMapping.RuntimeMetadata resolvedMetadata = resolvedState.metadata();
+                Map<String, String> stateValues = customStateValues(context, blockLocation, stateDefinitions, state, resolvedMetadata);
 
                 CustomBlockComponents.Builder componentsBuilder = CustomBlockComponents.builder()
                         .transformation(new TransformationComponent(
@@ -268,8 +268,8 @@ public class BlockPackModule extends PackModule<BlockPackModule> {
                         geoName = "geometry." + Constants.MOD_ID + ".empty";
                     }
 
-                    if (metadataRule != null && metadataRule.geometryId() != null) {
-                        geoName = metadataRule.geometryId();
+                    if (resolvedMetadata.geometryId() != null) {
+                        geoName = resolvedMetadata.geometryId();
                     }
 
                     componentsBuilder.geometry(GeometryComponent.builder()
@@ -306,8 +306,8 @@ public class BlockPackModule extends PackModule<BlockPackModule> {
 
                 Materials materials = context.storage().materials();
                 String materialKey = key.toString();
-                if (metadataRule != null && metadataRule.materialId() != null) {
-                    materialKey = metadataRule.materialId();
+                if (resolvedMetadata.materialId() != null) {
+                    materialKey = resolvedMetadata.materialId();
                 }
 
                 Materials.Material material = materials.material(materialKey);
@@ -417,8 +417,8 @@ public class BlockPackModule extends PackModule<BlockPackModule> {
                 }
 
                 for (BlockState state : resolvedDefinition.states()) {
-                    BlockStateRule metadataRule = metadataRule(context, blockLocation, state);
-                    Map<String, String> stateValues = customStateValues(context, blockLocation, stateDefinitions, state, metadataRule);
+                    MappingResolver.ResolvedBlockState resolvedState = mappingResolver.resolveBlockState(blockLocation, state);
+                    Map<String, String> stateValues = customStateValues(context, blockLocation, stateDefinitions, state, resolvedState.metadata());
                 CustomBlockState.Builder stateBuilder = blockData.blockStateBuilder();
                 for (StatePropertyDefinition property : stateDefinitions.values()) {
                     String value = stateValues.get(property.name());
@@ -466,11 +466,6 @@ public class BlockPackModule extends PackModule<BlockPackModule> {
                 }
             }
         }
-    }
-
-    @Nullable
-    private BlockStateRule metadataRule(@NotNull PackContext<?> context, @NotNull Identifier blockLocation, @NotNull BlockState state) {
-        return context.hydraulic().getPackManager().mappingResolver().blockRule(blockLocation, state);
     }
 
     @NotNull
@@ -521,18 +516,18 @@ public class BlockPackModule extends PackModule<BlockPackModule> {
         @NotNull Identifier blockLocation,
         @NotNull Map<String, StatePropertyDefinition> stateDefinitions,
         @NotNull BlockState state,
-        @Nullable BlockStateRule metadataRule
+        @NotNull BlockMapping.RuntimeMetadata resolvedMetadata
     ) {
         Map<String, String> values = new LinkedHashMap<>();
         for (Property<?> property : state.getProperties()) {
             values.put(property.getName(), propertyValue(property, state));
         }
 
-        if (metadataRule == null || metadataRule.bedrockState() == null) {
+        if (resolvedMetadata.bedrockState().isEmpty()) {
             return values;
         }
 
-        for (Map.Entry<String, String> entry : metadataRule.bedrockState().entrySet()) {
+        for (Map.Entry<String, String> entry : resolvedMetadata.bedrockState().entrySet()) {
             StatePropertyDefinition definition = stateDefinitions.get(entry.getKey());
             if (definition == null) {
                 continue;

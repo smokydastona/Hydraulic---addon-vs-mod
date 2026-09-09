@@ -55,11 +55,11 @@ public final class MappingResolver {
     public ResolvedBlockState resolveBlockState(@NotNull Identifier javaIdentifier, @NotNull BlockState state) {
         BlockMapping mapping = this.blockMapping(javaIdentifier);
         if (mapping == null) {
-            return new ResolvedBlockState(javaIdentifier, null, false);
+            return new ResolvedBlockState(javaIdentifier, null, new BlockMapping.RuntimeMetadata(Map.of(), null, null, false, null), false);
         }
 
         BlockMapping.MatchResult resolved = mapping.resolve(state);
-        return new ResolvedBlockState(resolved.identifier(), resolved.rule(), resolved.overridden());
+        return new ResolvedBlockState(resolved.identifier(), resolved.rule(), resolved.metadata(), resolved.overridden());
     }
 
     @NotNull
@@ -136,7 +136,7 @@ public final class MappingResolver {
         return new ResolvedIdentifier(mapping.bedrockIdentifier(), true, false);
     }
 
-    public record ResolvedBlockState(@NotNull Identifier identifier, @Nullable BlockStateRule rule, boolean overridden) {
+    public record ResolvedBlockState(@NotNull Identifier identifier, @Nullable BlockStateRule rule, @NotNull BlockMapping.RuntimeMetadata metadata, boolean overridden) {
     }
 
     public record ResolvedBlockDefinition(@NotNull Identifier identifier, @NotNull List<BlockState> states, boolean overridden) {

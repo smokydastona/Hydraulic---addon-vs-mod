@@ -177,6 +177,7 @@ This separation is fundamental, not just a reporting refinement. A converted mod
   - fluids
   - block entities
 - `MappingResolver` already has state-aware block resolution and groups block states by resolved Bedrock identifier.
+- `MappingResolver` now also carries compact resolved block metadata for block-state overrides, geometry overrides, and material overrides so block runtime consumers no longer need to reopen flexible rule objects after resolution.
 - `BlockPackModule` already consumes resolved state-aware block definitions during custom block registration.
 - `ItemPackModule` already uses compatibility-aware block placement for block items, consults item compatibility objects for non-block custom item registration, suppresses creative exposure when item behavior is only approximated, and continues to translate modern item components through `ComponentConverter`.
 - `ArmorPackModule` now generates humanoid armor attachables from direct equipment-asset loading and gates them through compatibility decisions.
@@ -1007,6 +1008,7 @@ Use the live Hydraulic repo as the control document for execution order.
 The project is no longer at pure scaffolding stage. The repo now already contains:
 
 - cached block-state resolution in `BlockMapping`, plus anchored rule indexes that reduce first-hit conditional rule scans while preserving rule precedence
+- compact resolved block metadata exposed through `MappingResolver.ResolvedBlockState` for block consumers
 - per-mod resource indexing in `ModResourceIndex`
 - performance artifacts through `performance-report.json`
 - a live `CapabilityAdapterRegistry`
@@ -1017,7 +1019,7 @@ That means the next roadmap should finish and generalize partially landed system
 ### Execution order
 
 1. refresh the baseline before each batch and treat the live repo plus runtime artifacts as authoritative over older notes
-2. split flexible metadata loading from compact runtime metadata so runtime consumers stop traversing nested rule and patch structures
+2. finish splitting flexible metadata loading from compact runtime metadata beyond the resolved block-state path, especially for patch-heavy and non-block consumers
 3. finish compact resolved block-state answer caching and any remaining block hot-path compaction around the now-indexed rule matcher
 4. complete startup indexing and eliminate remaining repeated probing by routing blockstate, item-definition, legacy-model, and model-provider lookups through indexes or prebuilt maps
 5. make conversion selective, cacheable, and evidence-driven using indexed startup data, compatibility inventory, and strict invalidation keys

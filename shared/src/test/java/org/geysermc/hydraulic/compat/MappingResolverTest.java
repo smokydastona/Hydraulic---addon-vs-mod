@@ -1,16 +1,31 @@
 package org.geysermc.hydraulic.compat;
 
+import net.minecraft.SharedConstants;
+import net.minecraft.server.Bootstrap;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.resources.Identifier;
+import net.minecraft.core.Direction;
 import org.geysermc.hydraulic.metadata.IdentifierMapping;
+import org.geysermc.hydraulic.metadata.BlockMapping;
+import org.geysermc.hydraulic.metadata.BlockStateRule;
 import org.geysermc.hydraulic.metadata.MetadataIndex;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class MappingResolverTest {
+    @BeforeAll
+    static void bootstrapMinecraft() {
+        SharedConstants.tryDetectVersion();
+        Bootstrap.bootStrap();
+    }
+
     @Test
     void resolvesIdentifierMappingsAcrossContentTypes() {
         MetadataIndex index = new MetadataIndex(
@@ -71,5 +86,48 @@ class MappingResolverTest {
         assertEquals("example:bedrock_entity", resolver.resolveEntityIdentifier(Identifier.fromNamespaceAndPath("example", "test_entity")).identifier().toString());
         assertEquals("example:bedrock_menu", resolver.resolveMenuIdentifier(Identifier.fromNamespaceAndPath("example", "test_menu")).identifier().toString());
         assertFalse(resolver.resolveItemIdentifier(Identifier.fromNamespaceAndPath("example", "missing_item")).overridden());
+    }
+
+    @Test
+    void exposesCompactResolvedBlockMetadata() {
+        BlockStateRule northRule = new BlockStateRule(
+            Map.of("facing", "north"),
+            Identifier.fromNamespaceAndPath("example", "north_block"),
+            Map.of("variant", "north"),
+            "example:north_geo",
+            "example:block/north",
+            true,
+            "machine",
+            MappingOwnership.USER,
+            "test.json",
+            MappingOwnership.USER.priority(),
+            0
+        );
+        MetadataIndex index = new MetadataIndex(
+            Map.of(
+                Identifier.fromNamespaceAndPath("example", "test_block"),
+                new BlockMapping(Identifier.fromNamespaceAndPath("example", "test_block"), java.util.List.of(northRule))
+            ),
+            Map.of(),
+            Map.of(),
+            Map.of(),
+            Map.of(),
+            Map.of(),
+            java.util.List.of(),
+            new MetadataIndex.Summary(1, 1, 0, 0, 0, 0, 0, 1, 0, Map.of("user", 1))
+        );
+
+        MappingResolver resolver = new MappingResolver(index);
+        MappingResolver.ResolvedBlockState resolved = resolver.resolveBlockState(
+            Identifier.fromNamespaceAndPath("example", "test_block"),
+            Blocks.PISTON.defaultBlockState().setValue(BlockStateProperties.FACING, Direction.NORTH)
+        );
+
+        assertEquals("example:north_block", resolved.identifier().toString());
+        assertEquals("example:north_geo", resolved.metadata().geometryId());
+        assertEquals("example:block/north", resolved.metadata().materialId());
+        assertEquals("north", resolved.metadata().bedrockState().get("variant"));
+        assertEquals("machine", resolved.metadata().behaviorTag());
+        assertTrue(resolved.metadata().behaviorRequired());
     }
 }

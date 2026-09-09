@@ -71,7 +71,9 @@ class BlockMappingTest {
         assertEquals(1, mapping.anchorBucketCount());
         assertEquals(1, mapping.unconditionalRuleCount());
         assertEquals("example:north_block", mapping.resolve(northState).identifier().toString());
+        assertEquals("example:north", mapping.resolve(northState).metadata().geometryId());
         assertEquals("example:fallback_block", mapping.resolve(southState).identifier().toString());
+        assertEquals("example:fallback", mapping.resolve(southState).metadata().geometryId());
     }
 
     @Test

@@ -17,6 +17,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
 public final class BlockMapping {
+    private static final RuntimeMetadata EMPTY_METADATA = new RuntimeMetadata(Map.of(), null, null, false, null);
+
     private final Identifier javaIdentifier;
     private final List<BlockStateRule> rules;
     private final List<CompiledRule> compiledRules;
@@ -87,10 +89,10 @@ public final class BlockMapping {
             BlockStateRule rule = compiledRule.rule();
             if (rule.matches(state, propertiesByName)) {
                 Identifier resolvedIdentifier = rule.bedrockIdentifier() != null ? rule.bedrockIdentifier() : this.javaIdentifier;
-                return new MatchResult(rule, resolvedIdentifier, rule.bedrockIdentifier() != null);
+                return new MatchResult(rule, resolvedIdentifier, rule.bedrockIdentifier() != null, RuntimeMetadata.fromRule(rule));
             }
         }
-        return new MatchResult(null, this.javaIdentifier, false);
+        return new MatchResult(null, this.javaIdentifier, false, EMPTY_METADATA);
     }
 
     @NotNull
@@ -165,7 +167,24 @@ public final class BlockMapping {
             .orElse(null);
     }
 
-    public record MatchResult(@Nullable BlockStateRule rule, @NotNull Identifier identifier, boolean overridden) {
+    public record MatchResult(@Nullable BlockStateRule rule, @NotNull Identifier identifier, boolean overridden, @NotNull RuntimeMetadata metadata) {
+    }
+
+    public record RuntimeMetadata(@NotNull Map<String, String> bedrockState, @Nullable String geometryId, @Nullable String materialId, boolean behaviorRequired, @Nullable String behaviorTag) {
+        public RuntimeMetadata {
+            bedrockState = Map.copyOf(bedrockState);
+        }
+
+        @NotNull
+        public static RuntimeMetadata fromRule(@NotNull BlockStateRule rule) {
+            return new RuntimeMetadata(
+                rule.bedrockState() != null ? rule.bedrockState() : Map.of(),
+                rule.geometryId(),
+                rule.materialId(),
+                rule.behaviorRequired(),
+                rule.behaviorTag()
+            );
+        }
     }
 
     private record CompiledRules(@NotNull List<CompiledRule> rules, @NotNull Map<AnchorKey, int[]> ruleOrdinalsByAnchor) {
