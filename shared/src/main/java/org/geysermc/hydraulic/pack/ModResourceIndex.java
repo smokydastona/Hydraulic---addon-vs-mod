@@ -28,6 +28,7 @@ public final class ModResourceIndex {
     private final Map<Identifier, Path> itemDefinitions;
     private final Map<Identifier, Path> legacyItemModels;
     private final Map<Identifier, Path> models;
+    private final Map<Key, Path> textures;
     private final Map<String, Set<String>> assetEntries;
     private final ResourceFingerprint fingerprint;
     private final boolean hasAssetFiles;
@@ -41,6 +42,7 @@ public final class ModResourceIndex {
         @NotNull Map<Identifier, Path> itemDefinitions,
         @NotNull Map<Identifier, Path> legacyItemModels,
         @NotNull Map<Identifier, Path> models,
+        @NotNull Map<Key, Path> textures,
         @NotNull Map<String, Set<String>> assetEntries,
         @NotNull ResourceFingerprint fingerprint,
         boolean hasAssetFiles,
@@ -53,6 +55,7 @@ public final class ModResourceIndex {
         this.itemDefinitions = Map.copyOf(itemDefinitions);
         this.legacyItemModels = Map.copyOf(legacyItemModels);
         this.models = Map.copyOf(models);
+        this.textures = Map.copyOf(textures);
         this.assetEntries = copyAssetEntries(assetEntries);
         this.fingerprint = fingerprint;
         this.hasAssetFiles = hasAssetFiles;
@@ -68,6 +71,7 @@ public final class ModResourceIndex {
         Map<Identifier, Path> itemDefinitions = new LinkedHashMap<>();
         Map<Identifier, Path> legacyItemModels = new LinkedHashMap<>();
         Map<Identifier, Path> models = new LinkedHashMap<>();
+        Map<Key, Path> textures = new LinkedHashMap<>();
         Map<String, Set<String>> assetEntries = new LinkedHashMap<>();
         List<ScanRoot> scanRoots = new ArrayList<>();
         List<FileStamp> fileStamps = new ArrayList<>();
@@ -99,7 +103,7 @@ public final class ModResourceIndex {
 
                         sawAssetFile = true;
                         fileStamps.add(fileStamp(path, assets, rootOrdinal, "assets"));
-                        indexAssetFile(path, assets, namespaces, blockStates, itemDefinitions, legacyItemModels, models, assetEntries);
+                        indexAssetFile(path, assets, namespaces, blockStates, itemDefinitions, legacyItemModels, models, textures, assetEntries);
                         FileMetadata metadata = fileMetadata(path, assets, rootOrdinal, "assets");
                         fingerprintHasher.putString(metadata.stablePath(), java.nio.charset.StandardCharsets.UTF_8);
                         fingerprintHasher.putLong(metadata.size());
@@ -155,6 +159,7 @@ public final class ModResourceIndex {
             itemDefinitions,
             legacyItemModels,
             models,
+            textures,
             assetEntries,
             new ResourceFingerprint(FINGERPRINT_ALGORITHM, indexedFileCount, indexedTotalSizeBytes, latestModifiedEpochMillis, fingerprintHasher.hash().toString()),
             hasAssetFiles,
@@ -172,6 +177,7 @@ public final class ModResourceIndex {
             toIdentifierPathMap(snapshot.itemDefinitions()),
             toIdentifierPathMap(snapshot.legacyItemModels()),
             toIdentifierPathMap(snapshot.models()),
+            toKeyPathMap(snapshot.textures()),
             snapshot.assetEntries(),
             snapshot.fingerprint(),
             snapshot.hasAssetFiles(),
@@ -210,6 +216,10 @@ public final class ModResourceIndex {
         return this.models.size();
     }
 
+    public int textureCount() {
+        return this.textures.size();
+    }
+
     @NotNull
     public Snapshot snapshot() {
         return new Snapshot(
@@ -218,6 +228,7 @@ public final class ModResourceIndex {
             stringifyIdentifierPaths(this.itemDefinitions),
             stringifyIdentifierPaths(this.legacyItemModels),
             stringifyIdentifierPaths(this.models),
+            stringifyKeyPaths(this.textures),
             this.assetEntries,
             this.fingerprint,
             this.hasAssetFiles,
@@ -249,6 +260,16 @@ public final class ModResourceIndex {
             resolved.put(Key.key(entry.getKey().getNamespace(), entry.getKey().getPath()), entry.getValue());
         }
         return Map.copyOf(resolved);
+    }
+
+    @Nullable
+    public Path resolveTexturePath(@NotNull Key textureKey) {
+        return this.textures.get(textureKey);
+    }
+
+    @NotNull
+    public Map<Key, Path> texturePaths() {
+        return this.textures;
     }
 
     @NotNull
@@ -283,6 +304,7 @@ public final class ModResourceIndex {
         @NotNull Map<Identifier, Path> itemDefinitions,
         @NotNull Map<Identifier, Path> legacyItemModels,
         @NotNull Map<Identifier, Path> models,
+        @NotNull Map<Key, Path> textures,
         @NotNull Map<String, Set<String>> assetEntries
     ) {
         Path relative = assetsRoot.relativize(file);
@@ -322,6 +344,10 @@ public final class ModResourceIndex {
 
         if ("textures".equals(firstSegment) && isTextureAsset(file)) {
             addRelativeAsset(assetEntries, "textures", relative.subpath(2, relative.getNameCount()));
+            Key textureKey = textureKey(namespace, relative.subpath(2, relative.getNameCount()));
+            if (textureKey != null) {
+                textures.putIfAbsent(textureKey, file);
+            }
         }
 
         if ("sounds".equals(firstSegment) && isSoundAsset(file)) {
@@ -446,6 +472,15 @@ public final class ModResourceIndex {
     }
 
     @NotNull
+    private static Map<String, String> stringifyKeyPaths(@NotNull Map<Key, Path> values) {
+        Map<String, String> result = new LinkedHashMap<>();
+        for (Map.Entry<Key, Path> entry : values.entrySet()) {
+            result.put(entry.getKey().asString(), entry.getValue().toString());
+        }
+        return Map.copyOf(result);
+    }
+
+    @NotNull
     private static Map<Identifier, Path> toIdentifierPathMap(@NotNull Map<String, String> values) {
         Map<Identifier, Path> result = new LinkedHashMap<>();
         for (Map.Entry<String, String> entry : values.entrySet()) {
@@ -462,12 +497,25 @@ public final class ModResourceIndex {
         return Map.copyOf(result);
     }
 
+    @NotNull
+    private static Map<Key, Path> toKeyPathMap(@NotNull Map<String, String> values) {
+        Map<Key, Path> result = new LinkedHashMap<>();
+        for (Map.Entry<String, String> entry : values.entrySet()) {
+            try {
+                result.put(Key.key(entry.getKey()), Path.of(entry.getValue()));
+            } catch (IllegalArgumentException ignored) {
+            }
+        }
+        return Map.copyOf(result);
+    }
+
     public record Snapshot(
         @NotNull Set<String> namespaces,
         @NotNull Map<String, String> blockStates,
         @NotNull Map<String, String> itemDefinitions,
         @NotNull Map<String, String> legacyItemModels,
         @NotNull Map<String, String> models,
+        @NotNull Map<String, String> textures,
         @NotNull Map<String, Set<String>> assetEntries,
         @NotNull ResourceFingerprint fingerprint,
         boolean hasAssetFiles,
@@ -481,6 +529,7 @@ public final class ModResourceIndex {
             itemDefinitions = immutableStringMap(itemDefinitions);
             legacyItemModels = immutableStringMap(legacyItemModels);
             models = immutableStringMap(models);
+            textures = immutableStringMap(textures);
             assetEntries = assetEntries == null ? Map.of() : copyAssetEntries(assetEntries);
             scanRoots = scanRoots == null ? List.of() : List.copyOf(scanRoots);
             fileStamps = fileStamps == null ? List.of() : List.copyOf(fileStamps);
@@ -536,5 +585,17 @@ public final class ModResourceIndex {
             return null;
         }
         return Identifier.fromNamespaceAndPath(namespace, path);
+    }
+
+    @Nullable
+    private static Key textureKey(@NotNull String namespace, @NotNull Path relativePath) {
+        String normalized = relativePath.toString().replace('\\', '/');
+        if (normalized.endsWith(".png") || normalized.endsWith(".tga")) {
+            normalized = normalized.substring(0, normalized.length() - 4);
+        }
+        if (normalized.isEmpty()) {
+            return null;
+        }
+        return Key.key(namespace, normalized);
     }
 }

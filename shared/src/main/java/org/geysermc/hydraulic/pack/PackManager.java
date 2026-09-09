@@ -40,6 +40,7 @@ import org.geysermc.pack.converter.type.model.ModelStitcher;
 import org.geysermc.pack.converter.util.NioDirectoryFileTreeReader;
 import org.geysermc.pack.converter.util.VanillaPackProvider;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import team.unnamed.creative.ResourcePack;
@@ -618,6 +619,11 @@ public class PackManager {
     public boolean shouldIncludeTexture(@NotNull String modId, @NotNull net.kyori.adventure.key.Key textureKey) {
         TextureDependencyGraph dependencies = this.activeTextureDependencies.get(modId);
         return dependencies == null || dependencies.shouldInclude(textureKey);
+    }
+
+    @Nullable
+    public ModResourceIndex modResourceIndex(@NotNull String modId) {
+        return this.modResourceIndexes.get(modId);
     }
 
     @NotNull

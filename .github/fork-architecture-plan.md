@@ -213,6 +213,7 @@ The compatibility layer stays above the current Hydraulic conversion pipeline, b
 - The cached index snapshot now rehydrates live `ModResourceIndex` instances on repeat startup when mod roots, indexed files, and indexed directories are unchanged, so the index cache is now a real execution shortcut rather than metrics-only persistence.
 - Texture output resolution for item, bow, and block conversion no longer recomputes identical Bedrock texture paths at every call site. A shared bounded `TextureResolutionCache` now sits behind `TexturePackModule` and records hit, miss, eviction, and size evidence in `performance-report.json`.
 - Texture conversion now also builds a per-pack dependency graph from converted models and equipment assets before the texture stage runs. The converter records discovered, selected, and omitted texture counts per conversion batch and keeps block-texture registration aligned with that selected set.
+- Block texture registration no longer walks `ResourcePack#textures()` eagerly during post-processing. `ModResourceIndex` now carries first-class texture-path lookup, and block flipbook registration lazily reads only selected texture `.mcmeta` files when animation metadata is actually needed.
 - Typed compatibility data already exists:
   - `CompatibilityObject`
   - `CapabilityProfile`
@@ -241,12 +242,13 @@ The compatibility layer stays above the current Hydraulic conversion pipeline, b
 - Live Fabric runtime validation now also shows real index rehydration on unchanged startup; the current dev run reported `artifactCache.index.hits = 2` and `misses = 2`, which matches partial reuse for filesystem-backed mod roots while dev-time virtual roots safely fall back to rebuild.
 - Live Fabric runtime validation now also shows shared texture-resolution cache reuse during conversion; the current dev run reported `textureResolutionCache.hits = 5`, `misses = 15`, and `evictions = 0`, proving repeated item, bow, and block texture-output resolution is now observable and already benefits from central reuse.
 - Live Fabric runtime validation now also shows the texture dependency graph is active in the conversion path. The current bundled test mod reported `discoveredTextures = 17`, `selectedTextures = 17`, and `omittedTextures = 0`, which means the graph is wired correctly even though this small fixture pack currently references every discovered texture.
+- Live Fabric runtime validation now also confirms that the first broader indexed texture consumer is real rather than theoretical: pack conversion, block registration, and report generation still complete with the new indexed texture path plus lazy animation-metadata flow, and the runtime artifact remains stable with `selectedTextures = 17` and `textureResolutionCache.hits = 5` on the current fixture mod.
 
 ### What is still too narrow
 - Discovery is still duplicated across multiple subsystems.
 - Fingerprinting and cache invalidation are still too coarse.
 - Resource-pack reading and broader resource resolution are still too eager even though model loading is now lazy and bounded.
-- Texture-path reuse is now centralized and measured, and texture conversion now consults a real dependency graph. The remaining gap is that the current fixture packs still reference every discovered texture, and broader indexed texture/resource loading is still eager beyond this first selective-conversion seam.
+- Texture-path reuse is now centralized and measured, texture conversion now consults a real dependency graph, and block-texture post-processing now uses indexed texture paths plus lazy animation metadata reads. The remaining gap is that the current fixture packs still reference every discovered texture, and other resource categories still have eager seams.
 - Runtime dispatch still scales too much by scanning modules and mods instead of direct identifier lookup.
 - Compatibility analysis still reconstructs facts too often and still depends on repeated asset discovery.
 - Non-block compatibility remains shallower than the block path.
@@ -1576,7 +1578,7 @@ The best next implementation slice from the current repo state is:
 3. widen the compiled-plan surface from current registration and patch seams into richer block-state, menu, block-entity, and transfer-bridge runtime tables
 4. tighten pack validation so missing or unreferenced texture artifacts are caught structurally rather than only through runtime inspection
 
-This is now the smallest next slice that builds on shipped index rehydration, lazy model loading, measured texture-path reuse, and real texture dependency selection while continuing the Phase 1 and Phase 3 substrate work toward the skeleton-key goal.
+The first broader texture-read slice is now shipped: block post-processing consumes indexed texture paths and lazy `.mcmeta` reads instead of an eager full texture walk. The next smallest slice is now dependency-aware invalidation, because the indexing and lazy-loading substrate is strong enough that stale reuse risk is becoming a more important bottleneck than raw scan cost.
 
 ## What Not To Do
 - Do not keep extending `BlockStateRule` with every future concern.

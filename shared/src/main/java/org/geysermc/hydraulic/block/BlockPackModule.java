@@ -44,8 +44,10 @@ import org.geysermc.hydraulic.compat.runtime.CompatibilityDecisions;
 import org.geysermc.hydraulic.item.CreativeMappings;
 import org.geysermc.hydraulic.metadata.BlockMapping;
 import org.geysermc.hydraulic.metadata.BlockStateRule;
+import org.geysermc.hydraulic.pack.ModResourceIndex;
 import org.geysermc.hydraulic.pack.PackLogListener;
 import org.geysermc.hydraulic.pack.PackModule;
+import org.geysermc.hydraulic.pack.TextureAnimationMetadataReader;
 import org.geysermc.hydraulic.pack.TexturePackModule;
 import org.geysermc.hydraulic.pack.context.PackContext;
 import org.geysermc.hydraulic.pack.context.PackEventContext;
@@ -63,12 +65,11 @@ import team.unnamed.creative.blockstate.Condition;
 import team.unnamed.creative.blockstate.MultiVariant;
 import team.unnamed.creative.blockstate.Selector;
 import team.unnamed.creative.blockstate.Variant;
-import team.unnamed.creative.metadata.animation.AnimationMeta;
 import team.unnamed.creative.model.Model;
 import team.unnamed.creative.model.ModelTexture;
 import team.unnamed.creative.model.ModelTextures;
-import team.unnamed.creative.texture.Texture;
 
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -165,11 +166,15 @@ public class BlockPackModule extends TexturePackModule<BlockPackModule> {
     }
 
     private void postProcess(@NotNull PackPostProcessContext<BlockPackModule> context) {
-        ResourcePack assets = context.javaResourcePack();
         BedrockResourcePack bedrockPack = context.bedrockResourcePack();
+        ModResourceIndex resourceIndex = context.hydraulic().getPackManager().modResourceIndex(context.mod().id());
 
-        for (Texture texture : assets.textures()) {
-            Key key = texture.key();
+        if (resourceIndex == null) {
+            return;
+        }
+
+        for (Map.Entry<Key, Path> textureEntry : resourceIndex.texturePaths().entrySet()) {
+            Key key = textureEntry.getKey();
             String value = key.value();
 
             if (!context.hydraulic().getPackManager().shouldIncludeTexture(context.mod().id(), key)) {
@@ -183,12 +188,9 @@ public class BlockPackModule extends TexturePackModule<BlockPackModule> {
                 String id = key.namespace() + ":" + cleanPath;
                 bedrockPack.addBlockTexture(id, outputLoc);
 
-                // If the texture is animated, add it to the flipbook textures
-                if (texture.hasMetadata()) {
-                    AnimationMeta animationMeta = texture.meta().meta(AnimationMeta.class);
-                    if (animationMeta != null) {
-                        bedrockPack.addFlipbookTexture(id, outputLoc, animationMeta.frameTime());
-                    }
+                Integer frameTime = TextureAnimationMetadataReader.frameTime(textureEntry.getValue());
+                if (frameTime != null) {
+                    bedrockPack.addFlipbookTexture(id, outputLoc, frameTime);
                 }
             }
         }

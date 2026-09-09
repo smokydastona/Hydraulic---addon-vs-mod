@@ -61,8 +61,10 @@ class ArtifactCacheTest {
 
         Path modRoot = this.tempDir.resolve("mod-root");
         Files.createDirectories(modRoot.resolve("assets/testmod/models/item"));
+        Files.createDirectories(modRoot.resolve("assets/testmod/textures/item"));
         Files.createDirectories(modRoot.resolve("data/testmod/recipes"));
         Files.writeString(modRoot.resolve("assets/testmod/models/item/test_item.json"), "{\"parent\":\"minecraft:item/generated\"}");
+        Files.writeString(modRoot.resolve("assets/testmod/textures/item/test_item.png"), "png");
         Files.writeString(modRoot.resolve("data/testmod/recipes/test_recipe.json"), "{}");
         ModInfo mod = new ModInfo("testmod", "testmod", "Test Mod", "1.0.0", null, List.of(modRoot));
         ModResourceIndex index = ModResourceIndex.create(mod, LoggerFactory.getLogger("ArtifactCacheTest"));
@@ -85,6 +87,11 @@ class ArtifactCacheTest {
         Map<String, ModResourceIndex> rehydrated = cache.loadReusableIndexes(List.of(mod));
         assertEquals(index.fingerprint().stableValue(), rehydrated.get("testmod").fingerprint().stableValue());
         assertEquals(index.modelCount(), rehydrated.get("testmod").modelCount());
+        assertEquals(index.textureCount(), rehydrated.get("testmod").textureCount());
+        assertEquals(
+            index.resolveTexturePath(net.kyori.adventure.key.Key.key("testmod", "item/test_item")),
+            rehydrated.get("testmod").resolveTexturePath(net.kyori.adventure.key.Key.key("testmod", "item/test_item"))
+        );
 
         try (Reader reader = Files.newBufferedReader(this.tempDir.resolve("cache/conversions/testmod/conversion-manifest.json"))) {
             ArtifactCache.ConversionArtifact conversion = Constants.GSON.fromJson(reader, ArtifactCache.ConversionArtifact.class);

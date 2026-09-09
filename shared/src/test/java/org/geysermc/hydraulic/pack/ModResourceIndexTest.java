@@ -69,10 +69,12 @@ class ModResourceIndexTest {
         assertTrue(index.hasItemAsset(Identifier.fromNamespaceAndPath("examplemod", "tools/hammer")));
         assertEquals(2, index.itemAssetCount());
         assertEquals(2, index.modelCount());
+        assertEquals(1, index.textureCount());
         assertTrue(!index.hasItemAsset(Identifier.fromNamespaceAndPath("examplemod", "tools/missing")));
         assertEquals(modernItem, index.resolveItemAssetPath(Identifier.fromNamespaceAndPath("examplemod", "tools/wrench")));
         assertEquals(legacyItem, index.resolveItemAssetPath(Identifier.fromNamespaceAndPath("examplemod", "tools/hammer")));
         assertEquals(blockModel, index.resolveModelPath(Key.key("examplemod", "block/machines/crusher")));
+        assertEquals(texture, index.resolveTexturePath(Key.key("examplemod", "block/crusher")));
         assertNull(index.resolveItemAssetPath(Identifier.fromNamespaceAndPath("examplemod", "tools/missing")));
         assertEquals(Set.of("machines/crusher.json"), index.assetEntries("blockstates"));
         assertEquals(Set.of("tools/wrench.json"), index.assetEntries("item_models"));
@@ -117,9 +119,11 @@ class ModResourceIndexTest {
         assertEquals(0, index.blockStateCount());
         assertEquals(0, index.itemAssetCount());
         assertEquals(0, index.modelCount());
+        assertEquals(0, index.textureCount());
         assertTrue(!index.hasItemAsset(Identifier.fromNamespaceAndPath("examplemod", "test_item")));
         assertNull(index.resolveItemAssetPath(Identifier.fromNamespaceAndPath("examplemod", "test_item")));
         assertNull(index.resolveModelPath(Key.key("examplemod", "missing")));
+        assertNull(index.resolveTexturePath(Key.key("examplemod", "missing")));
         assertEquals(false, index.hasAssetFiles());
     }
 }
