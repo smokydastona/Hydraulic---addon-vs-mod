@@ -190,6 +190,8 @@ This separation is fundamental, not just a reporting refinement. A converted mod
 - Focused tests already exist for loader precedence, resolver behavior, compatibility decisions, equipment asset loading, item asset lookup, and report generation.
 - The local Fabric runtime has already produced report artifacts and logged metadata/report initialization successfully.
 - Geyser unsupported runtime paths now emit compatibility-backed diagnostics for unsupported Java menu opens and for block entity data packets that fall through to Geyser's default empty block-entity translator when Hydraulic already knows the affected object still needs block-entity bridges.
+- Hydraulic now has a first real metadata-backed menu fallback bridge at the Geyser open-screen seam: when Hydraulic can resolve the live Java menu identifier and metadata declares an explicit fallback `bedrock.menu.container_type`, it can substitute an existing Geyser inventory translator instead of only warning.
+- Hydraulic now has a first real metadata-backed block-entity data bridge at the Geyser empty-translator seam: explicit `bedrock.block_entity.id` and `bedrock.block_entity.data.*` patches can synthesize Bedrock block-entity tags before the unsupported-runtime warning path.
 
 ### What is materially better than the earlier fork assessment
 - The fork is no longer only a block metadata experiment.
@@ -202,11 +204,11 @@ This separation is fundamental, not just a reporting refinement. A converted mod
 - Non-block metadata is still shallow compared to the block path. It can now express typed patches and behavior requirements, but it still does not model full rendering, slots, recipes, fluids, or rich interactions.
 - The block path remains the richest end-to-end compatibility path.
 - There is no behavior-pack generator.
-- There are no runtime interaction bridges for menus, block entities, fluids, machines, or entity behavior logic.
+- There are still no generic runtime interaction bridges for fluids, machines, or entity behavior logic, and menu or block-entity support remains limited to explicit metadata-backed seams rather than broad protocol translation.
 - Runtime consumption of compatibility decisions now exists for block custom registration, block item texture fallback, item custom registration, item creative exposure, armor attachables, bow attachables, and metadata-backed custom entity registration, but broad interaction and behavior bridges still do not.
 - Entity runtime consumption now reaches metadata-backed custom entity registration, but not interaction or behavior translation.
 - There is no compatibility knowledge layer yet, and the current capability-adapter layer covers only the runtime bridges that already exist.
-- Runtime consumers now resolve those current bridges through explicit adapter bindings, but menus, block entities, fluids, machines, and richer entity behavior still have no adapter-backed runtime implementation.
+- Runtime consumers now resolve those current bridges through explicit adapter bindings, but fluids, machines, richer entity behavior, and broad menu/block-entity interaction still have no adapter-backed runtime implementation.
 
 ## Actual Current Control Flow
 
@@ -959,11 +961,12 @@ Current verified runtime consumers:
 - armor attachable generation gating
 - bow attachable generation gating
 - metadata-backed custom entity registration
-- compatibility-backed unsupported menu diagnostics at the real Geyser close path
+- compatibility-backed unsupported menu diagnostics at the real Geyser open-screen path
+- metadata-backed menu fallback translation for explicit `bedrock.menu.container_type` patch templates at the real Geyser open-screen path
 - compatibility-backed unsupported block-entity data diagnostics at the real Geyser empty-translator path
 - metadata-backed block-entity data translation for explicit `bedrock.block_entity.*` patch templates at the real Geyser empty-translator path
 
-This phase is still early. Hydraulic now has a first real block-entity data bridge for explicit metadata templates, but generic interaction, container, fluid, entity behavior, and broader block-entity bridges are still not implemented.
+This phase is still early. Hydraulic now has first real metadata-backed menu and block-entity runtime bridges for explicit templates, but generic interaction, container behavior, fluid, entity behavior, and broader block-entity bridges are still not implemented.
 
 ## Phase 7: Behavior Generation
 Priority: very high

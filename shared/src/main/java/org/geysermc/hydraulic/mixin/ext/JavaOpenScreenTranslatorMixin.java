@@ -7,7 +7,9 @@ import org.geysermc.geyser.session.GeyserSession;
 import org.geysermc.geyser.translator.inventory.InventoryTranslator;
 import org.geysermc.geyser.translator.protocol.java.inventory.JavaOpenScreenTranslator;
 import org.geysermc.geyser.translator.text.MessageTranslator;
+import org.geysermc.hydraulic.compat.CompatibilityRegistry;
 import org.geysermc.hydraulic.compat.runtime.CompatibilityRuntimeDiagnostics;
+import org.geysermc.hydraulic.compat.runtime.MenuPatchTranslatorFactory;
 import org.geysermc.mcprotocollib.protocol.data.game.inventory.ContainerType;
 import org.geysermc.mcprotocollib.protocol.packet.ingame.clientbound.inventory.ClientboundOpenScreenPacket;
 import org.spongepowered.asm.mixin.Mixin;
@@ -30,6 +32,12 @@ public abstract class JavaOpenScreenTranslatorMixin {
     ) {
         InventoryTranslator<?> translator = original.call(containerType);
         if (translator == null) {
+            CompatibilityRegistry compatibilityRegistry = CompatibilityRuntimeDiagnostics.currentRegistry();
+            InventoryTranslator<?> fallbackTranslator = MenuPatchTranslatorFactory.create(session, packet, compatibilityRegistry);
+            if (fallbackTranslator != null) {
+                return fallbackTranslator;
+            }
+
             CompatibilityRuntimeDiagnostics.reportUnsupportedMenuOpen(containerType, title(packet.getTitle(), session));
         }
         return translator;

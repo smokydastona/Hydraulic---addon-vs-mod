@@ -241,6 +241,61 @@ class MetadataLoaderTest {
     }
 
     @Test
+    void loadsMenuPatchMetadataWithoutValidationWarnings(@TempDir Path tempDir) throws IOException {
+        Files.writeString(tempDir.resolve("menu-patches.json"), """
+            {
+              "patches": [
+                {
+                  "target": "test:barrel_menu",
+                  "content_type": "menu",
+                  "patch": {
+                    "bedrock": {
+                      "menu": {
+                        "container_type": "generic_9x3"
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+            """);
+
+        MetadataIndex index = new MetadataLoader(LoggerFactory.getLogger("MetadataLoaderTest")).load(tempDir);
+
+        assertEquals(1, index.summary().patchCount());
+        assertEquals(0, index.summary().validationIssueCount());
+        ContentPatch patch = index.contentPatches(Identifier.fromNamespaceAndPath("test", "barrel_menu")).getFirst();
+        assertEquals("generic_9x3", patch.operations().get("bedrock.menu.container_type"));
+    }
+
+    @Test
+    void recordsValidationIssueForInvalidMenuFallbackContainerType(@TempDir Path tempDir) throws IOException {
+        Files.writeString(tempDir.resolve("invalid-menu-patch.json"), """
+            {
+              "patches": [
+                {
+                  "target": "test:barrel_menu",
+                  "content_type": "menu",
+                  "patch": {
+                    "bedrock": {
+                      "menu": {
+                        "container_type": "not_real"
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+            """);
+
+        MetadataIndex index = new MetadataLoader(LoggerFactory.getLogger("MetadataLoaderTest")).load(tempDir);
+
+        assertEquals(1, index.summary().patchCount());
+        assertEquals(1, index.summary().validationIssueCount());
+        assertEquals("metadata.patch.menu.container_type", index.validationIssues().getFirst().code());
+    }
+
+    @Test
     void recordsValidationIssuesForInvalidPatchEntries(@TempDir Path tempDir) throws IOException {
         Files.writeString(tempDir.resolve("invalid.json"), """
             {

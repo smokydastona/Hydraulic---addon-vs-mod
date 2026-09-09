@@ -4,6 +4,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import org.cloudburstmc.math.vector.Vector3i;
 import org.geysermc.geyser.session.GeyserSession;
@@ -100,6 +101,26 @@ public final class CompatibilityRuntimeDiagnostics {
             }
 
             Identifier identifier = BuiltInRegistries.BLOCK_ENTITY_TYPE.getKey(blockEntity.getType());
+            return identifier != null ? identifier.toString() : null;
+        } catch (IllegalStateException ignored) {
+            return null;
+        }
+    }
+
+    @Nullable
+    static String resolveJavaMenuIdentifier(@NotNull GeyserSession session, int containerId) {
+        try {
+            ServerPlayer player = HydraulicImpl.instance().server().getPlayerList().getPlayer(session.javaUuid());
+            if (player == null) {
+                return null;
+            }
+
+            AbstractContainerMenu menu = player.containerMenu;
+            if (menu == null || menu.containerId != containerId || menu.getType() == null) {
+                return null;
+            }
+
+            Identifier identifier = BuiltInRegistries.MENU.getKey(menu.getType());
             return identifier != null ? identifier.toString() : null;
         } catch (IllegalStateException ignored) {
             return null;

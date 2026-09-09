@@ -484,6 +484,10 @@ public final class MetadataLoader {
                     continue;
                 }
 
+                if (patch.contentType().equals("menu")) {
+                    this.validateMenuPatch(patch, validationIssues);
+                }
+
                 IdentifierMapping mapping = this.patchToIdentifierMapping(patch);
                 if (mapping == null) {
                     continue;
@@ -531,6 +535,24 @@ public final class MetadataLoader {
             return null;
         }
         return new IdentifierMapping(patch.target(), bedrockIdentifier, patch.ownership(), patch.sourcePath(), patch.priority(), patch.order());
+    }
+
+    private void validateMenuPatch(@NotNull ContentPatch patch, @NotNull List<MetadataValidationIssue> validationIssues) {
+        String fallbackContainerType = patch.operation("bedrock.menu.container_type");
+        if (fallbackContainerType == null) {
+            return;
+        }
+
+        String normalizedContainerType = org.geysermc.hydraulic.compat.runtime.MenuPatchTemplate.normalizeContainerTypeName(fallbackContainerType);
+        if (!org.geysermc.hydraulic.compat.runtime.MenuPatchTemplate.isSupportedContainerType(normalizedContainerType)) {
+            validationIssues.add(new MetadataValidationIssue(
+                "metadata.patch.menu.container_type",
+                "WARNING",
+                "Ignoring invalid bedrock.menu.container_type value " + fallbackContainerType,
+                patch.sourcePath(),
+                patch.target().toString()
+            ));
+        }
     }
 
     @NotNull

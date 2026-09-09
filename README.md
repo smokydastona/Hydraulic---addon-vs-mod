@@ -16,6 +16,7 @@ Right now this fork adds:
 - metadata-based block matching by Java block ID and optional Java state filters
 - item, recipe, entity, and menu identifier mapping metadata on the same compatibility/report foundation
 - Metadata V2 patch loading for blocks, items, recipes, entities, and menus
+- a first metadata-backed menu fallback bridge that can route unsupported Java menu opens into an explicitly declared Bedrock `ContainerType`
 - override support for Bedrock block identifier, geometry, and material
 - typed compatibility objects with support levels, confidence, provenance, findings, and mod fingerprints
 - a first analyzer API with block, item, entity, fluid, block-entity, menu, and recipe analyzers
@@ -164,6 +165,9 @@ Example patch file:
 Supported patch paths today:
 - `bedrock.identifier`
 - `bedrock.state.<key>`
+- `bedrock.menu.container_type`
+- `bedrock.block_entity.id`
+- `bedrock.block_entity.data.<key>`
 - `visual.geometry`
 - `visual.material`
 - `java.when.<key>`
@@ -194,6 +198,8 @@ On startup, this fork now writes three compatibility artifacts under Hydraulic's
 `performance-report.json` records the measured startup and conversion costs for the current run, including resource indexing time, metadata load time, compatibility initialization time, resource-pack/model indexing time, and the last pack-conversion batch with per-mod outcomes. This is the report to inspect when checking whether cache/indexing changes actually moved the cost profile.
 
 When Geyser receives a Java menu open for a container type it cannot translate, Hydraulic now emits a compatibility-backed runtime warning that explains the protocol boundary and lists any discovered menu objects still requiring the `container_bridge` runtime requirement.
+
+Metadata V2 can now also drive a first real menu fallback bridge. A `menu` patch with `bedrock.menu.container_type` lets Hydraulic resolve the live Java menu identifier from the active server container state and substitute an existing Geyser inventory translator when the original open-screen path had no translator. This is intentionally limited to explicit fallback layouts; it does not create a generic menu behavior bridge.
 
 When Geyser receives Java block entity data that falls through to its default `EmptyBlockEntityTranslator`, Hydraulic now attempts to resolve the live Java block entity at that position and emits a compatibility-backed runtime warning only when the compatibility report already marks that object as still requiring block-entity runtime bridges such as `block_entity_data_bridge`.
 

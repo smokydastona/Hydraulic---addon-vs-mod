@@ -27,7 +27,8 @@ final class UnsupportedMenuDiagnosticFormatter {
             builder.append(" (title: ").append(title).append(')');
         }
         builder.append(" because no inventory translator exists for this open-screen path. ");
-        builder.append("Hydraulic cannot safely remap the menu from current metadata because Geyser exposes only ContainerType here, not the originating Java menu identifier.");
+        builder.append("Hydraulic could not resolve a metadata-backed fallback layout for this open-screen path. ");
+        builder.append("This bridge only activates when Hydraulic can confirm the live Java menu identifier from server state and metadata declares a compatible fallback ContainerType.");
 
         if (blockedMenus.isEmpty()) {
             builder.append(" The current compatibility report has no discovered menu objects marked with the container_bridge runtime requirement.");
