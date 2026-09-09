@@ -193,6 +193,8 @@ On startup, this fork now writes three compatibility artifacts under Hydraulic's
 
 `performance-report.json` records the measured startup and conversion costs for the current run, including resource indexing time, metadata load time, compatibility initialization time, resource-pack/model indexing time, and the last pack-conversion batch with per-mod outcomes. This is the report to inspect when checking whether cache/indexing changes actually moved the cost profile.
 
+When Geyser receives a Java menu open for a container type it cannot translate, Hydraulic now emits a compatibility-backed runtime warning that explains the protocol boundary and lists any discovered menu objects still requiring the `container_bridge` runtime requirement.
+
 The current report is still conservative. It is intended to answer "what do we know right now from registries, assets, metadata, and patches?" not "is this mod fully playable end-to-end on Bedrock?" Behavior-heavy entities, fluids, menus, and block entities will still show low support until dedicated runtime bridges are implemented. For items, behavior-tagged patches already affect runtime exposure decisions, so unsupported behavior can now suppress Bedrock creative exposure even when the item is still registered. For entities, metadata-backed identifier mappings now drive custom entity registration, but that is still not full interaction or behavior translation.
 
 ## Contributing
