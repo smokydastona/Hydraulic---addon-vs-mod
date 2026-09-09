@@ -35,6 +35,8 @@ public record PerformanceReport(
         int modsWithAssetFiles,
         int modsWithoutAssetFiles,
         int namespaces,
+        int indexedBlockStates,
+        int indexedItemAssets,
         int blockMatches,
         int skippedBlocks,
         int itemMatches,

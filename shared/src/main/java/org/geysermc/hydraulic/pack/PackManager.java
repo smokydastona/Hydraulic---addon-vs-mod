@@ -156,6 +156,8 @@ public class PackManager {
             lookupSummary.modsWithAssetFiles(),
             lookupSummary.modsWithoutAssetFiles(),
             lookupSummary.namespaces(),
+            lookupSummary.indexedBlockStates(),
+            lookupSummary.indexedItemAssets(),
             lookupSummary.blockMatches(),
             lookupSummary.skippedBlocks(),
             lookupSummary.itemMatches(),
@@ -286,6 +288,8 @@ public class PackManager {
         modResourceIndexes.clear();
         int modsWithAssetFiles = 0;
         int modsWithoutAssetFiles = 0;
+        int indexedBlockStates = 0;
+        int indexedItemAssets = 0;
 
         // Step 1: Index each mod's resource roots once, then map namespaces to owning mods
         final Multimap<String, ModInfo> namespacesToMods = this.namespacesToMods;
@@ -293,6 +297,8 @@ public class PackManager {
         for (final ModInfo mod : hydraulic.mods()) {
             ModResourceIndex resourceIndex = ModResourceIndex.create(mod, LOGGER);
             modResourceIndexes.put(mod.id(), resourceIndex);
+            indexedBlockStates += resourceIndex.blockStateCount();
+            indexedItemAssets += resourceIndex.itemAssetCount();
             if (resourceIndex.hasAssetFiles()) {
                 modsWithAssetFiles++;
             } else {
@@ -373,6 +379,8 @@ public class PackManager {
             modsWithAssetFiles,
             modsWithoutAssetFiles,
             namespacesToMods.keySet().size(),
+            indexedBlockStates,
+            indexedItemAssets,
             modsToBlocks.size(),
             skippedBlocks,
             modsToItems.size(),
@@ -428,6 +436,8 @@ public class PackManager {
         int modsWithAssetFiles,
         int modsWithoutAssetFiles,
         int namespaces,
+        int indexedBlockStates,
+        int indexedItemAssets,
         int blockMatches,
         int skippedBlocks,
         int itemMatches,

@@ -1014,7 +1014,7 @@ The project is no longer at pure scaffolding stage. The repo now already contain
 - precompiled menu and block-entity patch templates in `MetadataIndex` and `MappingResolver` for runtime bridge lookups and analyzer checks
 - cheaper startup block and item ownership lookup in `PackManager`, avoiding per-block multimap scans and unused path retrieval when indexed membership is sufficient
 - per-mod resource indexing in `ModResourceIndex`
-- performance artifacts through `performance-report.json`
+- performance artifacts through `performance-report.json`, now including startup indexed blockstate and item-asset totals in addition to timing snapshots
 - a live `CapabilityAdapterRegistry`
 - first metadata-backed menu and block-entity runtime bridges
 

@@ -79,8 +79,16 @@ final class ModResourceIndex {
         return this.blockStates.containsKey(block);
     }
 
+    int blockStateCount() {
+        return this.blockStates.size();
+    }
+
     boolean hasItemAsset(@NotNull Identifier itemModel) {
         return this.itemDefinitions.containsKey(itemModel) || this.legacyItemModels.containsKey(itemModel);
+    }
+
+    int itemAssetCount() {
+        return this.itemDefinitions.size() + this.legacyItemModels.size();
     }
 
     @Nullable
