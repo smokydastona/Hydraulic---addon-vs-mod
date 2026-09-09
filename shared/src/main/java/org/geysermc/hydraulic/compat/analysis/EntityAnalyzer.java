@@ -32,6 +32,12 @@ public final class EntityAnalyzer implements CompatibilityAnalyzer {
     public @NotNull CompatibilityObject analyze(@NotNull ContentInventory.ContentDescriptor descriptor, @NotNull ContentInventory.ModContentInventory inventory, @NotNull MetadataIndex metadataIndex) {
         IdentifierMapping mapping = metadataIndex.entityMapping(Identifier.parse(descriptor.javaIdentifier()));
         List<ContentPatch> patches = metadataIndex.contentPatches(Identifier.parse(descriptor.javaIdentifier()));
+        boolean behaviorRequired = patches.stream().anyMatch(patch -> patch.booleanOperation("behavior.required") || patch.hasOperationPrefix("behavior."));
+        String behaviorTag = patches.stream()
+            .map(patch -> patch.operation("behavior.tag"))
+            .filter(tag -> tag != null && !tag.isBlank())
+            .findFirst()
+            .orElse(null);
 
         Capability registered = AnalyzerSupport.capability(CapabilityDomain.CONTENT, "registered", "Entity exists in the Java registry.");
         Capability presentation = AnalyzerSupport.capability(CapabilityDomain.PRESENTATION, "presentation_mapping", "Entity has explicit presentation mapping data.");
@@ -66,11 +72,17 @@ public final class EntityAnalyzer implements CompatibilityAnalyzer {
             metadataSources.add(mapping.sourcePath());
         }
 
+        Map<String, String> inventoryFacts = AnalyzerSupport.inventoryFacts(descriptor.registered(), descriptor.assetPresent(), mapping != null ? 1 : 0, patches.size());
+        inventoryFacts.put("behavior_required", Boolean.toString(behaviorRequired));
+        if (behaviorTag != null) {
+            inventoryFacts.put("behavior_tag", behaviorTag);
+        }
+
         return AnalyzerSupport.object(
             descriptor.javaIdentifier(),
             descriptor.kind(),
             descriptor.modId(),
-            AnalyzerSupport.inventoryFacts(descriptor.registered(), descriptor.assetPresent(), mapping != null ? 1 : 0, patches.size()),
+            inventoryFacts,
             profile,
             supportResults,
             new Confidence(mapping != null || !patches.isEmpty() ? 0.38D : 0.18D, "Entity analysis is currently metadata-backed and runtime-constrained."),

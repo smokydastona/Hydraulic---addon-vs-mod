@@ -13,5 +13,51 @@
         }
       ]
     }
+  ],
+  "items": [
+    {
+      "java_id": "hydraulic_test_mod:barrel_pack",
+      "bedrock_identifier": "hydraulic_test_mod:barrel_pack_override"
+    }
+  ],
+  "patches": [
+    {
+      "target": "hydraulic_test_mod:barrel_pack",
+      "content_type": "item",
+      "patch": {
+        "behavior": {
+          "required": true,
+          "tag": "custom_pack_behavior"
+        }
+      }
+    },
+    {
+      "target": "hydraulic_test_mod:barrel_cube",
+      "content_type": "entity",
+      "patch": {
+        "behavior": {
+          "required": true,
+          "tag": "visual_only_runtime"
+        }
+      }
+    }
+  ],
+  "recipes": [
+    {
+      "java_id": "hydraulic_test_mod:barrel_stick",
+      "bedrock_identifier": "hydraulic_test_mod:barrel_stick_recipe_override"
+    }
+  ],
+  "entities": [
+    {
+      "java_id": "hydraulic_test_mod:barrel_cube",
+      "bedrock_identifier": "hydraulic_test_mod:barrel_cube_override"
+    }
+  ],
+  "menus": [
+    {
+      "java_id": "hydraulic_test_mod:barrel_menu",
+      "bedrock_identifier": "hydraulic_test_mod:barrel_menu_override"
+    }
   ]
 }

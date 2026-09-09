@@ -8,6 +8,8 @@ import org.geysermc.hydraulic.compat.model.SupportResult;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import java.util.List;
+
 public final class CompatibilityDecisions {
     private CompatibilityDecisions() {
     }
@@ -136,7 +138,11 @@ public final class CompatibilityDecisions {
     }
 
     public static boolean allowsCustomEntityRegistration(@Nullable CompatibilityObject compatibilityObject) {
-        return CapabilityAdapterRegistry.supports(AdapterFeature.CUSTOM_ENTITY_REGISTRATION, compatibilityObject, null);
+        if (!CapabilityAdapterRegistry.supports(AdapterFeature.CUSTOM_ENTITY_REGISTRATION, compatibilityObject, null)) {
+            return false;
+        }
+
+        return !requiresEntityRuntimeBridge(compatibilityObject) || hasBehaviorTag(compatibilityObject, "visual_only_runtime");
     }
 
     @Nullable
@@ -146,6 +152,10 @@ public final class CompatibilityDecisions {
         }
         if (allowsCustomEntityRegistration(compatibilityObject)) {
             return null;
+        }
+
+        if (requiresEntityRuntimeBridge(compatibilityObject) && !hasBehaviorTag(compatibilityObject, "visual_only_runtime")) {
+            return behaviorReason("entity interaction or behavior runtime bridge is required", compatibilityObject);
         }
 
         SupportResult presentation = support(compatibilityObject, "presentation");
@@ -195,6 +205,34 @@ public final class CompatibilityDecisions {
     private static boolean requiresItemBehaviorBridge(@Nullable CompatibilityObject compatibilityObject) {
         return compatibilityObject != null
             && RuntimeBridgeKind.resolve(compatibilityObject.runtimeRequirements()).contains(RuntimeBridgeKind.ITEM_BEHAVIOR);
+    }
+
+    private static boolean requiresEntityRuntimeBridge(@Nullable CompatibilityObject compatibilityObject) {
+        if (compatibilityObject == null) {
+            return false;
+        }
+
+        List<RuntimeBridgeKind> runtimeBridgeKinds = RuntimeBridgeKind.resolve(compatibilityObject.runtimeRequirements());
+        return runtimeBridgeKinds.contains(RuntimeBridgeKind.ENTITY_INTERACTION)
+            || runtimeBridgeKinds.contains(RuntimeBridgeKind.ENTITY_BEHAVIOR);
+    }
+
+    private static boolean hasBehaviorTag(@Nullable CompatibilityObject compatibilityObject, @NotNull String... tags) {
+        if (compatibilityObject == null) {
+            return false;
+        }
+
+        String behaviorTag = compatibilityObject.inventoryFacts().get("behavior_tag");
+        if (behaviorTag == null || behaviorTag.isBlank()) {
+            return false;
+        }
+
+        for (String tag : tags) {
+            if (behaviorTag.equals(tag)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     @NotNull

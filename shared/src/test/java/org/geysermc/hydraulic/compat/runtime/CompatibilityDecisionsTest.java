@@ -207,6 +207,62 @@ class CompatibilityDecisionsTest {
         assertEquals("presentation domain is unsupported", CompatibilityDecisions.entityRegistrationReason(unsupported));
     }
 
+    @Test
+    void suppressesCustomEntityRegistrationWhenTypedEntityBridgeIsRequiredWithoutVisualOnlyTag() {
+        CompatibilityObject entity = new CompatibilityObject(
+            "example:test_entity",
+            "entity",
+            "examplemod",
+            Map.of("behavior_required", "true"),
+            new CapabilityProfile("example:test_entity", List.of(), List.of()),
+            List.of(),
+            List.of("entity_interaction_bridge", "entity_behavior_bridge"),
+            Map.of(
+                "content", support("content", SupportLevel.AUTOMATIC, List.of("registered"), List.of()),
+                "presentation", support("presentation", SupportLevel.ADAPTED, List.of("presentation_mapping"), List.of()),
+                "interaction", support("interaction", SupportLevel.UNSUPPORTED, List.of(), List.of("entity_interaction")),
+                "behavior", support("behavior", SupportLevel.UNSUPPORTED, List.of(), List.of("runtime_behavior"))
+            ),
+            SupportLevel.APPROXIMATED,
+            CompatibilityStatus.PARTIAL,
+            40,
+            new Confidence(0.4D, "test"),
+            List.of(),
+            List.of()
+        );
+
+        assertFalse(CompatibilityDecisions.allowsCustomEntityRegistration(entity));
+        assertEquals("entity interaction or behavior runtime bridge is required", CompatibilityDecisions.entityRegistrationReason(entity));
+    }
+
+    @Test
+    void allowsCustomEntityRegistrationWhenVisualOnlyTagMakesDegradationExplicit() {
+        CompatibilityObject entity = new CompatibilityObject(
+            "example:test_entity",
+            "entity",
+            "examplemod",
+            Map.of("behavior_required", "true", "behavior_tag", "visual_only_runtime"),
+            new CapabilityProfile("example:test_entity", List.of(), List.of()),
+            List.of(),
+            List.of("entity_interaction_bridge", "entity_behavior_bridge"),
+            Map.of(
+                "content", support("content", SupportLevel.AUTOMATIC, List.of("registered"), List.of()),
+                "presentation", support("presentation", SupportLevel.ADAPTED, List.of("presentation_mapping"), List.of()),
+                "interaction", support("interaction", SupportLevel.UNSUPPORTED, List.of(), List.of("entity_interaction")),
+                "behavior", support("behavior", SupportLevel.UNSUPPORTED, List.of(), List.of("runtime_behavior"))
+            ),
+            SupportLevel.APPROXIMATED,
+            CompatibilityStatus.PARTIAL,
+            40,
+            new Confidence(0.4D, "test"),
+            List.of(),
+            List.of()
+        );
+
+        assertTrue(CompatibilityDecisions.allowsCustomEntityRegistration(entity));
+        assertEquals(null, CompatibilityDecisions.entityRegistrationReason(entity));
+    }
+
     private static CompatibilityObject blockObject(SupportResult content, SupportResult presentation, SupportResult interaction, SupportResult behavior) {
         return objectWithFacts(Map.of(), content, presentation, interaction, behavior);
     }

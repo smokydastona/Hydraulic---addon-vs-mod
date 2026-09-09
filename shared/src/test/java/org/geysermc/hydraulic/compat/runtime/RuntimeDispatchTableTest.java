@@ -129,7 +129,7 @@ class RuntimeDispatchTableTest {
                                 List.of(new Provenance("analyzer", "generated", "synthetic", false)),
                                 List.of()
                             ),
-                            object("entity", entity.toString(), Map.of("behavior_tag", "visual_only_runtime"), supportResults(SupportLevel.ADAPTED, SupportLevel.ADAPTED, SupportLevel.APPROXIMATED)),
+                            object("entity", entity.toString(), Map.of("behavior_required", "true", "behavior_tag", "visual_only_runtime"), supportResults(SupportLevel.ADAPTED, SupportLevel.ADAPTED, SupportLevel.APPROXIMATED)),
                             object("menu", menu.toString(), Map.of(), supportResults(SupportLevel.AUTOMATIC, SupportLevel.AUTOMATIC, SupportLevel.AUTOMATIC)),
                             object("block_entity", blockEntity.toString(), Map.of(), supportResults(SupportLevel.AUTOMATIC, SupportLevel.AUTOMATIC, SupportLevel.AUTOMATIC)),
                             object("fluid", fluid.toString(), Map.of("behavior_tag", "fluid_tank"), supportResults(SupportLevel.AUTOMATIC, SupportLevel.UNSUPPORTED, SupportLevel.UNSUPPORTED))
@@ -173,6 +173,8 @@ class RuntimeDispatchTableTest {
         assertEquals("example:bedrock_entity", entityPlan.resolvedIdentifier());
         assertTrue(entityPlan.allowsCustomRegistration());
         assertEquals(SupportLevel.APPROXIMATED, entityPlan.behaviorLevel());
+        assertTrue(entityPlan.requiresRuntimeBridge(RuntimeBridgeKind.ENTITY_INTERACTION));
+        assertTrue(entityPlan.requiresRuntimeBridge(RuntimeBridgeKind.ENTITY_BEHAVIOR));
 
         var menuPlan = registry.dispatchTable().menu(menu);
         assertNotNull(menuPlan);
@@ -230,6 +232,8 @@ class RuntimeDispatchTableTest {
             List.of(new AdapterBinding("adapter", AdapterFeature.CUSTOM_ITEM_REGISTRATION, "reason")),
             "menu".equals(contentType)
                 ? List.of("runtime.requirement", "container_bridge")
+                : "entity".equals(contentType)
+                    ? List.of("runtime.requirement", "entity_interaction_bridge", "entity_behavior_bridge")
                 : "block_entity".equals(contentType)
                     ? List.of("runtime.requirement", "block_entity_data_bridge", "block_entity_behavior_bridge")
                     : "fluid".equals(contentType)
