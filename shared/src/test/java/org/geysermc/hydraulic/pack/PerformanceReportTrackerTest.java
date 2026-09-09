@@ -35,7 +35,7 @@ class PerformanceReportTrackerTest {
             5,
             6,
             7,
-            Map.of("examplemod", new PerformanceReport.ModConversionMetrics("converted", 21))
+            Map.of("examplemod", new PerformanceReport.ModConversionMetrics("converted", 21, 9, 1, 2, 3))
         ));
 
         PerformanceReport snapshot = tracker.snapshot();
@@ -47,6 +47,7 @@ class PerformanceReportTrackerTest {
         assertEquals(42, snapshot.lastPackConversion().totalMillis());
         assertEquals(5, snapshot.modelResolutionCache().hits());
         assertEquals(2, snapshot.modelResolutionCache().misses());
+        assertEquals(9, snapshot.lastPackConversion().perMod().get("examplemod").validationMillis());
         assertEquals("converted", snapshot.lastPackConversion().perMod().get("examplemod").outcome());
 
         PerformanceReport written;
@@ -57,6 +58,7 @@ class PerformanceReportTrackerTest {
         assertEquals(15, written.startup().modelIndexBuildMillis());
         assertEquals(44, written.startup().indexedBlockStates());
         assertEquals(7, written.modelResolutionCache().requests());
+        assertEquals(3, written.lastPackConversion().perMod().get("examplemod").validationManualActions());
         assertEquals(21, written.lastPackConversion().perMod().get("examplemod").millis());
     }
 }

@@ -29,10 +29,10 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.zip.ZipFile;
 
@@ -148,17 +148,27 @@ public class PackListener {
                 LOGGER.info("Converting pack for mod {}", entry.getKey());
                 long modStart = System.currentTimeMillis();
                 try {
-                    if (this.manager.createPack(entry.getValue().getLeft(), entry.getValue().getRight())) {
+                    PackManager.PackCreationResult result = this.manager.createPack(entry.getValue().getLeft(), entry.getValue().getRight());
+                    long modMillis = System.currentTimeMillis() - modStart;
+                    PerformanceReport.ModConversionMetrics metrics = new PerformanceReport.ModConversionMetrics(
+                        result.success() ? "converted" : "failed",
+                        modMillis,
+                        result.validation().durationMillis(),
+                        result.validation().errorCount(),
+                        result.validation().warningCount(),
+                        result.validation().manualActionCount()
+                    );
+                    if (result.success()) {
                         event.register(ResourcePack.create(PackCodec.path(entry.getValue().getRight())), PriorityOption.NORMAL);
                         convertedPacks.incrementAndGet();
-                        perModMetrics.put(entry.getKey(), new PerformanceReport.ModConversionMetrics("converted", System.currentTimeMillis() - modStart));
+                        perModMetrics.put(entry.getKey(), metrics);
                     } else {
                         failedPacks.incrementAndGet();
-                        perModMetrics.put(entry.getKey(), new PerformanceReport.ModConversionMetrics("failed", System.currentTimeMillis() - modStart));
+                        perModMetrics.put(entry.getKey(), metrics);
                     }
                 } catch (Throwable t) {
                     failedPacks.incrementAndGet();
-                    perModMetrics.put(entry.getKey(), new PerformanceReport.ModConversionMetrics("failed", System.currentTimeMillis() - modStart));
+                    perModMetrics.put(entry.getKey(), new PerformanceReport.ModConversionMetrics("failed", System.currentTimeMillis() - modStart, 0, 1, 0, 1));
                     LOGGER.error("Failed to convert pack for mod {}", entry.getKey(), t);
                 }
             }, THREAD_POOL));

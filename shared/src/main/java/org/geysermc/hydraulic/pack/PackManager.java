@@ -82,6 +82,8 @@ public class PackManager {
     private final HydraulicImpl hydraulic;
     private final Path vanillaPath;
     private final PerformanceReportTracker performanceTracker;
+    private final PackValidationTracker packValidationTracker;
+    private final PackValidator packValidator = new PackValidator();
     private final List<PackModule<?>> modules = new ArrayList<>();
 
     private final ListMultimap<String, ModInfo> namespacesToMods = MultimapBuilder.hashKeys().arrayListValues(1).build();
@@ -99,6 +101,7 @@ public class PackManager {
         this.hydraulic = hydraulic;
         this.vanillaPath = hydraulic.dataFolder(Constants.MOD_ID).resolve("cache/vanilla-assets.zip");
         this.performanceTracker = new PerformanceReportTracker(LOGGER, hydraulic.dataFolder(Constants.MOD_ID).resolve("reports/performance-report.json"));
+        this.packValidationTracker = new PackValidationTracker(LOGGER, hydraulic.dataFolder(Constants.MOD_ID).resolve("reports/pack-validation-report.json"));
     }
 
     /**
@@ -225,7 +228,7 @@ public class PackManager {
      * @return {@code true} if the pack was created, {@code false} otherwise
      */
     @SuppressWarnings({ "rawtypes", "unchecked" })
-    boolean createPack(@NotNull ModInfo mod, @NotNull Path packPath) {
+    PackCreationResult createPack(@NotNull ModInfo mod, @NotNull Path packPath) {
         List<ConverterPipeline<?, ?>> pipelines = new ArrayList<>(packConverters);
         pipelines.add(AssetConverters.create(new MetadataPackModule(mod)));
 
@@ -257,8 +260,15 @@ public class PackManager {
             }
         } catch (IOException ex) {
             LOGGER.error("Failed to convert mod {} to pack", mod.id(), ex);
+            PackValidationReport.ModValidation validation = this.packValidator.conversionFailed(
+                packPath,
+                "pack.conversion.failed",
+                "Pack conversion failed before export completed.",
+                "Inspect the conversion logs for this mod and resolve the reported asset or conversion errors."
+            );
+            this.packValidationTracker.record(mod.id(), validation);
             this.performanceTracker.recordModelResolutionCache(toPerformanceCacheMetrics(StateDefinition.cacheMetrics()));
-            return false;
+            return new PackCreationResult(false, validation);
         }
 
         // Now export the pack
@@ -266,11 +276,31 @@ public class PackManager {
             converter.pack();
         } catch (IOException ex) {
             LOGGER.error("Failed to export pack for mod {}", mod.id(), ex);
+            PackValidationReport.ModValidation validation = this.packValidator.conversionFailed(
+                packPath,
+                "pack.export.failed",
+                "Pack export failed before the generated archive could be finalized.",
+                "Inspect the packaging logs and ensure the generated pack path is writable and not locked."
+            );
+            this.packValidationTracker.record(mod.id(), validation);
+            this.performanceTracker.recordModelResolutionCache(toPerformanceCacheMetrics(StateDefinition.cacheMetrics()));
+            return new PackCreationResult(false, validation);
         }
 
         created = Files.exists(packPath);
+        PackValidationReport.ModValidation validation = this.packValidator.validate(packPath);
+        this.packValidationTracker.record(mod.id(), validation);
+        if (!validation.valid()) {
+            LOGGER.warn(
+                "Generated pack for mod {} failed validation (errors={}, warnings={}, manualActions={})",
+                mod.id(),
+                validation.errorCount(),
+                validation.warningCount(),
+                validation.manualActionCount()
+            );
+        }
         this.performanceTracker.recordModelResolutionCache(toPerformanceCacheMetrics(StateDefinition.cacheMetrics()));
-        return created;
+        return new PackCreationResult(created && validation.valid(), validation);
     }
 
     private void callEvents(@NotNull Event event) {
@@ -436,6 +466,9 @@ public class PackManager {
 
     private static long nanosToMillis(long nanos) {
         return nanos / 1_000_000L;
+    }
+
+    record PackCreationResult(boolean success, @NotNull PackValidationReport.ModValidation validation) {
     }
 
     @NotNull

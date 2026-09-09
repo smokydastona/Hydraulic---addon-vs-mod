@@ -179,7 +179,9 @@ This separation is fundamental, not just a reporting refinement. A converted mod
 - `MappingResolver` already has state-aware block resolution and groups block states by resolved Bedrock identifier.
 - `MappingResolver` now also carries compact resolved block metadata for block-state overrides, geometry overrides, and material overrides so block runtime consumers no longer need to reopen flexible rule objects after resolution.
 - `MetadataIndex` now precompiles compact menu and block-entity patch templates so analyzers and runtime bridges stop reparsing raw patch operations on hot paths.
+- `performance-report.json` startup snapshots now include indexed blockstate and item-asset totals alongside the existing timing breakdowns, making the startup indexing work observable in artifacts instead of only by code inspection.
 - `StateDefinition` model-resolution caching now emits cumulative hit/miss evidence into `performance-report.json`, so the first block hot-path cache is measurable from runtime artifacts instead of only from code.
+- Hydraulic now emits `pack-validation-report.json` with structured per-mod `errors`, `warnings`, and `manualActions` after generated pack export, and pack conversion metrics now record validator timing and validation counts.
 - `BlockPackModule` already consumes resolved state-aware block definitions during custom block registration.
 - `ItemPackModule` already uses compatibility-aware block placement for block items, consults item compatibility objects for non-block custom item registration, suppresses creative exposure when item behavior is only approximated, and continues to translate modern item components through `ComponentConverter`.
 - `ArmorPackModule` now generates humanoid armor attachables from direct equipment-asset loading and gates them through compatibility decisions.
@@ -971,6 +973,8 @@ Current verified runtime consumers:
 
 This phase is still early. Hydraulic now has first real metadata-backed menu and block-entity runtime bridges for explicit templates, but generic interaction, container behavior, fluid, entity behavior, and broader block-entity bridges are still not implemented.
 
+Pack-generation validation now exists as a post-generation safety stage for converted Bedrock packs, but it is still structural validation rather than full gameplay or protocol validation.
+
 ## Phase 7: Behavior Generation
 Priority: very high
 
@@ -1016,6 +1020,7 @@ The project is no longer at pure scaffolding stage. The repo now already contain
 - cheaper startup block and item ownership lookup in `PackManager`, avoiding per-block multimap scans and unused path retrieval when indexed membership is sufficient
 - per-mod resource indexing in `ModResourceIndex`
 - performance artifacts through `performance-report.json`, now including startup indexed blockstate and item-asset totals plus cumulative `StateDefinition` cache hit/miss evidence
+- post-generation validation artifacts through `pack-validation-report.json`, plus validator timing and issue counts inside per-mod conversion metrics
 - a live `CapabilityAdapterRegistry`
 - first metadata-backed menu and block-entity runtime bridges
 
@@ -1056,27 +1061,183 @@ That means the next roadmap should finish and generalize partially landed system
 
 ## External Tooling Deep Dive
 
-The linked Forge/Fabric tooling is useful as pattern input, but it should change Hydraulic's implementation details more than its mission.
+The linked Java-to-Bedrock and Forge/Fabric tooling is useful as pattern input, but it should change Hydraulic's implementation details more than its mission. The external projects vary sharply in maturity and scope, so Hydraulic should adopt concrete mechanisms, not marketing claims.
 
-### Minecraft-Mod-Porter: useful patterns, not a direct Hydraulic dependency
+### MinecraftJavatoBedrockPorter: staged IR and degradation policy
 
 Useful findings:
 
-- use a canonical intermediate representation instead of pairwise rewrite logic
-- keep version and platform knowledge in data files rather than hard-coded switch logic
-- support alias and overlay datasets so closely related versions reuse mappings safely
-- preserve unresolved cases and emit structured manual-action reports instead of guessing
-- separate engine, CLI, and UI through a library-first backend and machine-readable reports
+- the repo is split into a Java-side analysis phase and a separate mapping and generation phase
+- the documented pipeline is:
+  - Java input
+  - analyzer
+  - Java IR
+  - mapping engine
+  - degradation policy
+  - Bedrock IR
+  - code generator
+  - validator
+  - report
+- the analyzer explicitly distinguishes extraction from translation, which is the correct boundary for Hydraulic as well
+- the project uses an explicit degradation vocabulary:
+  - `Approximate`
+  - `Simplify`
+  - `Script`
+  - `Stub`
+  - `Omit`
+- it exposes separate `analyze`, `port`, and `validate` surfaces instead of forcing everything through one opaque conversion command
+- it emits machine-readable and human-readable reporting formats rather than only producing output assets
 
-Important correction:
+Important corrections:
 
-- the current README explicitly says Forge to Fabric cross-loader conversion is not supported today, so this should not be treated as a turnkey source-to-source loader converter for Hydraulic
+- its own README describes behavior detection, method translation, entity AI mapping, and script translation as partial or in-progress
+- loader detection is documented as heuristic-based
+- this is not evidence that direct Java logic translation is practical or reliable for Hydraulic
 
 Hydraulic implementation takeaway:
 
-- add a compact compatibility IR for concepts Hydraulic already reasons about, such as menu archetypes, block-entity patch templates, item component families, storage and transfer capabilities, and interaction categories
-- store compatibility knowledge as data with overlay support instead of spreading version, mod-family, or loader-family facts through runtime conditionals
-- emit structured follow-up actions when automatic translation cannot safely decide, rather than silently downgrading intent
+- formalize a compatibility IR boundary between discovery and translation instead of letting analyzers write Bedrock-facing decisions directly
+- add an explicit degradation taxonomy to Hydraulic decisions and reports:
+  - `APPROXIMATE`
+  - `SIMPLIFY`
+  - `SCRIPT`
+  - `STUB`
+  - `OMIT`
+- keep `analyze`, `translate`, and `validate` as separable pipeline stages and artifacts
+- emit manual-action artifacts whenever behavior falls below automatic or adapted support
+- treat loader and registration-pattern detection as evidence with confidence, not as ground truth
+
+### MC-ModsConverter: tool registry, validation loop, and execution evidence
+
+Useful findings:
+
+- the repo uses a modular plugin registry where each conversion tool has:
+  - a name
+  - a description
+  - parameter schema
+  - execution handler
+- the registry records execution logs, success or failure, duration, and per-tool usage statistics
+- the conversion loop is explicitly:
+  - analyze
+  - run tools
+  - validate
+  - iterate
+- the validator is not just schema-only; it checks addon structure details such as:
+  - manifests
+  - texture formats
+  - block identifiers
+  - material instances
+  - recipes
+  - sounds
+  - scripts
+  - language declarations
+- the similarity scorer produces a weighted breakdown instead of a single raw number, which is useful as a secondary artifact
+
+Important corrections:
+
+- its similarity percentage is mostly asset-count based and can overstate real compatibility
+- a single percentage score is not a substitute for support results or runtime proof
+- its AI loop is useful as an optional offline assistant pattern, not as a core Hydraulic dependency
+
+Hydraulic implementation takeaway:
+
+- add a formal bridge and generator registry with explicit feature declarations and execution statistics
+- persist per-tool or per-bridge success, failure, and duration in artifacts alongside current performance reporting
+- introduce a post-generation validator artifact with structured errors and warnings, separate from analyzer findings
+- keep compatibility score as a secondary summary derived from richer evidence, never as the primary verdict
+- add a conversion feedback loop where validation results produce structured follow-up actions for metadata, bridge, or adapter work
+
+### PortKit: specialist pipeline, knowledge retrieval, and QA as offline architecture
+
+Useful findings:
+
+- the useful architectural shape is not the SaaS stack; it is the separation of concerns in the conversion engine
+- the documented conversion flow uses specialist workers for distinct domains such as:
+  - Java analysis
+  - textures
+  - models
+  - recipes
+  - sounds
+  - entities
+  - logic translation
+  - addon assembly
+- the system keeps a dedicated knowledge layer and retrieval pipeline instead of stuffing all knowledge into code paths
+- the architecture documents per-segment confidence and a QA layer that audits generated output before surfacing final results
+- it also treats batch conversion and conversion history as first-class artifacts rather than ad hoc one-off runs
+
+Important corrections:
+
+- docs and marketing claims overstate support credibility relative to the evidence available from the fetched files
+- Hydraulic should not adopt a remote AI service requirement, billing, SaaS infrastructure, or multi-service product architecture as a dependency of the core converter
+- any LLM-assisted logic should remain optional, offlineable, and subordinate to deterministic validation
+
+Hydraulic implementation takeaway:
+
+- keep analyzers and translators specialist and domain-scoped instead of growing a single compatibility blob
+- implement `CompatibilityKnowledge` as versioned, overlayable datasets rather than as prompt-only or hard-coded logic
+- add per-domain and per-object confidence evidence to generated outputs and reports
+- add an offline QA pass that attempts to falsify optimistic conversion outcomes before finalizing support results
+- treat modpack-scale batch conversion, artifact history, and regression comparison as real Phase 10 requirements
+
+### java2bedrock.sh: deterministic resource conversion mechanics
+
+Useful findings:
+
+- the script resolves parent model inheritance before conversion, walking parent chains until it finds usable `elements`, `textures`, and `display` data
+- it builds a deterministic intermediate `config.json` that records:
+  - source model path
+  - Java item and predicate data
+  - resolved texture information
+  - generated identifiers
+  - generated versus non-generated output mode
+- it derives stable short IDs from predicate inputs using a deterministic hash, which keeps output identifiers stable across runs
+- it generates texture atlases by computing texture dependency unions and deduplicating repeated textures across models
+- it supports fallback default assets and caller-provided fallback packs, with caller-provided assets taking precedence
+- it separates preview or debug output from final packaged output
+- it exports `geyser_mappings.json`, which is especially relevant because Hydraulic already lives in the Geyser ecosystem
+- it converts Java `display` transforms into Bedrock attachable and animation data
+- it validates pack shape early:
+  - input exists
+  - no enclosing root folder mistakes
+  - required files exist
+  - JSON is parseable
+
+Important corrections:
+
+- this tool is resource-pack-focused, not a full mod compatibility engine
+- it does not solve gameplay compatibility
+- it is a shell pipeline with WSL and dependency friction, not a production architecture for Hydraulic
+- the repository is AGPL-licensed, so implementation ideas may inform Hydraulic, but code should not be copied into Hydraulic unless that licensing impact is intentionally accepted
+
+Hydraulic implementation takeaway:
+
+- add a canonical resource-conversion IR for:
+  - resolved model inheritance
+  - texture dependency closure
+  - display transform data
+  - atlas membership
+  - deterministic generated identifiers
+- make generated identifiers stable across runs when the Java-side defining inputs are unchanged
+- add deterministic atlas planning and deduplication instead of resolving model textures ad hoc during conversion
+- emit a generated mapping artifact that ties Java inputs to Bedrock outputs for debugging, bridge lookup, and downstream reporting
+- separate preview or debug assets from shipping assets so validation and inspection do not contaminate final packs
+- support layered fallback assets with explicit precedence and provenance
+
+### minecraft-java2bedrock fork: minimal additional value
+
+Useful findings:
+
+- the fork keeps the same core shape and GitHub Actions issue-based conversion workflow
+
+Important corrections:
+
+- it appears to be effectively the same architecture with little or no meaningful new technical direction
+- it should not materially influence Hydraulic beyond what the upstream `java2bedrock.sh` already contributed
+
+Hydraulic implementation takeaway:
+
+- do not spend roadmap weight on this fork specifically
+- if GitHub-hosted batch conversion is ever desired, treat it as packaging or CI orchestration, not compatibility architecture
 
 ### Porting-Lib and Porting-Lib-Dash: modular shim design
 
@@ -1142,22 +1303,45 @@ Hydraulic implementation takeaway:
 
 These external projects suggest a concrete Hydraulic extension set:
 
-1. add a canonical compatibility IR and overlayable knowledge datasets so Hydraulic can normalize menu, transfer, fluid, block-entity, and interaction concepts before deciding bridge strategy
-2. extend reporting with explicit manual-action, approximated, blocked, excluded, and unsupported categories plus suggested resolutions and provenance
-3. formalize a targeted fixer pipeline between analysis and runtime bridging so unsupported or partially supported mechanics can register narrow fixups without contaminating the whole conversion path
-4. keep adapter and bridge families modular by domain, following the Porting-Lib module shape rather than building a single compatibility blob
-5. add modpack-scale reporting and prioritization in Phase 10 so real pack audits distinguish converted content from missing upstream equivalents and Bedrock-only incompatibilities
+1. define a canonical compatibility IR and a canonical resource IR before widening bridge breadth
+2. make degradation explicit and first-class in compatibility decisions:
+   - `APPROXIMATE`
+   - `SIMPLIFY`
+   - `SCRIPT`
+   - `STUB`
+   - `OMIT`
+3. add a strict validator stage after generation with structured `errors`, `warnings`, and `manual_actions`
+4. persist execution evidence for analyzers, translators, bridges, generators, and validators:
+   - success or failure
+   - duration
+   - counts
+   - cache-hit and miss evidence
+5. make asset conversion deterministic through:
+   - parent-model resolution
+   - texture dependency closure
+   - atlas deduplication
+   - stable generated identifiers
+   - fallback asset precedence
+6. emit mapping and debug artifacts that connect Java inputs to Bedrock outputs and bridge requirements
+7. keep knowledge as overlayable datasets instead of code-only heuristics or AI-only prompts
+8. add an offline QA pass that challenges optimistic support results before final report emission
+9. add modpack-scale reporting, history, and regression comparison as artifact pipelines rather than one-off manual runs
 
 ## Recommended Immediate Next Slice
 
 The best next implementation slice from the current repo state is:
 
-1. split flexible metadata loading from compact runtime metadata so runtime consumers stop traversing nested rule and patch structures
-2. define the first canonical compatibility IR slice for menu archetypes, block-entity patch templates, and transfer or interaction requirements so later bridges do not stay stringly typed
-3. finish compact resolved block-state answer caching and any remaining block hot-path compaction around the now-indexed rule matcher and cached model resolution path
-4. complete resource and model lookup indexing so startup and conversion stop paying repeated filesystem or flattened-pack search costs
-5. promote runtime validation and performance validation from log-only checks into committed regression coverage plus artifact-backed measurement
-6. once the performance substrate and first IR slice are proven, widen the existing menu and block-entity seams into the first more generic container or interaction bridge
+1. define the first canonical IR slice for:
+   - menu archetypes
+   - block-entity patch templates
+   - interaction requirements
+   - resource-model inheritance
+   - texture dependency closure
+2. split flexible metadata loading from compact runtime metadata and compact resource-conversion metadata
+3. add deterministic stable generated identifiers and mapping artifacts for converted outputs
+4. add a post-generation validator artifact with structured `errors`, `warnings`, and `manual_actions`
+5. extend performance and compatibility reporting with per-stage execution statistics and validation evidence
+6. only after the IR and validator land, widen menu and block-entity seams into more generic container and interaction bridges
 
 This is the smallest next slice that lets both plans complete coherently: the architecture plan keeps its bridge-first long-term direction, while the current-state execution plan front-loads the substrate work needed to scale those bridges safely.
 

@@ -74,7 +74,11 @@ public record PerformanceReport(
 
     public record ModConversionMetrics(
         @NotNull String outcome,
-        long millis
+        long millis,
+        long validationMillis,
+        int validationErrors,
+        int validationWarnings,
+        int validationManualActions
     ) {
     }
 
