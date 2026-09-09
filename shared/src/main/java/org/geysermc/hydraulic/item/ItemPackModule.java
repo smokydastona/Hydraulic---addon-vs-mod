@@ -1,6 +1,8 @@
 package org.geysermc.hydraulic.item;
 
 import com.google.auto.service.AutoService;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonParser;
 import net.kyori.adventure.key.Key;
 import net.minecraft.core.DefaultedRegistry;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -18,6 +20,7 @@ import org.geysermc.hydraulic.compat.CompatibilityRegistry;
 import org.geysermc.hydraulic.compat.MappingResolver;
 import org.geysermc.hydraulic.compat.ir.CompiledCompatibilityPlan;
 import org.geysermc.hydraulic.compat.runtime.CompatibilityDecisions;
+import org.geysermc.hydraulic.pack.ModResourceIndex;
 import org.geysermc.hydraulic.pack.PackLogListener;
 import org.geysermc.hydraulic.pack.PackModule;
 import org.geysermc.hydraulic.pack.TexturePackModule;
@@ -34,10 +37,17 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import team.unnamed.creative.ResourcePack;
 import team.unnamed.creative.item.*;
+import team.unnamed.creative.metadata.pack.PackFormat;
 import team.unnamed.creative.model.Model;
 import team.unnamed.creative.model.ModelTexture;
 import team.unnamed.creative.model.ModelTextures;
+import team.unnamed.creative.serialize.minecraft.item.ItemSerializer;
 
+import java.io.IOException;
+import java.io.Reader;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.*;
 
 @SuppressWarnings({"rawtypes", "this-escape"})
@@ -87,15 +97,13 @@ public class ItemPackModule extends TexturePackModule<ItemPackModule> {
     }
 
     private void preProcess(@NotNull PackPreProcessContext<ItemPackModule> context) {
-        for (team.unnamed.creative.item.Item item : context.assets(ResourcePack::items)) {
-            Identifier itemLocation = HydraulicKey.of(item.key()).identifier();
-            handleModel(context, item.model(), itemLocation);
-        }
-
+        ModResourceIndex resourceIndex = context.hydraulic().getPackManager().modResourceIndex(context.mod().id());
         List<Item> items = context.registryValues(BuiltInRegistries.ITEM);
         PackLogListener packLogListener = new PackLogListener(context.logger());
         for (Item item : items) {
             Identifier itemLocation = BuiltInRegistries.ITEM.getKey(item);
+
+            classifyIndexedItem(context, resourceIndex, itemLocation);
 
             Model baseModel = context.modelProvider().model(Key.key(itemLocation.getNamespace(), "item/" + itemLocation.getPath()));
             if (baseModel == null) {
@@ -118,6 +126,69 @@ public class ItemPackModule extends TexturePackModule<ItemPackModule> {
                 itemBuiltinTexture.put(itemLocation.toString(), PackUtil.getTextureName(layer0.toString()));
             }
         }
+    }
+
+    private void classifyIndexedItem(
+        @NotNull PackPreProcessContext<ItemPackModule> context,
+        @Nullable ModResourceIndex resourceIndex,
+        @NotNull Identifier itemLocation
+    ) {
+        if (resourceIndex == null) {
+            return;
+        }
+
+        Path itemAssetPath = resourceIndex.resolveItemAssetPath(itemLocation);
+        if (itemAssetPath == null) {
+            return;
+        }
+
+        if (isModernItemDefinitionPath(itemAssetPath, itemLocation)) {
+            team.unnamed.creative.item.Item itemDefinition = parseIndexedItemDefinition(itemLocation, itemAssetPath, context);
+            if (itemDefinition != null) {
+                handleModel(context, itemDefinition.model(), itemLocation);
+                return;
+            }
+        }
+
+        classifyLegacyModel(context, itemLocation);
+    }
+
+    private void classifyLegacyModel(@NotNull PackPreProcessContext<ItemPackModule> context, @NotNull Identifier itemLocation) {
+        Model model = context.modelProvider().model(Key.key(itemLocation.getNamespace(), "item/" + itemLocation.getPath()));
+        if (model == null) {
+            return;
+        }
+
+        List<Key> parents = PackUtil.modelParents(context.modelProvider(), model);
+        if (parents.contains(Model.ITEM_HANDHELD)) {
+            itemsWith2dIcon.add(itemLocation);
+            handheldItems.add(itemLocation);
+        } else if (parents.contains(Model.ITEM_GENERATED) || parents.contains(Model.BUILT_IN_GENERATED)) {
+            itemsWith2dIcon.add(itemLocation);
+        }
+    }
+
+    private @Nullable team.unnamed.creative.item.Item parseIndexedItemDefinition(
+        @NotNull Identifier itemLocation,
+        @NotNull Path itemAssetPath,
+        @NotNull PackPreProcessContext<ItemPackModule> context
+    ) {
+        try (Reader reader = Files.newBufferedReader(itemAssetPath, StandardCharsets.UTF_8)) {
+            JsonElement json = JsonParser.parseReader(reader);
+            return ItemSerializer.INSTANCE.deserializeFromJson(
+                json,
+                Key.key(itemLocation.getNamespace(), itemLocation.getPath()),
+                PackFormat.UNKNOWN
+            );
+        } catch (IOException e) {
+            context.logger().warn("Failed to load indexed item definition {} from {}", itemLocation, itemAssetPath, e);
+            return null;
+        }
+    }
+
+    private static boolean isModernItemDefinitionPath(@NotNull Path itemAssetPath, @NotNull Identifier itemLocation) {
+        String normalizedPath = itemAssetPath.toString().replace('\\', '/');
+        return normalizedPath.contains("/assets/" + itemLocation.getNamespace() + "/items/");
     }
 
     private void postProcess(@NotNull PackPostProcessContext<ItemPackModule> context) {
