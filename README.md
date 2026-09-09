@@ -70,9 +70,13 @@ In the Fabric dev environment used by this repo, that resolves to:
 
 `fabric/run/config/hydraulic/metadata`
 
-The included example file is:
+The included runtime example file is:
 
 `fabric/run/config/hydraulic/metadata/hydraulic_test_mod.golden_barrel.json`
+
+That runtime file is now seeded automatically from the tracked test-mod resource:
+
+`test/src/main/resources/hydraulic/metadata/hydraulic_test_mod.golden_barrel.json`
 
 Example:
 

@@ -77,4 +77,12 @@ tasks.named("build") { dependsOn(tasks.named("prepareGeneratedResources")) }
 dependencies {
     implementation(libs.fabric.loader)
     api(libs.fabric.api)
+
+    testImplementation("org.junit.jupiter:junit-jupiter:5.12.2")
+    testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:5.12.2")
+    testRuntimeOnly("org.junit.platform:junit-platform-launcher:1.12.2")
+}
+
+tasks.test {
+    useJUnitPlatform()
 }
