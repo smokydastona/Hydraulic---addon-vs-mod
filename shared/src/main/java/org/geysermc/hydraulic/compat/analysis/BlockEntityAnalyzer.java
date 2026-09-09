@@ -29,6 +29,7 @@ public final class BlockEntityAnalyzer implements CompatibilityAnalyzer {
     @Override
     public @NotNull CompatibilityObject analyze(@NotNull ContentInventory.ContentDescriptor descriptor, @NotNull ContentInventory.ModContentInventory inventory, @NotNull MetadataIndex metadataIndex) {
         List<ContentPatch> patches = metadataIndex.contentPatches(Identifier.parse(descriptor.javaIdentifier()));
+        boolean patchBackedDataBridge = org.geysermc.hydraulic.compat.runtime.BlockEntityPatchTemplate.supports(patches);
 
         Capability registered = AnalyzerSupport.capability(CapabilityDomain.CONTENT, "registered", "Block entity exists in the Java registry.");
         Capability data = AnalyzerSupport.capability(CapabilityDomain.STATE_DATA, "persistent_data", "Block entity data can be represented on Bedrock.");
@@ -43,7 +44,7 @@ public final class BlockEntityAnalyzer implements CompatibilityAnalyzer {
         );
         List<CapabilityResult> results = List.of(
             AnalyzerSupport.result(registered, descriptor.registered(), "Registry lookup from BuiltInRegistries.BLOCK_ENTITY_TYPE."),
-            AnalyzerSupport.result(data, !patches.isEmpty(), "Patch metadata is the only current explicit data signal."),
+            AnalyzerSupport.result(data, patchBackedDataBridge, patchBackedDataBridge ? "Metadata patch defines a Bedrock block entity tag template." : "No metadata-backed Bedrock block entity tag template exists."),
             AnalyzerSupport.result(interaction, false, "Block entity interaction bridges are not implemented yet."),
             AnalyzerSupport.result(behavior, false, "Block entity runtime behavior is not implemented yet.")
         );
@@ -51,7 +52,7 @@ public final class BlockEntityAnalyzer implements CompatibilityAnalyzer {
         CapabilityProfile profile = new CapabilityProfile(descriptor.javaIdentifier(), requirements, results);
         Map<String, SupportResult> supportResults = new LinkedHashMap<>();
         supportResults.put("content", AnalyzerSupport.support("content", SupportLevel.AUTOMATIC, List.of(results.get(0)), List.of("Block entities are discovered directly from the runtime registry.")));
-        supportResults.put("state_data", AnalyzerSupport.support("state_data", !patches.isEmpty() ? SupportLevel.ADAPTED : SupportLevel.UNSUPPORTED, List.of(results.get(1)), List.of("Dedicated block entity metadata models are not implemented yet.")));
+        supportResults.put("state_data", AnalyzerSupport.support("state_data", patchBackedDataBridge ? SupportLevel.ADAPTED : SupportLevel.UNSUPPORTED, List.of(results.get(1)), List.of(patchBackedDataBridge ? "Metadata patches can synthesize a constant Bedrock block entity tag." : "Dedicated block entity metadata models are not implemented yet.")));
         supportResults.put("interaction", AnalyzerSupport.support("interaction", SupportLevel.UNSUPPORTED, List.of(results.get(2)), List.of("No block entity interaction bridge exists yet.")));
         supportResults.put("behavior", AnalyzerSupport.support("behavior", SupportLevel.UNSUPPORTED, List.of(results.get(3)), List.of("Block entity behavior translation is not implemented.")));
 
@@ -62,9 +63,9 @@ public final class BlockEntityAnalyzer implements CompatibilityAnalyzer {
             AnalyzerSupport.inventoryFacts(descriptor.registered(), descriptor.assetPresent(), 0, patches.size()),
             profile,
             supportResults,
-            new Confidence(!patches.isEmpty() ? 0.24D : 0.1D, "Block entity analysis is registry-backed with optional patch evidence only."),
-            AnalyzerSupport.provenance(this.getClass().getSimpleName(), !patches.isEmpty(), patches, List.of()),
-            List.of(new CompatibilityFinding("block_entity.bridge.missing", CompatibilityFinding.Severity.WARNING, "behavior", "Block entity runtime support is not implemented for " + descriptor.javaIdentifier(), "Block entities still need dedicated data, interaction, and behavior bridges.", "Implement block entity bridges before treating block entity support as functional.", null))
+            new Confidence(patchBackedDataBridge ? 0.34D : 0.1D, patchBackedDataBridge ? "Block entity analysis is registry-backed with an explicit metadata-backed Bedrock tag template." : "Block entity analysis is registry-backed without an explicit data bridge."),
+            AnalyzerSupport.provenance(this.getClass().getSimpleName(), patchBackedDataBridge, patches, List.of()),
+            List.of(new CompatibilityFinding("block_entity.bridge.partial", CompatibilityFinding.Severity.WARNING, "behavior", "Block entity runtime support is partial for " + descriptor.javaIdentifier(), patchBackedDataBridge ? "Persistent block entity data can be synthesized from metadata patches, but interaction and behavior bridges are still missing." : "Block entities still need dedicated data, interaction, and behavior bridges.", "Implement the remaining block entity bridges before treating block entity support as functional.", null))
         );
     }
 }

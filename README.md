@@ -197,6 +197,8 @@ When Geyser receives a Java menu open for a container type it cannot translate, 
 
 When Geyser receives Java block entity data that falls through to its default `EmptyBlockEntityTranslator`, Hydraulic now attempts to resolve the live Java block entity at that position and emits a compatibility-backed runtime warning only when the compatibility report already marks that object as still requiring block-entity runtime bridges such as `block_entity_data_bridge`.
 
+Metadata V2 can now also drive a first real block-entity data bridge. A `block_entity` patch with `bedrock.block_entity.id` and `bedrock.block_entity.data.*` synthesizes a constant Bedrock block-entity tag at the same Geyser seam before Hydraulic falls back to the unsupported-runtime warning path. This is intentionally limited to data translation; interaction and behavior bridges are still missing.
+
 The current report is still conservative. It is intended to answer "what do we know right now from registries, assets, metadata, and patches?" not "is this mod fully playable end-to-end on Bedrock?" Behavior-heavy entities, fluids, menus, and block entities will still show low support until dedicated runtime bridges are implemented. For items, behavior-tagged patches already affect runtime exposure decisions, so unsupported behavior can now suppress Bedrock creative exposure even when the item is still registered. For entities, metadata-backed identifier mappings now drive custom entity registration, but that is still not full interaction or behavior translation.
 
 ## Contributing

@@ -207,6 +207,40 @@ class MetadataLoaderTest {
     }
 
     @Test
+    void loadsBlockEntityPatchMetadataWithoutValidationWarnings(@TempDir Path tempDir) throws IOException {
+        Files.writeString(tempDir.resolve("block-entity-patches.json"), """
+            {
+              "patches": [
+                {
+                  "target": "example:test_block_entity",
+                  "content_type": "block_entity",
+                  "patch": {
+                    "bedrock": {
+                      "block_entity": {
+                        "id": "Barrel",
+                        "data": {
+                          "TransferCooldown": 8,
+                          "isMovable": true
+                        }
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+            """);
+
+        MetadataIndex index = new MetadataLoader(LoggerFactory.getLogger("MetadataLoaderTest")).load(tempDir);
+
+        assertEquals(1, index.summary().patchCount());
+        assertEquals(0, index.summary().validationIssueCount());
+        ContentPatch patch = index.contentPatches(Identifier.fromNamespaceAndPath("example", "test_block_entity")).getFirst();
+        assertEquals("Barrel", patch.operations().get("bedrock.block_entity.id"));
+        assertEquals("8", patch.operations().get("bedrock.block_entity.data.TransferCooldown"));
+        assertEquals("true", patch.operations().get("bedrock.block_entity.data.isMovable"));
+    }
+
+    @Test
     void recordsValidationIssuesForInvalidPatchEntries(@TempDir Path tempDir) throws IOException {
         Files.writeString(tempDir.resolve("invalid.json"), """
             {

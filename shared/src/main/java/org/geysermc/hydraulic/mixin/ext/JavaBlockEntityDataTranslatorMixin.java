@@ -6,6 +6,8 @@ import org.geysermc.geyser.session.GeyserSession;
 import org.geysermc.geyser.translator.level.block.entity.BlockEntityTranslator;
 import org.geysermc.geyser.translator.level.block.entity.EmptyBlockEntityTranslator;
 import org.geysermc.geyser.translator.protocol.java.level.JavaBlockEntityDataTranslator;
+import org.geysermc.hydraulic.compat.CompatibilityRegistry;
+import org.geysermc.hydraulic.compat.runtime.BlockEntityPatchTranslatorFactory;
 import org.geysermc.hydraulic.compat.runtime.CompatibilityRuntimeDiagnostics;
 import org.geysermc.mcprotocollib.protocol.data.game.level.block.BlockEntityType;
 import org.geysermc.mcprotocollib.protocol.packet.ingame.clientbound.level.ClientboundBlockEntityDataPacket;
@@ -29,6 +31,12 @@ public abstract class JavaBlockEntityDataTranslatorMixin {
     ) {
         BlockEntityTranslator translator = original.call(blockEntityType);
         if (translator instanceof EmptyBlockEntityTranslator) {
+            CompatibilityRegistry compatibilityRegistry = CompatibilityRuntimeDiagnostics.currentRegistry();
+            BlockEntityTranslator metadataBackedTranslator = BlockEntityPatchTranslatorFactory.create(session, packet.getPosition(), compatibilityRegistry);
+            if (metadataBackedTranslator != null) {
+                return metadataBackedTranslator;
+            }
+
             CompatibilityRuntimeDiagnostics.reportUnsupportedBlockEntityData(session, blockEntityType, packet.getPosition());
         }
         return translator;

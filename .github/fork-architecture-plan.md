@@ -961,8 +961,9 @@ Current verified runtime consumers:
 - metadata-backed custom entity registration
 - compatibility-backed unsupported menu diagnostics at the real Geyser close path
 - compatibility-backed unsupported block-entity data diagnostics at the real Geyser empty-translator path
+- metadata-backed block-entity data translation for explicit `bedrock.block_entity.*` patch templates at the real Geyser empty-translator path
 
-This phase is still early. Generic interaction, container, fluid, entity behavior, and block-entity bridges are not implemented.
+This phase is still early. Hydraulic now has a first real block-entity data bridge for explicit metadata templates, but generic interaction, container, fluid, entity behavior, and broader block-entity bridges are still not implemented.
 
 ## Phase 7: Behavior Generation
 Priority: very high
@@ -1001,7 +1002,7 @@ Test real representative modpacks rather than only isolated toy examples.
 The best next implementation slice from the current repo state is:
 
 1. add the first real generic container or menu bridge on top of the existing menu analyzer and metadata mapping surface
-2. add the first real entity or block-entity runtime bridge using the existing compatibility report and Geyser lifecycle hooks
+2. extend the new block-entity data bridge beyond constant tag synthesis into interaction and behavior translation, or land the first real entity runtime bridge using the existing compatibility report and Geyser lifecycle hooks
 3. promote runtime validation from log-only checks into committed regression coverage for compatibility-driven runtime consumers
 4. extend the current capability-adapter layer from blocks, items, and entity registration into container, block-entity, fluid, and richer behavior surfaces
 

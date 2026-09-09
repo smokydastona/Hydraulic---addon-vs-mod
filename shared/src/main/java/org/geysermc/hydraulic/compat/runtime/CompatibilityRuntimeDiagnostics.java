@@ -78,7 +78,7 @@ public final class CompatibilityRuntimeDiagnostics {
     }
 
     @NotNull
-    private static CompatibilityRegistry currentRegistry() {
+    public static CompatibilityRegistry currentRegistry() {
         try {
             return HydraulicImpl.instance().getPackManager().compatibilityRegistry();
         } catch (IllegalStateException ignored) {
@@ -87,7 +87,7 @@ public final class CompatibilityRuntimeDiagnostics {
     }
 
     @Nullable
-    private static String resolveJavaBlockEntityIdentifier(@NotNull GeyserSession session, @NotNull Vector3i position) {
+    static String resolveJavaBlockEntityIdentifier(@NotNull GeyserSession session, @NotNull Vector3i position) {
         try {
             ServerPlayer player = HydraulicImpl.instance().server().getPlayerList().getPlayer(session.javaUuid());
             if (player == null) {
