@@ -233,6 +233,7 @@ The compatibility layer stays above the current Hydraulic conversion pipeline, b
 - Current runtime bridges already include explicit metadata-backed menu fallback and block-entity patch translation at real Geyser seams.
 - Unsupported menu-open and block-entity fallback diagnostics now also consume precompiled runtime-dispatch candidate indexes instead of rescanning the full compatibility report during live warnings.
 - State-aware block identifier grouping and per-state runtime metadata now also compile into the runtime dispatch table, so block registration and block-item placement no longer need to re-derive those mappings through `MappingResolver` when compiled entries already exist.
+- The remaining block-item texture fallback decision path now also consumes compiled block compatibility plans instead of looking raw objects back up from the compatibility report during conversion.
 
 ### What is materially better than earlier assessments
 - The fork is no longer only a block metadata experiment.

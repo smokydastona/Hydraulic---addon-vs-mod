@@ -17,7 +17,6 @@ import org.geysermc.geyser.api.item.custom.v2.component.geyser.GeyserItemDataCom
 import org.geysermc.hydraulic.compat.CompatibilityRegistry;
 import org.geysermc.hydraulic.compat.MappingResolver;
 import org.geysermc.hydraulic.compat.ir.CompiledCompatibilityPlan;
-import org.geysermc.hydraulic.compat.model.CompatibilityObject;
 import org.geysermc.hydraulic.compat.runtime.CompatibilityDecisions;
 import org.geysermc.hydraulic.pack.PackLogListener;
 import org.geysermc.hydraulic.pack.PackModule;
@@ -309,8 +308,8 @@ public class ItemPackModule extends TexturePackModule<ItemPackModule> {
             return null;
         }
 
-        CompatibilityObject compatibilityObject = this.compatibilityBlockObject(context, blockItem);
-        if (!CompatibilityDecisions.supportsBlockItemTextureFallback(compatibilityObject)) {
+        CompiledCompatibilityPlan blockPlan = this.compatibilityBlockPlan(context, blockItem);
+        if (blockPlan != null && !blockPlan.supportsBlockItemTextureFallback()) {
             context.logger().warn("Item {} has no item model and no compatibility-backed block fallback, skipping", itemLocation);
             return null;
         }
@@ -347,19 +346,6 @@ public class ItemPackModule extends TexturePackModule<ItemPackModule> {
         CompatibilityRegistry compatibilityRegistry = context.hydraulic().getPackManager().compatibilityRegistry();
         Identifier blockLocation = BuiltInRegistries.BLOCK.getKey(blockItem.getBlock());
         return compatibilityRegistry.dispatchTable().block(blockLocation);
-    }
-
-    @Nullable
-    private CompatibilityObject compatibilityItemObject(@NotNull PackContext<ItemPackModule> context, @NotNull Identifier itemLocation) {
-        CompatibilityRegistry compatibilityRegistry = context.hydraulic().getPackManager().compatibilityRegistry();
-        return compatibilityRegistry.report().object(context.mod().id(), itemLocation.toString(), "item");
-    }
-
-    @Nullable
-    private CompatibilityObject compatibilityBlockObject(@NotNull PackContext<ItemPackModule> context, @NotNull BlockItem blockItem) {
-        CompatibilityRegistry compatibilityRegistry = context.hydraulic().getPackManager().compatibilityRegistry();
-        Identifier blockLocation = BuiltInRegistries.BLOCK.getKey(blockItem.getBlock());
-        return compatibilityRegistry.report().object(context.mod().id(), blockLocation.toString(), "block");
     }
 
     @Nullable
