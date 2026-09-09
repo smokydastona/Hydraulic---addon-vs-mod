@@ -195,6 +195,7 @@ On startup, this fork now writes three compatibility artifacts under Hydraulic's
 - patch-derived facts such as `behavior_required` and `behavior_tag` when present
 - confidence, provenance, and structured findings
 - metadata validation issues emitted during Metadata V2 loading
+- a `packValidation` section merged in after pack preparation completes, summarizing each mod's `valid` flag, `errorCount`, `warningCount`, and `manualActions` from `pack-validation-report.json`, so manual actions are visible next to compatibility findings instead of only in the sibling artifact
 
 `performance-report.json` records the measured startup and conversion costs for the current run, including resource indexing time, indexed blockstate and item-asset totals, metadata load time, compatibility initialization time, resource-pack/model indexing time, cumulative `StateDefinition` model-resolution cache hits and misses, and the last pack-conversion batch with per-mod outcomes. This is the report to inspect when checking whether cache/indexing changes actually moved the cost profile.
 

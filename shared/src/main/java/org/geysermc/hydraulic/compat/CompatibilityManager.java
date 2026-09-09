@@ -76,6 +76,16 @@ public final class CompatibilityManager {
         return new CompatibilityRegistry(metadataIndex, new MappingResolver(metadataIndex), inventory, report);
     }
 
+    /**
+     * Rewrites the compatibility-report.json artifact, used to merge post-generation pack
+     * validation findings into the report after Hydraulic prepares packs.
+     *
+     * @param report the report to write, typically {@link CompatibilityReport#withPackValidation(Map)}
+     */
+    public void writeReport(@NotNull CompatibilityReport report) {
+        this.writeJson(this.dataPath.resolve("reports/compatibility-report.json"), report);
+    }
+
     @NotNull
     private ContentInventory buildInventory(
         @NotNull Collection<ModInfo> mods,

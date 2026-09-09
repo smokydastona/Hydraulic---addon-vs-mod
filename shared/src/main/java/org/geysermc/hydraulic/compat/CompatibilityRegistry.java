@@ -46,4 +46,9 @@ public final class CompatibilityRegistry {
     public CompatibilityReport report() {
         return this.report;
     }
+
+    @NotNull
+    public CompatibilityRegistry withReport(@NotNull CompatibilityReport report) {
+        return new CompatibilityRegistry(this.metadataIndex, this.mappingResolver, this.inventory, report);
+    }
 }

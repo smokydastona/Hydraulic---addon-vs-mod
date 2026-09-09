@@ -153,6 +153,7 @@ public class PackListener {
                 Map.of()
             );
             this.manager.recordPackConversionMetrics(metrics);
+            this.manager.syncCompatibilityValidation();
             if (skippedWithoutAssets > 0) {
                 LOGGER.info("Skipped {} mods with no asset-pack files requiring Hydraulic conversion", skippedWithoutAssets);
             }
@@ -220,6 +221,7 @@ public class PackListener {
             new LinkedHashMap<>(perModMetrics)
         );
         this.manager.recordPackConversionMetrics(metrics);
+        this.manager.syncCompatibilityValidation();
 
         LOGGER.info("Converted {} packs for mods in {}", packsToLoad.size(), FormatUtil.humanReadableFormat(totalMillis));
         return new PreparedPacks(registerablePacks, metrics);

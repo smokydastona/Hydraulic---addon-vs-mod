@@ -16,6 +16,7 @@ public final class CompatibilityReport {
     private final MetadataIndex.Summary metadata;
     private final List<CompatibilityFinding> metadataFindings;
     private final Map<String, CompatibilityProfile> mods;
+    private final Map<String, PackValidationSummary> packValidation;
 
     public CompatibilityReport(
         @NotNull String generatedAt,
@@ -23,10 +24,21 @@ public final class CompatibilityReport {
         @NotNull List<CompatibilityFinding> metadataFindings,
         @NotNull Map<String, CompatibilityProfile> mods
     ) {
+        this(generatedAt, metadata, metadataFindings, mods, Map.of());
+    }
+
+    public CompatibilityReport(
+        @NotNull String generatedAt,
+        @NotNull MetadataIndex.Summary metadata,
+        @NotNull List<CompatibilityFinding> metadataFindings,
+        @NotNull Map<String, CompatibilityProfile> mods,
+        @NotNull Map<String, PackValidationSummary> packValidation
+    ) {
         this.generatedAt = generatedAt;
         this.metadata = metadata;
         this.metadataFindings = List.copyOf(metadataFindings);
         this.mods = Collections.unmodifiableMap(new LinkedHashMap<>(mods));
+        this.packValidation = Collections.unmodifiableMap(new LinkedHashMap<>(packValidation));
     }
 
     @NotNull
@@ -63,5 +75,37 @@ public final class CompatibilityReport {
     public CompatibilityObject object(@NotNull String modId, @NotNull String javaIdentifier, @NotNull String contentType) {
         CompatibilityProfile profile = this.mods.get(modId);
         return profile != null ? profile.object(javaIdentifier, contentType) : null;
+    }
+
+    /**
+     * Post-generation pack validation summaries per mod, merged in after pack conversion completes.
+     * Empty until {@link org.geysermc.hydraulic.pack.PackManager} syncs validation results into this report.
+     *
+     * @return the pack validation summaries by mod id
+     */
+    @NotNull
+    public Map<String, PackValidationSummary> packValidation() {
+        return this.packValidation;
+    }
+
+    @NotNull
+    public CompatibilityReport withPackValidation(@NotNull Map<String, PackValidationSummary> packValidation) {
+        return new CompatibilityReport(this.generatedAt, this.metadata, this.metadataFindings, this.mods, packValidation);
+    }
+
+    /**
+     * A compact summary of a mod's post-generation pack validation result, surfaced alongside
+     * compatibility findings so manual actions are visible in one report.
+     */
+    public record PackValidationSummary(
+        boolean valid,
+        int errorCount,
+        int warningCount,
+        int manualActionCount,
+        @NotNull List<String> manualActions
+    ) {
+        public PackValidationSummary {
+            manualActions = List.copyOf(manualActions);
+        }
     }
 }

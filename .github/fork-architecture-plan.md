@@ -219,6 +219,7 @@ The compatibility layer stays above the current Hydraulic conversion pipeline, b
 - `MetadataIndex` already precompiles compact menu and block-entity patch templates.
 - Hydraulic already emits `content-inventory.json`, `compatibility-report.json`, `performance-report.json`, and `pack-validation-report.json`.
 - Eager pack preparation already happens during Hydraulic startup, so conversion evidence survives later Geyser bootstrap or HTTPS failures.
+- Post-generation pack validation findings are now merged into `compatibility-report.json` as a `packValidation` section after pack preparation, so manual actions and validation issues are visible next to compatibility findings instead of only in the sibling `pack-validation-report.json` artifact.
 - Current runtime consumers already use compatibility decisions for block registration, item registration and exposure, armor and bow attachables, and metadata-backed custom entity registration.
 - Current runtime bridges already include explicit metadata-backed menu fallback and block-entity patch translation at real Geyser seams.
 

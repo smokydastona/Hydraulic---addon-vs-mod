@@ -18,6 +18,7 @@ import org.geysermc.hydraulic.HydraulicImpl;
 import org.geysermc.hydraulic.block.StateDefinition;
 import org.geysermc.hydraulic.compat.CompatibilityManager;
 import org.geysermc.hydraulic.compat.CompatibilityRegistry;
+import org.geysermc.hydraulic.compat.CompatibilityReport;
 import org.geysermc.hydraulic.compat.MappingResolver;
 import org.geysermc.hydraulic.metadata.MetadataIndex;
 import org.geysermc.hydraulic.metadata.MetadataLoader;
@@ -93,6 +94,7 @@ public class PackManager {
 
     private MetadataIndex metadataIndex = MetadataIndex.empty();
     private CompatibilityRegistry compatibilityRegistry = CompatibilityRegistry.empty();
+    private CompatibilityManager compatibilityManager;
 
     private List<ConverterPipeline<?, ?>> packConverters;
     private ModelStitcher.Provider modelProvider;
@@ -435,7 +437,8 @@ public class PackManager {
     private void initializeCompatibilityRegistry() {
         Path dataPath = this.hydraulic.dataFolder(Constants.MOD_ID);
         Path metadataPath = dataPath.resolve("metadata");
-        this.compatibilityRegistry = new CompatibilityManager(LOGGER, dataPath).initialize(
+        this.compatibilityManager = new CompatibilityManager(LOGGER, dataPath);
+        this.compatibilityRegistry = this.compatibilityManager.initialize(
             this.hydraulic.mods(),
             this.namespacesToMods,
             this.modsToBlocks,
@@ -463,6 +466,36 @@ public class PackManager {
 
     void recordPackConversionMetrics(@NotNull PerformanceReport.PackConversionMetrics metrics) {
         this.performanceTracker.recordPackConversion(metrics);
+    }
+
+    /**
+     * Merges the current pack-validation findings into the compatibility report and rewrites
+     * {@code compatibility-report.json}, so manual actions and validation issues are visible
+     * alongside compatibility findings instead of only in the sibling pack-validation artifact.
+     */
+    void syncCompatibilityValidation() {
+        PackValidationReport validationReport = this.packValidationTracker.snapshot();
+        if (validationReport.perMod().isEmpty()) {
+            return;
+        }
+
+        Map<String, CompatibilityReport.PackValidationSummary> summaries = new LinkedHashMap<>();
+        for (Map.Entry<String, PackValidationReport.ModValidation> entry : validationReport.perMod().entrySet()) {
+            PackValidationReport.ModValidation validation = entry.getValue();
+            summaries.put(entry.getKey(), new CompatibilityReport.PackValidationSummary(
+                validation.valid(),
+                validation.errorCount(),
+                validation.warningCount(),
+                validation.manualActionCount(),
+                validation.manualActions()
+            ));
+        }
+
+        CompatibilityReport updatedReport = this.compatibilityRegistry.report().withPackValidation(summaries);
+        this.compatibilityRegistry = this.compatibilityRegistry.withReport(updatedReport);
+        if (this.compatibilityManager != null) {
+            this.compatibilityManager.writeReport(updatedReport);
+        }
     }
 
     @NotNull
