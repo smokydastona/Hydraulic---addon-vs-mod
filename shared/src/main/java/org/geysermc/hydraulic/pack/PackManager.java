@@ -119,15 +119,10 @@ public class PackManager {
      */
     public void initialize() {
         this.artifactCache.ensureLayout();
-        if (this.artifactCache.loadIndexSnapshot() != null) {
-            this.indexCacheHits++;
-        } else {
-            this.indexCacheMisses++;
-        }
         long resourceIndexStarted = System.nanoTime();
         LookupSummary lookupSummary = initializeModLookups();
         long indexedResourcesMillis = nanosToMillis(System.nanoTime() - resourceIndexStarted);
-        this.artifactCache.storeIndexSnapshot(ArtifactCache.IndexSnapshot.from(this.modResourceIndexes));
+        this.artifactCache.storeIndexSnapshot(ArtifactCache.IndexSnapshot.from(this.hydraulic.mods(), this.modResourceIndexes));
 
         long metadataLoadStarted = System.nanoTime();
         this.metadataIndex = new MetadataLoader(LOGGER).load(this.hydraulic.dataFolder(Constants.MOD_ID).resolve("metadata"));
@@ -358,12 +353,20 @@ public class PackManager {
         int indexedBlockStates = 0;
         int indexedItemAssets = 0;
 
+        Map<String, ModResourceIndex> reusableIndexes = this.artifactCache.loadReusableIndexes(this.hydraulic.mods());
+        modResourceIndexes.putAll(reusableIndexes);
+        this.indexCacheHits += reusableIndexes.size();
+        this.indexCacheMisses += Math.max(0, this.hydraulic.mods().size() - reusableIndexes.size());
+
         // Step 1: Index each mod's resource roots once, then map namespaces to owning mods
         final Multimap<String, ModInfo> namespacesToMods = this.namespacesToMods;
         namespacesToMods.clear();
         for (final ModInfo mod : hydraulic.mods()) {
-            ModResourceIndex resourceIndex = ModResourceIndex.create(mod, LOGGER);
-            modResourceIndexes.put(mod.id(), resourceIndex);
+            ModResourceIndex resourceIndex = modResourceIndexes.get(mod.id());
+            if (resourceIndex == null) {
+                resourceIndex = ModResourceIndex.create(mod, LOGGER);
+                modResourceIndexes.put(mod.id(), resourceIndex);
+            }
             indexedBlockStates += resourceIndex.blockStateCount();
             indexedItemAssets += resourceIndex.itemAssetCount();
             if (resourceIndex.hasAssetFiles()) {

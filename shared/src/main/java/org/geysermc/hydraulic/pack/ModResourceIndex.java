@@ -12,8 +12,10 @@ import org.slf4j.Logger;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Stream;
@@ -29,6 +31,9 @@ public final class ModResourceIndex {
     private final Map<String, Set<String>> assetEntries;
     private final ResourceFingerprint fingerprint;
     private final boolean hasAssetFiles;
+    private final List<ScanRoot> scanRoots;
+    private final List<FileStamp> fileStamps;
+    private final List<DirectoryStamp> directoryStamps;
 
     private ModResourceIndex(
         @NotNull Set<String> namespaces,
@@ -38,7 +43,10 @@ public final class ModResourceIndex {
         @NotNull Map<Identifier, Path> models,
         @NotNull Map<String, Set<String>> assetEntries,
         @NotNull ResourceFingerprint fingerprint,
-        boolean hasAssetFiles
+        boolean hasAssetFiles,
+        @NotNull List<ScanRoot> scanRoots,
+        @NotNull List<FileStamp> fileStamps,
+        @NotNull List<DirectoryStamp> directoryStamps
     ) {
         this.namespaces = Set.copyOf(namespaces);
         this.blockStates = Map.copyOf(blockStates);
@@ -48,6 +56,9 @@ public final class ModResourceIndex {
         this.assetEntries = copyAssetEntries(assetEntries);
         this.fingerprint = fingerprint;
         this.hasAssetFiles = hasAssetFiles;
+        this.scanRoots = List.copyOf(scanRoots);
+        this.fileStamps = List.copyOf(fileStamps);
+        this.directoryStamps = List.copyOf(directoryStamps);
     }
 
     @NotNull
@@ -58,6 +69,9 @@ public final class ModResourceIndex {
         Map<Identifier, Path> legacyItemModels = new LinkedHashMap<>();
         Map<Identifier, Path> models = new LinkedHashMap<>();
         Map<String, Set<String>> assetEntries = new LinkedHashMap<>();
+        List<ScanRoot> scanRoots = new ArrayList<>();
+        List<FileStamp> fileStamps = new ArrayList<>();
+        List<DirectoryStamp> directoryStamps = new ArrayList<>();
         Hasher fingerprintHasher = Hashing.sha256().newHasher();
         int indexedFileCount = 0;
         long indexedTotalSizeBytes = 0;
@@ -67,15 +81,24 @@ public final class ModResourceIndex {
         int rootOrdinal = 0;
         for (Path root : mod.roots()) {
             Path assets = root.resolve("assets");
+            scanRoots.add(scanRoot(assets, rootOrdinal, "assets"));
             if (!Files.isDirectory(assets)) {
                 // Continue into the data scan even when this root has no assets.
             } else {
                 try (Stream<Path> stream = Files.walk(assets)) {
-                    java.util.List<Path> assetFiles = stream.filter(Files::isRegularFile).sorted().toList();
-                    if (!assetFiles.isEmpty()) {
-                        hasAssetFiles = true;
-                    }
-                    for (Path path : assetFiles) {
+                    java.util.List<Path> assetPaths = stream.sorted().toList();
+                    boolean sawAssetFile = false;
+                    for (Path path : assetPaths) {
+                        if (Files.isDirectory(path)) {
+                            directoryStamps.add(directoryStamp(path, assets, rootOrdinal, "assets"));
+                            continue;
+                        }
+                        if (!Files.isRegularFile(path)) {
+                            continue;
+                        }
+
+                        sawAssetFile = true;
+                        fileStamps.add(fileStamp(path, assets, rootOrdinal, "assets"));
                         indexAssetFile(path, assets, namespaces, blockStates, itemDefinitions, legacyItemModels, models, assetEntries);
                         FileMetadata metadata = fileMetadata(path, assets, rootOrdinal, "assets");
                         fingerprintHasher.putString(metadata.stablePath(), java.nio.charset.StandardCharsets.UTF_8);
@@ -85,18 +108,32 @@ public final class ModResourceIndex {
                         indexedTotalSizeBytes += metadata.size();
                         latestModifiedEpochMillis = Math.max(latestModifiedEpochMillis, metadata.lastModifiedEpochMillis());
                     }
+                    if (sawAssetFile) {
+                        hasAssetFiles = true;
+                    }
                 } catch (IOException e) {
                     logger.error("Failed to index assets for mod {}", mod.id(), e);
                 }
             }
 
             Path data = root.resolve("data");
+            scanRoots.add(scanRoot(data, rootOrdinal, "data"));
             if (!Files.isDirectory(data)) {
+                rootOrdinal++;
                 continue;
             }
 
             try (Stream<Path> stream = Files.walk(data)) {
-                for (Path path : stream.filter(Files::isRegularFile).sorted().toList()) {
+                for (Path path : stream.sorted().toList()) {
+                    if (Files.isDirectory(path)) {
+                        directoryStamps.add(directoryStamp(path, data, rootOrdinal, "data"));
+                        continue;
+                    }
+                    if (!Files.isRegularFile(path)) {
+                        continue;
+                    }
+
+                    fileStamps.add(fileStamp(path, data, rootOrdinal, "data"));
                     indexDataFile(path, data, assetEntries);
                     FileMetadata metadata = fileMetadata(path, data, rootOrdinal, "data");
                     fingerprintHasher.putString(metadata.stablePath(), java.nio.charset.StandardCharsets.UTF_8);
@@ -120,7 +157,27 @@ public final class ModResourceIndex {
             models,
             assetEntries,
             new ResourceFingerprint(FINGERPRINT_ALGORITHM, indexedFileCount, indexedTotalSizeBytes, latestModifiedEpochMillis, fingerprintHasher.hash().toString()),
-            hasAssetFiles
+            hasAssetFiles,
+            scanRoots,
+            fileStamps,
+            directoryStamps
+        );
+    }
+
+    @NotNull
+    public static ModResourceIndex rehydrate(@NotNull Snapshot snapshot) {
+        return new ModResourceIndex(
+            snapshot.namespaces(),
+            toIdentifierPathMap(snapshot.blockStates()),
+            toIdentifierPathMap(snapshot.itemDefinitions()),
+            toIdentifierPathMap(snapshot.legacyItemModels()),
+            toIdentifierPathMap(snapshot.models()),
+            snapshot.assetEntries(),
+            snapshot.fingerprint(),
+            snapshot.hasAssetFiles(),
+            snapshot.scanRoots(),
+            snapshot.fileStamps(),
+            snapshot.directoryStamps()
         );
     }
 
@@ -154,6 +211,23 @@ public final class ModResourceIndex {
     }
 
     @NotNull
+    public Snapshot snapshot() {
+        return new Snapshot(
+            this.namespaces,
+            stringifyIdentifierPaths(this.blockStates),
+            stringifyIdentifierPaths(this.itemDefinitions),
+            stringifyIdentifierPaths(this.legacyItemModels),
+            stringifyIdentifierPaths(this.models),
+            this.assetEntries,
+            this.fingerprint,
+            this.hasAssetFiles,
+            this.scanRoots,
+            this.fileStamps,
+            this.directoryStamps
+        );
+    }
+
+    @NotNull
     public ResourceFingerprint fingerprint() {
         return this.fingerprint;
     }
@@ -175,6 +249,21 @@ public final class ModResourceIndex {
             resolved.put(Key.key(entry.getKey().getNamespace(), entry.getKey().getPath()), entry.getValue());
         }
         return Map.copyOf(resolved);
+    }
+
+    @NotNull
+    public List<ScanRoot> scanRoots() {
+        return this.scanRoots;
+    }
+
+    @NotNull
+    public List<FileStamp> fileStamps() {
+        return this.fileStamps;
+    }
+
+    @NotNull
+    public List<DirectoryStamp> directoryStamps() {
+        return this.directoryStamps;
     }
 
     @Nullable
@@ -305,6 +394,32 @@ public final class ModResourceIndex {
     }
 
     @NotNull
+    private static ScanRoot scanRoot(@NotNull Path root, int rootOrdinal, @NotNull String category) {
+        boolean exists = Files.isDirectory(root);
+        long lastModifiedEpochMillis = 0L;
+        if (exists) {
+            try {
+                lastModifiedEpochMillis = Files.getLastModifiedTime(root).toMillis();
+            } catch (IOException ignored) {
+                lastModifiedEpochMillis = 0L;
+            }
+        }
+        return new ScanRoot(rootOrdinal + ":" + category, root.toString(), exists, lastModifiedEpochMillis);
+    }
+
+    @NotNull
+    private static FileStamp fileStamp(@NotNull Path file, @NotNull Path root, int rootOrdinal, @NotNull String category) throws IOException {
+        FileMetadata metadata = fileMetadata(file, root, rootOrdinal, category);
+        return new FileStamp(metadata.stablePath(), file.toString(), metadata.size(), metadata.lastModifiedEpochMillis());
+    }
+
+    @NotNull
+    private static DirectoryStamp directoryStamp(@NotNull Path directory, @NotNull Path root, int rootOrdinal, @NotNull String category) throws IOException {
+        String relative = root.equals(directory) ? "" : root.relativize(directory).toString().replace('\\', '/');
+        return new DirectoryStamp(rootOrdinal + ":" + category + ":" + relative, directory.toString(), Files.getLastModifiedTime(directory).toMillis());
+    }
+
+    @NotNull
     private static FileMetadata fileMetadata(@NotNull Path file, @NotNull Path root, int rootOrdinal, @NotNull String category) throws IOException {
         long size = Files.size(file);
         long lastModifiedEpochMillis = Files.getLastModifiedTime(file).toMillis();
@@ -319,6 +434,58 @@ public final class ModResourceIndex {
             copy.put(entry.getKey(), Set.copyOf(entry.getValue()));
         }
         return Map.copyOf(copy);
+    }
+
+    @NotNull
+    private static Map<String, String> stringifyIdentifierPaths(@NotNull Map<Identifier, Path> values) {
+        Map<String, String> result = new LinkedHashMap<>();
+        for (Map.Entry<Identifier, Path> entry : values.entrySet()) {
+            result.put(entry.getKey().toString(), entry.getValue().toString());
+        }
+        return Map.copyOf(result);
+    }
+
+    @NotNull
+    private static Map<Identifier, Path> toIdentifierPathMap(@NotNull Map<String, String> values) {
+        Map<Identifier, Path> result = new LinkedHashMap<>();
+        for (Map.Entry<String, String> entry : values.entrySet()) {
+            String identifier = entry.getKey();
+            int separator = identifier.indexOf(':');
+            if (separator <= 0 || separator == identifier.length() - 1) {
+                continue;
+            }
+            result.put(
+                Identifier.fromNamespaceAndPath(identifier.substring(0, separator), identifier.substring(separator + 1)),
+                Path.of(entry.getValue())
+            );
+        }
+        return Map.copyOf(result);
+    }
+
+    public record Snapshot(
+        @NotNull Set<String> namespaces,
+        @NotNull Map<String, String> blockStates,
+        @NotNull Map<String, String> itemDefinitions,
+        @NotNull Map<String, String> legacyItemModels,
+        @NotNull Map<String, String> models,
+        @NotNull Map<String, Set<String>> assetEntries,
+        @NotNull ResourceFingerprint fingerprint,
+        boolean hasAssetFiles,
+        @NotNull List<ScanRoot> scanRoots,
+        @NotNull List<FileStamp> fileStamps,
+        @NotNull List<DirectoryStamp> directoryStamps
+    ) {
+        public Snapshot {
+            namespaces = namespaces == null ? Set.of() : Set.copyOf(namespaces);
+            blockStates = immutableStringMap(blockStates);
+            itemDefinitions = immutableStringMap(itemDefinitions);
+            legacyItemModels = immutableStringMap(legacyItemModels);
+            models = immutableStringMap(models);
+            assetEntries = assetEntries == null ? Map.of() : copyAssetEntries(assetEntries);
+            scanRoots = scanRoots == null ? List.of() : List.copyOf(scanRoots);
+            fileStamps = fileStamps == null ? List.of() : List.copyOf(fileStamps);
+            directoryStamps = directoryStamps == null ? List.of() : List.copyOf(directoryStamps);
+        }
     }
 
     public record ResourceFingerprint(
@@ -341,6 +508,20 @@ public final class ModResourceIndex {
     }
 
     private record FileMetadata(@NotNull String stablePath, long size, long lastModifiedEpochMillis) {
+    }
+
+    public record ScanRoot(@NotNull String stablePath, @NotNull String path, boolean exists, long lastModifiedEpochMillis) {
+    }
+
+    public record FileStamp(@NotNull String stablePath, @NotNull String path, long size, long lastModifiedEpochMillis) {
+    }
+
+    public record DirectoryStamp(@NotNull String stablePath, @NotNull String path, long lastModifiedEpochMillis) {
+    }
+
+    @NotNull
+    private static Map<String, String> immutableStringMap(Map<String, String> values) {
+        return values == null ? Map.of() : Map.copyOf(new LinkedHashMap<>(values));
     }
 
     @Nullable

@@ -4,6 +4,7 @@ import org.geysermc.hydraulic.Constants;
 import org.geysermc.hydraulic.compat.CompatibilityReport;
 import org.geysermc.hydraulic.compat.ContentInventory;
 import org.geysermc.hydraulic.pack.ModResourceIndex;
+import org.geysermc.hydraulic.platform.mod.ModInfo;
 import org.geysermc.hydraulic.pack.PackValidationReport;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -14,7 +15,9 @@ import java.io.BufferedWriter;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Collection;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 public final class ArtifactCache {
@@ -52,6 +55,29 @@ public final class ArtifactCache {
     @Nullable
     public IndexSnapshot loadIndexSnapshot() {
         return this.readJson(this.indexPath().resolve(INDEX_MANIFEST), IndexSnapshot.class);
+    }
+
+    @NotNull
+    public Map<String, ModResourceIndex> loadReusableIndexes(@NotNull Collection<ModInfo> mods) {
+        IndexSnapshot snapshot = this.loadIndexSnapshot();
+        if (snapshot == null || !IndexSnapshot.ALGORITHM.equals(snapshot.algorithm())) {
+            return Map.of();
+        }
+
+        Map<String, ModResourceIndex> rehydrated = new LinkedHashMap<>();
+        for (ModInfo mod : mods) {
+            IndexedMod indexed = snapshot.mods().get(mod.id());
+            if (indexed == null || !indexed.matches(mod)) {
+                continue;
+            }
+
+            if (!indexed.isReusable()) {
+                continue;
+            }
+
+            rehydrated.put(mod.id(), ModResourceIndex.rehydrate(indexed.snapshot()));
+        }
+        return Map.copyOf(rehydrated);
     }
 
     public void storeCompatibilitySnapshot(@NotNull CompatibilitySnapshot snapshot) {
@@ -162,24 +188,35 @@ public final class ArtifactCache {
         int modCount,
         @NotNull Map<String, IndexedMod> mods
     ) {
+        public static final String ALGORITHM = "HYDRAULIC_INDEX_SNAPSHOT_V2";
+
         public IndexSnapshot {
-            mods = Map.copyOf(new LinkedHashMap<>(mods));
+            algorithm = algorithm == null ? "" : algorithm;
+            mods = mods == null ? Map.of() : Map.copyOf(new LinkedHashMap<>(mods));
         }
 
-        public static IndexSnapshot from(@NotNull Map<String, ModResourceIndex> indexes) {
-            Map<String, IndexedMod> mods = new LinkedHashMap<>();
-            for (Map.Entry<String, ModResourceIndex> entry : indexes.entrySet()) {
-                ModResourceIndex index = entry.getValue();
-                mods.put(entry.getKey(), new IndexedMod(
+        public static IndexSnapshot from(@NotNull Collection<ModInfo> mods, @NotNull Map<String, ModResourceIndex> indexes) {
+            Map<String, IndexedMod> indexedMods = new LinkedHashMap<>();
+            for (ModInfo mod : mods) {
+                ModResourceIndex index = indexes.get(mod.id());
+                if (index == null) {
+                    continue;
+                }
+                indexedMods.put(mod.id(), new IndexedMod(
                     index.fingerprint(),
                     index.namespaces().size(),
                     index.blockStateCount(),
                     index.itemAssetCount(),
                     index.hasAssetFiles(),
-                    summarizeAssetCounts(index)
+                    summarizeAssetCounts(index),
+                    mod.roots().stream().map(Path::toString).toList(),
+                    index.scanRoots(),
+                    index.fileStamps(),
+                    index.directoryStamps(),
+                    index.snapshot()
                 ));
             }
-            return new IndexSnapshot("HYDRAULIC_INDEX_SNAPSHOT_V1", mods.size(), mods);
+            return new IndexSnapshot(ALGORITHM, indexedMods.size(), indexedMods);
         }
 
         @NotNull
@@ -198,10 +235,85 @@ public final class ArtifactCache {
         int blockStateCount,
         int itemAssetCount,
         boolean hasAssetFiles,
-        @NotNull Map<String, Integer> assetCounts
+        @NotNull Map<String, Integer> assetCounts,
+        @NotNull List<String> roots,
+        @NotNull List<ModResourceIndex.ScanRoot> scanRoots,
+        @NotNull List<ModResourceIndex.FileStamp> fileStamps,
+        @NotNull List<ModResourceIndex.DirectoryStamp> directoryStamps,
+        @NotNull ModResourceIndex.Snapshot snapshot
     ) {
         public IndexedMod {
-            assetCounts = Map.copyOf(new LinkedHashMap<>(assetCounts));
+            assetCounts = assetCounts == null ? Map.of() : Map.copyOf(new LinkedHashMap<>(assetCounts));
+            roots = roots == null ? List.of() : List.copyOf(roots);
+            scanRoots = scanRoots == null ? List.of() : List.copyOf(scanRoots);
+            fileStamps = fileStamps == null ? List.of() : List.copyOf(fileStamps);
+            directoryStamps = directoryStamps == null ? List.of() : List.copyOf(directoryStamps);
+            snapshot = snapshot == null ? new ModResourceIndex.Snapshot(
+                java.util.Set.of(),
+                Map.of(),
+                Map.of(),
+                Map.of(),
+                Map.of(),
+                Map.of(),
+                fingerprint,
+                hasAssetFiles,
+                List.of(),
+                List.of(),
+                List.of()
+            ) : snapshot;
+        }
+
+        boolean matches(@NotNull ModInfo mod) {
+            List<String> currentRoots = mod.roots().stream().map(Path::toString).toList();
+            return this.roots.equals(currentRoots);
+        }
+
+        boolean isReusable() {
+            for (ModResourceIndex.ScanRoot scanRoot : this.scanRoots) {
+                Path path = Path.of(scanRoot.path());
+                boolean exists = Files.isDirectory(path);
+                if (exists != scanRoot.exists()) {
+                    return false;
+                }
+                if (exists && lastModified(path) != scanRoot.lastModifiedEpochMillis()) {
+                    return false;
+                }
+            }
+
+            for (ModResourceIndex.DirectoryStamp directory : this.directoryStamps) {
+                Path path = Path.of(directory.path());
+                if (!Files.isDirectory(path) || lastModified(path) != directory.lastModifiedEpochMillis()) {
+                    return false;
+                }
+            }
+
+            for (ModResourceIndex.FileStamp file : this.fileStamps) {
+                Path path = Path.of(file.path());
+                if (!Files.isRegularFile(path)) {
+                    return false;
+                }
+                if (size(path) != file.size() || lastModified(path) != file.lastModifiedEpochMillis()) {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        private static long size(@NotNull Path path) {
+            try {
+                return Files.size(path);
+            } catch (IOException e) {
+                return -1L;
+            }
+        }
+
+        private static long lastModified(@NotNull Path path) {
+            try {
+                return Files.getLastModifiedTime(path).toMillis();
+            } catch (IOException e) {
+                return -1L;
+            }
         }
     }
 

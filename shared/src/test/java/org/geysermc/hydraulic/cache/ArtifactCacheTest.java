@@ -11,6 +11,7 @@ import org.geysermc.hydraulic.compat.model.SupportLevel;
 import org.geysermc.hydraulic.metadata.MetadataIndex;
 import org.geysermc.hydraulic.pack.ModResourceIndex;
 import org.geysermc.hydraulic.pack.PackValidationReport;
+import org.geysermc.hydraulic.platform.mod.ModInfo;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.slf4j.LoggerFactory;
@@ -19,6 +20,7 @@ import java.io.IOException;
 import java.io.Reader;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 
@@ -57,18 +59,15 @@ class ArtifactCacheTest {
         ArtifactCache cache = new ArtifactCache(LoggerFactory.getLogger("ArtifactCacheTest"), this.tempDir.resolve("cache"));
         cache.ensureLayout();
 
-        ArtifactCache.IndexSnapshot snapshot = new ArtifactCache.IndexSnapshot(
-            "HYDRAULIC_INDEX_SNAPSHOT_V1",
-            1,
-            Map.of("testmod", new ArtifactCache.IndexedMod(
-                new ModResourceIndex.ResourceFingerprint("HYDRAULIC_INDEX_V1", 3, 42, 99, "abc"),
-                1,
-                2,
-                4,
-                true,
-                Map.of("textures", 2)
-            ))
-        );
+        Path modRoot = this.tempDir.resolve("mod-root");
+        Files.createDirectories(modRoot.resolve("assets/testmod/models/item"));
+        Files.createDirectories(modRoot.resolve("data/testmod/recipes"));
+        Files.writeString(modRoot.resolve("assets/testmod/models/item/test_item.json"), "{\"parent\":\"minecraft:item/generated\"}");
+        Files.writeString(modRoot.resolve("data/testmod/recipes/test_recipe.json"), "{}");
+        ModInfo mod = new ModInfo("testmod", "testmod", "Test Mod", "1.0.0", null, List.of(modRoot));
+        ModResourceIndex index = ModResourceIndex.create(mod, LoggerFactory.getLogger("ArtifactCacheTest"));
+
+        ArtifactCache.IndexSnapshot snapshot = ArtifactCache.IndexSnapshot.from(List.of(mod), Map.of(mod.id(), index));
         cache.storeIndexSnapshot(snapshot);
         cache.storeConversionArtifact("testmod", new ArtifactCache.ConversionArtifact(
             "testmod",
@@ -83,6 +82,9 @@ class ArtifactCacheTest {
         cache.storeValidationArtifact(report, "compat-key-1");
 
         assertNotNull(cache.loadIndexSnapshot());
+        Map<String, ModResourceIndex> rehydrated = cache.loadReusableIndexes(List.of(mod));
+        assertEquals(index.fingerprint().stableValue(), rehydrated.get("testmod").fingerprint().stableValue());
+        assertEquals(index.modelCount(), rehydrated.get("testmod").modelCount());
 
         try (Reader reader = Files.newBufferedReader(this.tempDir.resolve("cache/conversions/testmod/conversion-manifest.json"))) {
             ArtifactCache.ConversionArtifact conversion = Constants.GSON.fromJson(reader, ArtifactCache.ConversionArtifact.class);
@@ -93,7 +95,50 @@ class ArtifactCacheTest {
             assertEquals(1, written.perMod().size());
             assertEquals(1, written.perMod().get("testmod").manualActionCount());
         }
+
+        Files.writeString(modRoot.resolve("assets/testmod/models/item/test_item.json"), "{\"parent\":\"minecraft:item/handheld\"}");
+        assertEquals(0, cache.loadReusableIndexes(List.of(mod)).size());
     }
+
+        @Test
+        void ignoresLegacyIndexSnapshotsThatDoNotContainRehydrationData() throws IOException {
+                ArtifactCache cache = new ArtifactCache(LoggerFactory.getLogger("ArtifactCacheTest"), this.tempDir.resolve("cache"));
+                cache.ensureLayout();
+
+                Path indexManifest = this.tempDir.resolve("cache/index/index-manifest.json");
+                Files.createDirectories(indexManifest.getParent());
+                Files.writeString(indexManifest, """
+                        {
+                            "algorithm": "HYDRAULIC_INDEX_SNAPSHOT_V1",
+                            "modCount": 1,
+                            "mods": {
+                                "testmod": {
+                                    "fingerprint": {
+                                        "algorithm": "HYDRAULIC_INDEX_V1",
+                                        "fileCount": 1,
+                                        "totalSizeBytes": 1,
+                                        "latestModifiedEpochMillis": 1,
+                                        "digest": "abc"
+                                    },
+                                    "namespaceCount": 1,
+                                    "blockStateCount": 0,
+                                    "itemAssetCount": 0,
+                                    "hasAssetFiles": true,
+                                    "assetCounts": {
+                                        "models": 1
+                                    }
+                                }
+                            }
+                        }
+                        """);
+
+                Path modRoot = this.tempDir.resolve("mod-root");
+                Files.createDirectories(modRoot);
+                ModInfo mod = new ModInfo("testmod", "testmod", "Test Mod", "1.0.0", null, List.of(modRoot));
+
+                assertNotNull(cache.loadIndexSnapshot());
+                assertEquals(0, cache.loadReusableIndexes(List.of(mod)).size());
+        }
 
     private static ContentInventory sampleInventory() {
         return new ContentInventory(Map.of(

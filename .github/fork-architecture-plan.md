@@ -210,6 +210,7 @@ The compatibility layer stays above the current Hydraulic conversion pipeline, b
 - Pack identity now also uses the shared indexed view: full-tree `PackUtil.getModUUID()` hashing has been replaced by a persisted `ConversionKey` derived from indexed mod resources plus loaded metadata state, so metadata-only changes now invalidate stale cached packs.
 - A first-class cache layout now exists under `config/hydraulic/cache` for index, compatibility, conversion, validation, and manifest artifacts. Compatibility inventory and report output can now be reused from cache when indexed mod fingerprints and metadata state are unchanged, while conversion and validation outputs are mirrored into the same artifact tree.
 - Model lookup is no longer built from an eager all-model startup flattening pass. `ModResourceIndex` now records generic model file paths, and `IndexedModelProvider` lazily deserializes mod and vanilla models on demand through a bounded cache with negative caching for missing entries.
+- The cached index snapshot now rehydrates live `ModResourceIndex` instances on repeat startup when mod roots, indexed files, and indexed directories are unchanged, so the index cache is now a real execution shortcut rather than metrics-only persistence.
 - Typed compatibility data already exists:
   - `CompatibilityObject`
   - `CapabilityProfile`
@@ -235,6 +236,7 @@ The compatibility layer stays above the current Hydraulic conversion pipeline, b
 - Performance artifacts now include real cache evidence for some hot paths.
 - Live Fabric runtime validation now shows the model-provider startup slice is effectively reduced to indexed setup cost rather than eager model deserialization; the current run recorded `modelIndexBuildMillis = 6` while pack conversion and Geyser registration still completed.
 - The runtime artifact now also records lazy model-provider hit, miss, eviction, size, and indexed-model counts, so bounded on-demand model behavior is measurable instead of inferred.
+- Live Fabric runtime validation now also shows real index rehydration on unchanged startup; the current dev run reported `artifactCache.index.hits = 2` and `misses = 2`, which matches partial reuse for filesystem-backed mod roots while dev-time virtual roots safely fall back to rebuild.
 
 ### What is still too narrow
 - Discovery is still duplicated across multiple subsystems.
@@ -1397,7 +1399,8 @@ Current status:
 - Full-tree pack UUID hashing has been removed from the normal startup path and replaced with persisted conversion keys derived from indexed resource fingerprints plus metadata state.
 - A first-class artifact cache layout now persists index, compatibility, conversion, and validation artifacts, and compatibility output can already be reused by cache key across repeat startup when the indexed mod/resource and metadata fingerprints match.
 - Model lookup now uses indexed file-path resolution plus lazy deserialization through a bounded `IndexedModelProvider`, so startup no longer eagerly builds a global parsed model map before conversion begins.
-- Phase 1 is still incomplete because the index itself is not yet rehydrated from cache and dependency tracking is not yet modeled beyond the current resource and metadata fingerprints.
+- The index itself can now be rehydrated from cache on unchanged startup by validating stored mod roots, indexed files, and indexed directories instead of rewalking the resource tree.
+- Phase 1 is still incomplete because dependency tracking is not yet modeled beyond the current resource and metadata fingerprints, and broader universal-index boundaries have not yet been split out from `ModResourceIndex`.
 
 ## Phase 2: Artifact Cache And Lazy Loading
 Priority: highest
@@ -1566,7 +1569,7 @@ The best next implementation slice from the current repo state is:
 3. widen lazy indexed access beyond models into broader texture and resource resolution paths that still eagerly deserialize pack data
 4. widen the compiled-plan surface from current registration and patch seams into richer block-state, menu, block-entity, and transfer-bridge runtime tables
 
-This is now the smallest next slice that preserves the newly compiled runtime surface, builds on the shipped lazy model provider, and continues the Phase 1 and Phase 3 substrate work toward the skeleton-key goal.
+This is now the smallest next slice that builds on shipped index rehydration and lazy model loading while continuing the Phase 1 and Phase 3 substrate work toward the skeleton-key goal.
 
 ## What Not To Do
 - Do not keep extending `BlockStateRule` with every future concern.
