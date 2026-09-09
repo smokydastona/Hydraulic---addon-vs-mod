@@ -2,6 +2,7 @@ package org.geysermc.hydraulic.compat.ir;
 
 import org.geysermc.hydraulic.compat.CompatibilityStatus;
 import org.geysermc.hydraulic.compat.adapter.AdapterBinding;
+import org.geysermc.hydraulic.compat.adapter.AdapterFeature;
 import org.geysermc.hydraulic.compat.model.Confidence;
 import org.geysermc.hydraulic.compat.model.SupportLevel;
 import org.geysermc.hydraulic.compat.runtime.BlockEntityPatchTemplate;
@@ -56,5 +57,9 @@ public record CompiledCompatibilityPlan(
 
     public boolean hasBlockEntityPatch() {
         return this.blockEntityPatchTemplate != null;
+    }
+
+    public boolean supportsAdapterFeature(@NotNull AdapterFeature feature) {
+        return this.adapterBindings.stream().anyMatch(binding -> binding.feature() == feature);
     }
 }

@@ -4,6 +4,8 @@ import net.minecraft.resources.Identifier;
 import org.geysermc.geyser.session.GeyserSession;
 import org.geysermc.geyser.translator.inventory.InventoryTranslator;
 import org.geysermc.hydraulic.compat.CompatibilityRegistry;
+import org.geysermc.hydraulic.compat.adapter.AdapterFeature;
+import org.geysermc.hydraulic.compat.ir.CompiledCompatibilityPlan;
 import org.geysermc.mcprotocollib.protocol.data.game.inventory.ContainerType;
 import org.geysermc.mcprotocollib.protocol.packet.ingame.clientbound.inventory.ClientboundOpenScreenPacket;
 import org.jetbrains.annotations.NotNull;
@@ -32,8 +34,20 @@ public final class MenuPatchTranslatorFactory {
             return null;
         }
 
-        var plan = compatibilityRegistry.dispatchTable().menu(Identifier.parse(javaIdentifier));
-        if (plan == null || !plan.hasMenuFallback()) {
+        CompiledCompatibilityPlan plan = compatibilityRegistry.dispatchTable().menu(Identifier.parse(javaIdentifier));
+        if (!BridgeAdapterSupport.supportsMenuFallback(plan)) {
+            return null;
+        }
+        return create(plan);
+    }
+
+    static boolean supports(@Nullable CompiledCompatibilityPlan plan) {
+        return BridgeAdapterSupport.supportsMenuFallback(plan);
+    }
+
+    @Nullable
+    static InventoryTranslator<?> create(@Nullable CompiledCompatibilityPlan plan) {
+        if (!supports(plan)) {
             return null;
         }
 

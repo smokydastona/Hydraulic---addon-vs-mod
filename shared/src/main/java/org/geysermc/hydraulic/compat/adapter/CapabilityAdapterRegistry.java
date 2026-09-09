@@ -1,8 +1,8 @@
 package org.geysermc.hydraulic.compat.adapter;
 
+import net.minecraft.core.component.DataComponents;
 import net.minecraft.world.item.BowItem;
 import net.minecraft.world.item.Item;
-import net.minecraft.core.component.DataComponents;
 import org.geysermc.hydraulic.compat.model.CompatibilityObject;
 import org.geysermc.hydraulic.compat.model.SupportLevel;
 import org.geysermc.hydraulic.compat.model.SupportResult;
@@ -19,6 +19,8 @@ public final class CapabilityAdapterRegistry {
         new BlockTextureFallbackAdapter(),
         new BlockPlacementAdapter(),
         new BlockCreativeExposureAdapter(),
+        new MenuFallbackAdapter(),
+        new BlockEntityPatchAdapter(),
         new CustomItemRegistrationAdapter(),
         new WearableItemAdapter(),
         new BowItemAdapter(),
@@ -67,6 +69,8 @@ public final class CapabilityAdapterRegistry {
                 AdapterFeature.BLOCK_PLACEMENT,
                 AdapterFeature.BLOCK_CREATIVE_EXPOSURE
             );
+            case "menu" -> List.of(AdapterFeature.MENU_FALLBACK_TRANSLATION);
+            case "block_entity" -> List.of(AdapterFeature.BLOCK_ENTITY_PATCH_TRANSLATION);
             case "item" -> List.of(
                 AdapterFeature.CUSTOM_ITEM_REGISTRATION,
                 AdapterFeature.WEARABLE_ITEM_PRESENTATION,
@@ -227,6 +231,62 @@ public final class CapabilityAdapterRegistry {
         @Override
         public @NotNull String reason(@NotNull CompatibilityObject compatibilityObject, @Nullable Object runtimeObject, @NotNull AdapterFeature feature) {
             return "existing Geyser custom item registration bridge applies";
+        }
+    }
+
+    private static final class MenuFallbackAdapter implements CapabilityAdapter {
+        @Override
+        public @NotNull String id() {
+            return "menu.fallback_translator";
+        }
+
+        @Override
+        public @NotNull Set<AdapterFeature> features() {
+            return Set.of(AdapterFeature.MENU_FALLBACK_TRANSLATION);
+        }
+
+        @Override
+        public int priority() {
+            return 25;
+        }
+
+        @Override
+        public boolean supports(@NotNull CompatibilityObject compatibilityObject, @Nullable Object runtimeObject, @NotNull AdapterFeature feature) {
+            return contentSupported(compatibilityObject)
+                && supportsCapability(compatibilityObject, "interaction", "container_interaction");
+        }
+
+        @Override
+        public @NotNull String reason(@NotNull CompatibilityObject compatibilityObject, @Nullable Object runtimeObject, @NotNull AdapterFeature feature) {
+            return "existing metadata-backed menu fallback translator applies";
+        }
+    }
+
+    private static final class BlockEntityPatchAdapter implements CapabilityAdapter {
+        @Override
+        public @NotNull String id() {
+            return "block_entity.patch_translator";
+        }
+
+        @Override
+        public @NotNull Set<AdapterFeature> features() {
+            return Set.of(AdapterFeature.BLOCK_ENTITY_PATCH_TRANSLATION);
+        }
+
+        @Override
+        public int priority() {
+            return 25;
+        }
+
+        @Override
+        public boolean supports(@NotNull CompatibilityObject compatibilityObject, @Nullable Object runtimeObject, @NotNull AdapterFeature feature) {
+            return contentSupported(compatibilityObject)
+                && supportsCapability(compatibilityObject, "state_data", "persistent_data");
+        }
+
+        @Override
+        public @NotNull String reason(@NotNull CompatibilityObject compatibilityObject, @Nullable Object runtimeObject, @NotNull AdapterFeature feature) {
+            return "existing metadata-backed block entity patch translator applies";
         }
     }
 

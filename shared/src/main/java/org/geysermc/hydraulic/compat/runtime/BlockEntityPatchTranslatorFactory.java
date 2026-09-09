@@ -8,6 +8,8 @@ import org.geysermc.geyser.level.block.type.BlockState;
 import org.geysermc.geyser.session.GeyserSession;
 import org.geysermc.geyser.translator.level.block.entity.BlockEntityTranslator;
 import org.geysermc.hydraulic.compat.CompatibilityRegistry;
+import org.geysermc.hydraulic.compat.adapter.AdapterFeature;
+import org.geysermc.hydraulic.compat.ir.CompiledCompatibilityPlan;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -26,8 +28,20 @@ public final class BlockEntityPatchTranslatorFactory {
             return null;
         }
 
-        var plan = compatibilityRegistry.dispatchTable().blockEntity(Identifier.parse(javaIdentifier));
-        if (plan == null || !plan.hasBlockEntityPatch()) {
+        CompiledCompatibilityPlan plan = compatibilityRegistry.dispatchTable().blockEntity(Identifier.parse(javaIdentifier));
+        if (!BridgeAdapterSupport.supportsBlockEntityPatch(plan)) {
+            return null;
+        }
+        return create(plan);
+    }
+
+    static boolean supports(@Nullable CompiledCompatibilityPlan plan) {
+        return BridgeAdapterSupport.supportsBlockEntityPatch(plan);
+    }
+
+    @Nullable
+    static BlockEntityTranslator create(@Nullable CompiledCompatibilityPlan plan) {
+        if (!supports(plan)) {
             return null;
         }
         return new MetadataBackedBlockEntityTranslator(plan.blockEntityPatchTemplate());

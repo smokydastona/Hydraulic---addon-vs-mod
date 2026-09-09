@@ -201,6 +201,72 @@ class CompatibilityManagerTest {
                 assertTrue(item.runtimeRequirements().contains("item_behavior_bridge"));
         }
 
+                @Test
+                void surfacesMenuAndBlockEntityRuntimeAdaptersInReportObjects(@TempDir Path tempDir) throws IOException {
+                        ContentInventory.ModContentInventory inventory = new ContentInventory.ModContentInventory(
+                                "examplemod",
+                                "example",
+                                "Example Mod",
+                                "1.0.0",
+                                List.of(tempDir.toString()),
+                                new org.geysermc.hydraulic.compat.model.ModFingerprint("examplemod", "example", "1.0.0", "unknown", "test", 0, 0, 0, 0, 1, 0, 1, false, false, false, false, false, false, true, false),
+                                Map.of("menus", 1, "block_entities", 1),
+                                Map.of("menus", List.of("example:test_menu"), "block_entities", List.of("example:test_block_entity")),
+                                Map.of(),
+                                Map.of(),
+                                Map.of("menus", 1, "block_entities", 1),
+                                Map.of("menus", List.of("example:test_menu"), "block_entities", List.of("example:test_block_entity")),
+                                Map.of(),
+                                Map.of()
+                        );
+                        ContentInventory inventoryRoot = new ContentInventory(Map.of("examplemod", inventory));
+
+                        Files.writeString(tempDir.resolve("compat.json"), """
+                                {
+                                    "patches": [
+                                        {
+                                            "target": "example:test_menu",
+                                            "content_type": "menu",
+                                            "patch": {
+                                                "bedrock": {
+                                                    "menu": {
+                                                        "container_type": "generic_9x3"
+                                                    }
+                                                }
+                                            }
+                                        },
+                                        {
+                                            "target": "example:test_block_entity",
+                                            "content_type": "block_entity",
+                                            "patch": {
+                                                "bedrock": {
+                                                    "block_entity": {
+                                                        "id": "BedrockChest",
+                                                        "data": {
+                                                            "CustomName": "demo"
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    ]
+                                }
+                                """);
+                        MetadataIndex metadataIndex = new MetadataLoader(LoggerFactory.getLogger("CompatibilityManagerTest")).load(tempDir);
+
+                        CompatibilityReport report = new CompatibilityManager(LoggerFactory.getLogger("CompatibilityManagerTest"), tempDir).buildReport(inventoryRoot, metadataIndex);
+
+                        CompatibilityObject menu = report.object("examplemod", "example:test_menu", "menu");
+                        assertNotNull(menu);
+                        assertTrue(menu.adapterBindings().stream().anyMatch(binding -> binding.adapterId().equals("menu.fallback_translator") && binding.feature() == AdapterFeature.MENU_FALLBACK_TRANSLATION));
+                        assertTrue(menu.runtimeRequirements().contains("menu_behavior_bridge"));
+
+                        CompatibilityObject blockEntity = report.object("examplemod", "example:test_block_entity", "block_entity");
+                        assertNotNull(blockEntity);
+                        assertTrue(blockEntity.adapterBindings().stream().anyMatch(binding -> binding.adapterId().equals("block_entity.patch_translator") && binding.feature() == AdapterFeature.BLOCK_ENTITY_PATCH_TRANSLATION));
+                        assertFalse(blockEntity.runtimeRequirements().contains("block_entity_data_bridge"));
+                }
+
         @Test
         void serializesAdapterBindingsIntoCompatibilityReportJson(@TempDir Path tempDir) throws IOException {
                 ContentInventory.ModContentInventory inventory = new ContentInventory.ModContentInventory(
