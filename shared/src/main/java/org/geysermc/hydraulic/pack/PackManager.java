@@ -311,14 +311,16 @@ public class PackManager {
         int skippedBlocks = 0;
         for (final Identifier block : BuiltInRegistries.BLOCK.keySet()) {
             if (block.getNamespace().equals("minecraft")) continue;
+            boolean found = false;
             for (final ModInfo mod : namespacesToMods.get(block.getNamespace())) {
                 ModResourceIndex resourceIndex = modResourceIndexes.get(mod.id());
                 if (resourceIndex != null && resourceIndex.hasBlockState(block)) {
                     modsToBlocks.put(mod.id(), block);
+                    found = true;
                     break;
                 }
             }
-            if (!modsToBlocks.containsValue(block)) {
+            if (!found) {
                 skippedBlocks++;
             }
         }
@@ -343,7 +345,7 @@ public class PackManager {
             boolean found = false;
             for (final ModInfo mod : namespacesToMods.get(itemId.getNamespace())) {
                 ModResourceIndex resourceIndex = modResourceIndexes.get(mod.id());
-                if (resourceIndex != null && resourceIndex.resolveItemAssetPath(itemModel) != null) {
+                if (resourceIndex != null && resourceIndex.hasItemAsset(itemModel)) {
                     modsToItems.put(mod.id(), itemId);
                     found = true;
                     break;

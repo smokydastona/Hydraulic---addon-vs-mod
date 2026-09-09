@@ -1012,6 +1012,7 @@ The project is no longer at pure scaffolding stage. The repo now already contain
 - compact resolved block metadata exposed through `MappingResolver.ResolvedBlockState` for block consumers
 - cached per-state `ModelDefinition` resolution in `StateDefinition`, reducing repeated blockstate variant and multipart matching during block conversion
 - precompiled menu and block-entity patch templates in `MetadataIndex` and `MappingResolver` for runtime bridge lookups and analyzer checks
+- cheaper startup block and item ownership lookup in `PackManager`, avoiding per-block multimap scans and unused path retrieval when indexed membership is sufficient
 - per-mod resource indexing in `ModResourceIndex`
 - performance artifacts through `performance-report.json`
 - a live `CapabilityAdapterRegistry`

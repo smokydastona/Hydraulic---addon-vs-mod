@@ -79,6 +79,10 @@ final class ModResourceIndex {
         return this.blockStates.containsKey(block);
     }
 
+    boolean hasItemAsset(@NotNull Identifier itemModel) {
+        return this.itemDefinitions.containsKey(itemModel) || this.legacyItemModels.containsKey(itemModel);
+    }
+
     @Nullable
     Path resolveItemAssetPath(@NotNull Identifier itemModel) {
         Path itemDefinition = this.itemDefinitions.get(itemModel);
