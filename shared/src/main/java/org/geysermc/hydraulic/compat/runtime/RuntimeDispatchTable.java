@@ -27,6 +27,8 @@ import java.util.concurrent.atomic.AtomicLong;
 public final class RuntimeDispatchTable {
     private final Map<String, CompiledCompatibilityPlan> plansByTypeAndIdentifier;
     private final Map<String, List<CompiledCompatibilityPlan>> plansByModAndType;
+    private final Map<String, List<MappingResolver.ResolvedBlockDefinition>> blockDefinitionsByIdentifier;
+    private final Map<String, MappingResolver.ResolvedBlockState> blockStatesByIdentifierAndState;
     private final List<CompiledCompatibilityPlan> menuBridgePlans;
     private final List<CompiledCompatibilityPlan> blockEntityBridgePlans;
     private final Map<String, LookupCounters> countersByType;
@@ -34,6 +36,8 @@ public final class RuntimeDispatchTable {
     private RuntimeDispatchTable(
         @NotNull Map<String, CompiledCompatibilityPlan> plansByTypeAndIdentifier,
         @NotNull Map<String, List<CompiledCompatibilityPlan>> plansByModAndType,
+        @NotNull Map<String, List<MappingResolver.ResolvedBlockDefinition>> blockDefinitionsByIdentifier,
+        @NotNull Map<String, MappingResolver.ResolvedBlockState> blockStatesByIdentifierAndState,
         @NotNull List<CompiledCompatibilityPlan> menuBridgePlans,
         @NotNull List<CompiledCompatibilityPlan> blockEntityBridgePlans
     ) {
@@ -43,6 +47,12 @@ public final class RuntimeDispatchTable {
             copy.put(entry.getKey(), List.copyOf(entry.getValue()));
         }
         this.plansByModAndType = Collections.unmodifiableMap(copy);
+        Map<String, List<MappingResolver.ResolvedBlockDefinition>> blockDefinitionCopy = new LinkedHashMap<>();
+        for (Map.Entry<String, List<MappingResolver.ResolvedBlockDefinition>> entry : blockDefinitionsByIdentifier.entrySet()) {
+            blockDefinitionCopy.put(entry.getKey(), List.copyOf(entry.getValue()));
+        }
+        this.blockDefinitionsByIdentifier = Collections.unmodifiableMap(blockDefinitionCopy);
+        this.blockStatesByIdentifierAndState = Collections.unmodifiableMap(new LinkedHashMap<>(blockStatesByIdentifierAndState));
         this.menuBridgePlans = List.copyOf(menuBridgePlans);
         this.blockEntityBridgePlans = List.copyOf(blockEntityBridgePlans);
         this.countersByType = Map.of(
@@ -56,13 +66,15 @@ public final class RuntimeDispatchTable {
 
     @NotNull
     public static RuntimeDispatchTable empty() {
-        return new RuntimeDispatchTable(Map.of(), Map.of(), List.of(), List.of());
+        return new RuntimeDispatchTable(Map.of(), Map.of(), Map.of(), Map.of(), List.of(), List.of());
     }
 
     @NotNull
     public static RuntimeDispatchTable compile(@NotNull CompatibilityReport report, @NotNull MappingResolver mappingResolver) {
         Map<String, CompiledCompatibilityPlan> plansByIdentifier = new LinkedHashMap<>();
         Map<String, List<CompiledCompatibilityPlan>> plansByModAndType = new LinkedHashMap<>();
+        Map<String, List<MappingResolver.ResolvedBlockDefinition>> blockDefinitionsByIdentifier = new LinkedHashMap<>();
+        Map<String, MappingResolver.ResolvedBlockState> blockStatesByIdentifierAndState = new LinkedHashMap<>();
         List<CompiledCompatibilityPlan> menuBridgePlans = new ArrayList<>();
         List<CompiledCompatibilityPlan> blockEntityBridgePlans = new ArrayList<>();
         for (CompatibilityProfile profile : report.mods().values()) {
@@ -70,6 +82,7 @@ public final class RuntimeDispatchTable {
                 CompiledCompatibilityPlan plan = compilePlan(object, mappingResolver);
                 plansByIdentifier.put(key(object.contentType(), object.javaIdentifier()), plan);
                 plansByModAndType.computeIfAbsent(key(profile.modId(), object.contentType()), ignored -> new ArrayList<>()).add(plan);
+                compileBlockStatePlans(object, mappingResolver, blockDefinitionsByIdentifier, blockStatesByIdentifierAndState);
                 if (plan.requiresMenuBridge()) {
                     menuBridgePlans.add(plan);
                 }
@@ -80,7 +93,14 @@ public final class RuntimeDispatchTable {
         }
         menuBridgePlans.sort(planComparator());
         blockEntityBridgePlans.sort(planComparator());
-        return new RuntimeDispatchTable(plansByIdentifier, plansByModAndType, menuBridgePlans, blockEntityBridgePlans);
+        return new RuntimeDispatchTable(
+            plansByIdentifier,
+            plansByModAndType,
+            blockDefinitionsByIdentifier,
+            blockStatesByIdentifierAndState,
+            menuBridgePlans,
+            blockEntityBridgePlans
+        );
     }
 
     @Nullable
@@ -125,6 +145,20 @@ public final class RuntimeDispatchTable {
     @NotNull
     public List<CompiledCompatibilityPlan> entityPlans(@NotNull String modId) {
         return this.plans(modId, "entity");
+    }
+
+    @NotNull
+    public List<MappingResolver.ResolvedBlockDefinition> blockDefinitions(@NotNull Identifier javaIdentifier) {
+        List<MappingResolver.ResolvedBlockDefinition> definitions = this.blockDefinitionsByIdentifier.getOrDefault(javaIdentifier.toString(), List.of());
+        this.recordLookup("block", !definitions.isEmpty());
+        return definitions;
+    }
+
+    @Nullable
+    public MappingResolver.ResolvedBlockState blockState(@NotNull Identifier javaIdentifier, @NotNull net.minecraft.world.level.block.state.BlockState state) {
+        MappingResolver.ResolvedBlockState resolvedState = this.blockStatesByIdentifierAndState.get(blockStateKey(javaIdentifier.toString(), Block.getId(state)));
+        this.recordLookup("block", resolvedState != null);
+        return resolvedState;
     }
 
     @NotNull
@@ -220,6 +254,43 @@ public final class RuntimeDispatchTable {
         return java.util.Comparator
             .comparing(CompiledCompatibilityPlan::modId)
             .thenComparing(CompiledCompatibilityPlan::javaIdentifier);
+    }
+
+    private static void compileBlockStatePlans(
+        @NotNull CompatibilityObject object,
+        @NotNull MappingResolver mappingResolver,
+        @NotNull Map<String, List<MappingResolver.ResolvedBlockDefinition>> blockDefinitionsByIdentifier,
+        @NotNull Map<String, MappingResolver.ResolvedBlockState> blockStatesByIdentifierAndState
+    ) {
+        if (!"block".equals(object.contentType())) {
+            return;
+        }
+
+        Identifier javaIdentifier = Identifier.parse(object.javaIdentifier());
+        Block block = BuiltInRegistries.BLOCK.getValue(javaIdentifier);
+        if (block == null) {
+            return;
+        }
+
+        Map<Identifier, List<net.minecraft.world.level.block.state.BlockState>> groupedStates = new LinkedHashMap<>();
+        Map<Identifier, Boolean> overridden = new LinkedHashMap<>();
+        for (net.minecraft.world.level.block.state.BlockState state : block.getStateDefinition().getPossibleStates()) {
+            MappingResolver.ResolvedBlockState resolvedState = mappingResolver.resolveBlockState(javaIdentifier, state);
+            blockStatesByIdentifierAndState.put(blockStateKey(object.javaIdentifier(), Block.getId(state)), resolvedState);
+            groupedStates.computeIfAbsent(resolvedState.identifier(), ignored -> new ArrayList<>()).add(state);
+            overridden.merge(resolvedState.identifier(), resolvedState.overridden(), Boolean::logicalOr);
+        }
+
+        List<MappingResolver.ResolvedBlockDefinition> definitions = new ArrayList<>();
+        for (Map.Entry<Identifier, List<net.minecraft.world.level.block.state.BlockState>> entry : groupedStates.entrySet()) {
+            definitions.add(new MappingResolver.ResolvedBlockDefinition(entry.getKey(), List.copyOf(entry.getValue()), overridden.getOrDefault(entry.getKey(), false)));
+        }
+        blockDefinitionsByIdentifier.put(object.javaIdentifier(), List.copyOf(definitions));
+    }
+
+    @NotNull
+    private static String blockStateKey(@NotNull String javaIdentifier, int stateId) {
+        return javaIdentifier + '|' + stateId;
     }
 
     @Nullable

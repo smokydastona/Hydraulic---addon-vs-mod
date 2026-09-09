@@ -232,6 +232,7 @@ The compatibility layer stays above the current Hydraulic conversion pipeline, b
 - Current runtime consumers already use compatibility decisions for block registration, item registration and exposure, armor and bow attachables, and metadata-backed custom entity registration.
 - Current runtime bridges already include explicit metadata-backed menu fallback and block-entity patch translation at real Geyser seams.
 - Unsupported menu-open and block-entity fallback diagnostics now also consume precompiled runtime-dispatch candidate indexes instead of rescanning the full compatibility report during live warnings.
+- State-aware block identifier grouping and per-state runtime metadata now also compile into the runtime dispatch table, so block registration and block-item placement no longer need to re-derive those mappings through `MappingResolver` when compiled entries already exist.
 
 ### What is materially better than earlier assessments
 - The fork is no longer only a block metadata experiment.
@@ -252,7 +253,7 @@ The compatibility layer stays above the current Hydraulic conversion pipeline, b
 - Fingerprinting and cache invalidation are still not yet resource-kind-aware inside a mod, but cross-mod conversion invalidation is now materially better than the earlier per-mod-only key.
 - Resource-pack reading and broader resource resolution are still too eager even though model loading is now lazy and bounded.
 - Texture-path reuse is now centralized and measured, texture conversion now consults a real dependency graph, block-texture post-processing now uses indexed texture paths plus lazy animation metadata reads, and conversion invalidation now follows indexed cross-mod dependencies. The remaining gap is that the current fixture packs still reference every discovered texture, and other resource categories still have eager seams.
-- Runtime dispatch is now identifier-driven for the shipped bridge seams and their unsupported diagnostics, but richer block-state and transfer-heavy paths still have too much flexible runtime reasoning.
+- Runtime dispatch is now identifier-driven for the shipped bridge seams, unsupported diagnostics, and the first block-state registration paths, but transfer-heavy paths and deeper behavior surfaces still have too much flexible runtime reasoning.
 - Compatibility analysis still reconstructs facts too often and still depends on repeated asset discovery.
 - Non-block compatibility remains shallower than the block path.
 - Fluids, machines, transfer systems, richer menu behavior, entity interaction, custom networking, and custom rendering analysis remain incomplete.
@@ -1581,7 +1582,7 @@ The best next implementation slice from the current repo state is:
 3. tighten pack validation so missing or unreferenced texture artifacts are caught structurally rather than only through runtime inspection
 4. deepen dependency tracking from namespace-level invalidation toward explicit resource-edge invalidation where the data justifies it
 
-The first broader texture-read slice, the first dependency-aware invalidation slice, and the first diagnostic precompilation slice are now all shipped. The next smallest slice is widening the compiled runtime plan into richer block-state and transfer paths, because the cache and indexed-discovery substrate is now strong enough that the remaining hot-path flexibility sits more in those richer runtime decisions than in the already-compiled menu and block-entity fallback seams.
+The first broader texture-read slice, the first dependency-aware invalidation slice, the first diagnostic precompilation slice, and the first compiled block-state registration slice are now all shipped. The next smallest slice is widening the compiled runtime plan into transfer-heavy and deeper behavior paths, because the cache and indexed-discovery substrate is now strong enough that the remaining hot-path flexibility sits more in those richer runtime decisions than in the already-compiled menu, block-entity, and first block-state seams.
 
 ## What Not To Do
 - Do not keep extending `BlockStateRule` with every future concern.

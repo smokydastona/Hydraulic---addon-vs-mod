@@ -249,8 +249,15 @@ public class ItemPackModule extends TexturePackModule<ItemPackModule> {
                     Identifier javaBlockIdentifier = BuiltInRegistries.BLOCK.getKey(block);
                     MappingResolver.ResolvedBlockState resolvedPlacement = context.hydraulic()
                         .getPackManager()
-                        .mappingResolver()
-                        .resolveBlockState(javaBlockIdentifier, block.defaultBlockState());
+                        .compatibilityRegistry()
+                        .dispatchTable()
+                        .blockState(javaBlockIdentifier, block.defaultBlockState());
+                    if (resolvedPlacement == null) {
+                        resolvedPlacement = context.hydraulic()
+                            .getPackManager()
+                            .mappingResolver()
+                            .resolveBlockState(javaBlockIdentifier, block.defaultBlockState());
+                    }
 
                     if (blockPlan == null || blockPlan.supportsBlockPlacement()) {
                         customItemDefinition.component(

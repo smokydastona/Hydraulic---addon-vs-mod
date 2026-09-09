@@ -213,7 +213,14 @@ public class BlockPackModule extends TexturePackModule<BlockPackModule> {
             MappingResolver mappingResolver = context.hydraulic().getPackManager().mappingResolver();
             BlockMapping blockMapping = mappingResolver.blockMapping(blockLocation);
             Map<String, StatePropertyDefinition> stateDefinitions = stateDefinitions(context, blockLocation, block.getStateDefinition().getProperties(), blockMapping);
-            List<MappingResolver.ResolvedBlockDefinition> resolvedDefinitions = mappingResolver.resolveBlockDefinitions(blockLocation, block.getStateDefinition().getPossibleStates());
+            List<MappingResolver.ResolvedBlockDefinition> resolvedDefinitions = context.hydraulic()
+                .getPackManager()
+                .compatibilityRegistry()
+                .dispatchTable()
+                .blockDefinitions(blockLocation);
+            if (resolvedDefinitions.isEmpty()) {
+                resolvedDefinitions = mappingResolver.resolveBlockDefinitions(blockLocation, block.getStateDefinition().getPossibleStates());
+            }
             if (resolvedDefinitions.size() > 1) {
                 context.logger().info("Resolved {} state-aware compatibility variants for {}", resolvedDefinitions.size(), blockLocation);
             }
@@ -247,7 +254,14 @@ public class BlockPackModule extends TexturePackModule<BlockPackModule> {
 
                 Model model = definition.model();
                 Key key = model.key();
-                MappingResolver.ResolvedBlockState resolvedState = mappingResolver.resolveBlockState(blockLocation, state);
+                MappingResolver.ResolvedBlockState resolvedState = context.hydraulic()
+                    .getPackManager()
+                    .compatibilityRegistry()
+                    .dispatchTable()
+                    .blockState(blockLocation, state);
+                if (resolvedState == null) {
+                    resolvedState = mappingResolver.resolveBlockState(blockLocation, state);
+                }
                 BlockMapping.RuntimeMetadata resolvedMetadata = resolvedState.metadata();
                 Map<String, String> stateValues = customStateValues(context, blockLocation, stateDefinitions, state, resolvedMetadata);
 
@@ -425,7 +439,14 @@ public class BlockPackModule extends TexturePackModule<BlockPackModule> {
                 }
 
                 for (BlockState state : resolvedDefinition.states()) {
-                    MappingResolver.ResolvedBlockState resolvedState = mappingResolver.resolveBlockState(blockLocation, state);
+                    MappingResolver.ResolvedBlockState resolvedState = context.hydraulic()
+                        .getPackManager()
+                        .compatibilityRegistry()
+                        .dispatchTable()
+                        .blockState(blockLocation, state);
+                    if (resolvedState == null) {
+                        resolvedState = mappingResolver.resolveBlockState(blockLocation, state);
+                    }
                     Map<String, String> stateValues = customStateValues(context, blockLocation, stateDefinitions, state, resolvedState.metadata());
                 CustomBlockState.Builder stateBuilder = blockData.blockStateBuilder();
                 for (StatePropertyDefinition property : stateDefinitions.values()) {

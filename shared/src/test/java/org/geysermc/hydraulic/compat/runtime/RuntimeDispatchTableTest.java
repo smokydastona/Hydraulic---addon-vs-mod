@@ -1,8 +1,11 @@
 package org.geysermc.hydraulic.compat.runtime;
 
 import net.minecraft.SharedConstants;
+import net.minecraft.core.Direction;
 import net.minecraft.resources.Identifier;
 import net.minecraft.server.Bootstrap;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import org.geysermc.hydraulic.compat.CompatibilityProfile;
 import org.geysermc.hydraulic.compat.CompatibilityRegistry;
 import org.geysermc.hydraulic.compat.CompatibilityReport;
@@ -20,6 +23,8 @@ import org.geysermc.hydraulic.compat.model.ModFingerprint;
 import org.geysermc.hydraulic.compat.model.Provenance;
 import org.geysermc.hydraulic.compat.model.SupportLevel;
 import org.geysermc.hydraulic.compat.model.SupportResult;
+import org.geysermc.hydraulic.metadata.BlockMapping;
+import org.geysermc.hydraulic.metadata.BlockStateRule;
 import org.geysermc.hydraulic.metadata.IdentifierMapping;
 import org.geysermc.hydraulic.metadata.MetadataIndex;
 import org.junit.jupiter.api.BeforeAll;
@@ -42,13 +47,30 @@ class RuntimeDispatchTableTest {
 
     @Test
     void compilesDirectRuntimePlansForCurrentBridgeSeams() {
+        Identifier block = Identifier.fromNamespaceAndPath("minecraft", "piston");
         Identifier bow = Identifier.fromNamespaceAndPath("minecraft", "bow");
         Identifier entity = Identifier.fromNamespaceAndPath("example", "test_entity");
         Identifier menu = Identifier.fromNamespaceAndPath("example", "test_menu");
         Identifier blockEntity = Identifier.fromNamespaceAndPath("example", "test_block_entity");
+        Identifier northBlock = Identifier.fromNamespaceAndPath("example", "north_piston");
 
         MetadataIndex metadataIndex = new MetadataIndex(
-            Map.of(),
+            Map.of(
+                block,
+                new BlockMapping(block, List.of(new BlockStateRule(
+                    Map.of("facing", "north"),
+                    northBlock,
+                    Map.of("variant", "north"),
+                    "example:north_geo",
+                    "example:block/north",
+                    true,
+                    "machine",
+                    MappingOwnership.USER,
+                    "block.json",
+                    1000,
+                    0
+                )))
+            ),
             Map.of(),
             Map.of(),
             Map.of(entity, new IdentifierMapping(entity, Identifier.fromNamespaceAndPath("example", "bedrock_entity"), MappingOwnership.USER, "entity.json", 1000, 0)),
@@ -80,6 +102,7 @@ class RuntimeDispatchTableTest {
                         Map.of(),
                         Map.of(),
                         List.of(
+                            object("block", block.toString(), Map.of(), supportResults(SupportLevel.ADAPTED, SupportLevel.ADAPTED, SupportLevel.AUTOMATIC)),
                             object("item", bow.toString(), Map.of("behavior_tag", "chargeable_bow"), supportResults(SupportLevel.ADAPTED, SupportLevel.ADAPTED, SupportLevel.AUTOMATIC)),
                             object("entity", entity.toString(), Map.of("behavior_tag", "visual_only_runtime"), supportResults(SupportLevel.ADAPTED, SupportLevel.ADAPTED, SupportLevel.APPROXIMATED)),
                             object("menu", menu.toString(), Map.of(), supportResults(SupportLevel.AUTOMATIC, SupportLevel.AUTOMATIC, SupportLevel.AUTOMATIC)),
@@ -91,6 +114,21 @@ class RuntimeDispatchTableTest {
                 )
             )
         );
+
+        var blockPlan = registry.dispatchTable().block(block);
+        assertNotNull(blockPlan);
+
+        var blockDefinitions = registry.dispatchTable().blockDefinitions(block);
+        assertEquals(2, blockDefinitions.size());
+
+        var resolvedNorthState = registry.dispatchTable().blockState(
+            block,
+            Blocks.PISTON.defaultBlockState().setValue(BlockStateProperties.FACING, Direction.NORTH)
+        );
+        assertNotNull(resolvedNorthState);
+        assertEquals("example:north_piston", resolvedNorthState.identifier().toString());
+        assertEquals("example:north_geo", resolvedNorthState.metadata().geometryId());
+        assertEquals("machine", resolvedNorthState.metadata().behaviorTag());
 
         var bowPlan = registry.dispatchTable().item(bow);
         assertNotNull(bowPlan);
@@ -119,6 +157,7 @@ class RuntimeDispatchTableTest {
         assertEquals(1, registry.dispatchTable().entityPlans("testmod").size());
         assertEquals(1, registry.dispatchTable().menuBridgePlans().size());
         assertEquals(1, registry.dispatchTable().blockEntityBridgePlans().size());
+        assertEquals(3, registry.dispatchTable().metrics().blocks().hits());
         assertEquals(1, registry.dispatchTable().metrics().items().hits());
         assertEquals(1, registry.dispatchTable().metrics().items().misses());
         assertEquals(2, registry.dispatchTable().metrics().entities().hits());
