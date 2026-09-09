@@ -682,6 +682,12 @@ public class BlockPackModule extends PackModule<BlockPackModule> {
             return null;
         }
 
+        return definition.resolveModel(state, ignored -> this.resolveModelDefinition(context, blockLocation, ignored, definition));
+    }
+
+    @Nullable
+    private ModelDefinition resolveModelDefinition(@NotNull PackContext<?> context, @NotNull Identifier blockLocation, @NotNull BlockState state, @NotNull StateDefinition definition) {
+
         team.unnamed.creative.blockstate.BlockState packState = definition.state();
 
         // Check if we have a variant match

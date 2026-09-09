@@ -1009,6 +1009,7 @@ The project is no longer at pure scaffolding stage. The repo now already contain
 
 - cached block-state resolution in `BlockMapping`, plus anchored rule indexes that reduce first-hit conditional rule scans while preserving rule precedence
 - compact resolved block metadata exposed through `MappingResolver.ResolvedBlockState` for block consumers
+- cached per-state `ModelDefinition` resolution in `StateDefinition`, reducing repeated blockstate variant and multipart matching during block conversion
 - per-mod resource indexing in `ModResourceIndex`
 - performance artifacts through `performance-report.json`
 - a live `CapabilityAdapterRegistry`
@@ -1020,7 +1021,7 @@ That means the next roadmap should finish and generalize partially landed system
 
 1. refresh the baseline before each batch and treat the live repo plus runtime artifacts as authoritative over older notes
 2. finish splitting flexible metadata loading from compact runtime metadata beyond the resolved block-state path, especially for patch-heavy and non-block consumers
-3. finish compact resolved block-state answer caching and any remaining block hot-path compaction around the now-indexed rule matcher
+3. finish compact resolved block-state answer caching and any remaining block hot-path compaction around the now-indexed rule matcher and cached model resolution path
 4. complete startup indexing and eliminate remaining repeated probing by routing blockstate, item-definition, legacy-model, and model-provider lookups through indexes or prebuilt maps
 5. make conversion selective, cacheable, and evidence-driven using indexed startup data, compatibility inventory, and strict invalidation keys
 6. expand observability from the current performance artifact into a decision system with cache-hit, miss, and timing breakdowns plus snapshot-versus-history reporting
@@ -1054,7 +1055,7 @@ That means the next roadmap should finish and generalize partially landed system
 The best next implementation slice from the current repo state is:
 
 1. split flexible metadata loading from compact runtime metadata so runtime consumers stop traversing nested rule and patch structures
-2. finish compact resolved block-state answer caching and any remaining block hot-path compaction around the now-indexed rule matcher
+2. finish compact resolved block-state answer caching and any remaining block hot-path compaction around the now-indexed rule matcher and cached model resolution path
 3. complete resource and model lookup indexing so startup and conversion stop paying repeated filesystem or flattened-pack search costs
 4. promote runtime validation and performance validation from log-only checks into committed regression coverage plus artifact-backed measurement
 5. once the performance substrate is proven, widen the existing menu and block-entity seams into the first more generic container or interaction bridge
