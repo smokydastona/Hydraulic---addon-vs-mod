@@ -28,8 +28,9 @@ public final class BlockEntityAnalyzer implements CompatibilityAnalyzer {
 
     @Override
     public @NotNull CompatibilityObject analyze(@NotNull ContentInventory.ContentDescriptor descriptor, @NotNull ContentInventory.ModContentInventory inventory, @NotNull MetadataIndex metadataIndex) {
-        List<ContentPatch> patches = metadataIndex.contentPatches(Identifier.parse(descriptor.javaIdentifier()));
-        boolean patchBackedDataBridge = org.geysermc.hydraulic.compat.runtime.BlockEntityPatchTemplate.supports(patches);
+        Identifier identifier = Identifier.parse(descriptor.javaIdentifier());
+        List<ContentPatch> patches = metadataIndex.contentPatches(identifier);
+        boolean patchBackedDataBridge = metadataIndex.blockEntityPatchTemplate(identifier) != null;
 
         Capability registered = AnalyzerSupport.capability(CapabilityDomain.CONTENT, "registered", "Block entity exists in the Java registry.");
         Capability data = AnalyzerSupport.capability(CapabilityDomain.STATE_DATA, "persistent_data", "Block entity data can be represented on Bedrock.");

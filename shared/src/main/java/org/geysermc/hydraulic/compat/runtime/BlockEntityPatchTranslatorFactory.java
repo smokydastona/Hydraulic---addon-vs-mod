@@ -8,11 +8,8 @@ import org.geysermc.geyser.level.block.type.BlockState;
 import org.geysermc.geyser.session.GeyserSession;
 import org.geysermc.geyser.translator.level.block.entity.BlockEntityTranslator;
 import org.geysermc.hydraulic.compat.CompatibilityRegistry;
-import org.geysermc.hydraulic.compat.mapping.ContentPatch;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-
-import java.util.List;
 
 public final class BlockEntityPatchTranslatorFactory {
     private BlockEntityPatchTranslatorFactory() {
@@ -29,8 +26,7 @@ public final class BlockEntityPatchTranslatorFactory {
             return null;
         }
 
-        List<ContentPatch> patches = compatibilityRegistry.metadataIndex().contentPatches(Identifier.parse(javaIdentifier));
-        BlockEntityPatchTemplate template = BlockEntityPatchTemplate.resolve(patches);
+        BlockEntityPatchTemplate template = compatibilityRegistry.mappingResolver().blockEntityPatchTemplate(Identifier.parse(javaIdentifier));
         if (template == null) {
             return null;
         }

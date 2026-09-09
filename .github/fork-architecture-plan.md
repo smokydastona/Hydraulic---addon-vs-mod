@@ -178,6 +178,7 @@ This separation is fundamental, not just a reporting refinement. A converted mod
   - block entities
 - `MappingResolver` already has state-aware block resolution and groups block states by resolved Bedrock identifier.
 - `MappingResolver` now also carries compact resolved block metadata for block-state overrides, geometry overrides, and material overrides so block runtime consumers no longer need to reopen flexible rule objects after resolution.
+- `MetadataIndex` now precompiles compact menu and block-entity patch templates so analyzers and runtime bridges stop reparsing raw patch operations on hot paths.
 - `BlockPackModule` already consumes resolved state-aware block definitions during custom block registration.
 - `ItemPackModule` already uses compatibility-aware block placement for block items, consults item compatibility objects for non-block custom item registration, suppresses creative exposure when item behavior is only approximated, and continues to translate modern item components through `ComponentConverter`.
 - `ArmorPackModule` now generates humanoid armor attachables from direct equipment-asset loading and gates them through compatibility decisions.
@@ -1010,6 +1011,7 @@ The project is no longer at pure scaffolding stage. The repo now already contain
 - cached block-state resolution in `BlockMapping`, plus anchored rule indexes that reduce first-hit conditional rule scans while preserving rule precedence
 - compact resolved block metadata exposed through `MappingResolver.ResolvedBlockState` for block consumers
 - cached per-state `ModelDefinition` resolution in `StateDefinition`, reducing repeated blockstate variant and multipart matching during block conversion
+- precompiled menu and block-entity patch templates in `MetadataIndex` and `MappingResolver` for runtime bridge lookups and analyzer checks
 - per-mod resource indexing in `ModResourceIndex`
 - performance artifacts through `performance-report.json`
 - a live `CapabilityAdapterRegistry`

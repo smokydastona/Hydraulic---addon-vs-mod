@@ -13,10 +13,13 @@ import org.geysermc.hydraulic.metadata.MetadataIndex;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class MappingResolverTest {
@@ -129,5 +132,56 @@ class MappingResolverTest {
         assertEquals("north", resolved.metadata().bedrockState().get("variant"));
         assertEquals("machine", resolved.metadata().behaviorTag());
         assertTrue(resolved.metadata().behaviorRequired());
+    }
+
+    @Test
+    void resolvesCompactRuntimePatchTemplates() {
+        org.geysermc.hydraulic.compat.mapping.ContentPatch menuPatch = new org.geysermc.hydraulic.compat.mapping.ContentPatch(
+            Identifier.fromNamespaceAndPath("example", "test_menu"),
+            "menu",
+            Map.of("bedrock.menu.container_type", "generic_9x3"),
+            MappingOwnership.USER,
+            "test.json",
+            MappingOwnership.USER.priority(),
+            0
+        );
+        org.geysermc.hydraulic.compat.mapping.ContentPatch blockEntityPatch = new org.geysermc.hydraulic.compat.mapping.ContentPatch(
+            Identifier.fromNamespaceAndPath("example", "test_block_entity"),
+            "block_entity",
+            Map.of(
+                "bedrock.block_entity.id", "Barrel",
+                "bedrock.block_entity.data.TransferCooldown", "8"
+            ),
+            MappingOwnership.USER,
+            "test.json",
+            MappingOwnership.USER.priority(),
+            1
+        );
+
+        MetadataIndex index = new MetadataIndex(
+            Map.of(),
+            Map.of(),
+            Map.of(),
+            Map.of(),
+            Map.of(),
+            Map.of(
+                menuPatch.target(), List.of(menuPatch),
+                blockEntityPatch.target(), List.of(blockEntityPatch)
+            ),
+            java.util.List.of(),
+            MetadataIndex.Summary.empty()
+        );
+
+        MappingResolver resolver = new MappingResolver(index);
+        var menuTemplate = resolver.menuPatchTemplate(menuPatch.target());
+        var blockEntityTemplate = resolver.blockEntityPatchTemplate(blockEntityPatch.target());
+
+        assertNotNull(menuTemplate);
+        assertNotNull(blockEntityTemplate);
+        assertEquals("GENERIC_9X3", menuTemplate.fallbackContainerType());
+        assertEquals("Barrel", blockEntityTemplate.bedrockIdentifier());
+        assertEquals(1, blockEntityTemplate.mutations().size());
+        assertNull(resolver.menuPatchTemplate(Identifier.fromNamespaceAndPath("example", "missing_menu")));
+        assertNull(resolver.blockEntityPatchTemplate(Identifier.fromNamespaceAndPath("example", "missing_block_entity")));
     }
 }

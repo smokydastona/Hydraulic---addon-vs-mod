@@ -1,6 +1,8 @@
 package org.geysermc.hydraulic.metadata;
 
+import org.geysermc.hydraulic.compat.runtime.BlockEntityPatchTemplate;
 import org.geysermc.hydraulic.compat.mapping.ContentPatch;
+import org.geysermc.hydraulic.compat.runtime.MenuPatchTemplate;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.level.block.state.BlockState;
 import org.jetbrains.annotations.NotNull;
@@ -17,6 +19,8 @@ public final class MetadataIndex {
     private final Map<Identifier, IdentifierMapping> entityMappings;
     private final Map<Identifier, IdentifierMapping> menuMappings;
     private final Map<Identifier, java.util.List<ContentPatch>> contentPatches;
+    private final Map<Identifier, MenuPatchTemplate> menuPatchTemplates;
+    private final Map<Identifier, BlockEntityPatchTemplate> blockEntityPatchTemplates;
     private final Map<String, java.util.List<Identifier>> blockMappingsByNamespace;
     private final Map<String, java.util.List<Identifier>> itemMappingsByNamespace;
     private final Map<String, java.util.List<Identifier>> recipeMappingsByNamespace;
@@ -46,6 +50,8 @@ public final class MetadataIndex {
             patchCopy.put(entry.getKey(), java.util.List.copyOf(entry.getValue()));
         }
         this.contentPatches = Collections.unmodifiableMap(patchCopy);
+        this.menuPatchTemplates = indexMenuPatchTemplates(this.contentPatches);
+        this.blockEntityPatchTemplates = indexBlockEntityPatchTemplates(this.contentPatches);
         this.blockMappingsByNamespace = indexIdentifiersByNamespace(this.blockMappings.keySet());
         this.itemMappingsByNamespace = indexIdentifiersByNamespace(this.itemMappings.keySet());
         this.recipeMappingsByNamespace = indexIdentifiersByNamespace(this.recipeMappings.keySet());
@@ -172,6 +178,16 @@ public final class MetadataIndex {
         return this.contentPatches.getOrDefault(javaIdentifier, java.util.List.of());
     }
 
+    @Nullable
+    public MenuPatchTemplate menuPatchTemplate(@NotNull Identifier javaIdentifier) {
+        return this.menuPatchTemplates.get(javaIdentifier);
+    }
+
+    @Nullable
+    public BlockEntityPatchTemplate blockEntityPatchTemplate(@NotNull Identifier javaIdentifier) {
+        return this.blockEntityPatchTemplates.get(javaIdentifier);
+    }
+
     @NotNull
     public java.util.List<MetadataValidationIssue> validationIssues() {
         return this.validationIssues;
@@ -226,6 +242,30 @@ public final class MetadataIndex {
             finalized.put(entry.getKey(), Collections.unmodifiableMap(new LinkedHashMap<>(entry.getValue())));
         }
         return Collections.unmodifiableMap(finalized);
+    }
+
+    @NotNull
+    private static Map<Identifier, MenuPatchTemplate> indexMenuPatchTemplates(@NotNull Map<Identifier, java.util.List<ContentPatch>> contentPatches) {
+        Map<Identifier, MenuPatchTemplate> templates = new LinkedHashMap<>();
+        for (Map.Entry<Identifier, java.util.List<ContentPatch>> entry : contentPatches.entrySet()) {
+            MenuPatchTemplate template = MenuPatchTemplate.resolve(entry.getValue());
+            if (template != null) {
+                templates.put(entry.getKey(), template);
+            }
+        }
+        return Collections.unmodifiableMap(templates);
+    }
+
+    @NotNull
+    private static Map<Identifier, BlockEntityPatchTemplate> indexBlockEntityPatchTemplates(@NotNull Map<Identifier, java.util.List<ContentPatch>> contentPatches) {
+        Map<Identifier, BlockEntityPatchTemplate> templates = new LinkedHashMap<>();
+        for (Map.Entry<Identifier, java.util.List<ContentPatch>> entry : contentPatches.entrySet()) {
+            BlockEntityPatchTemplate template = BlockEntityPatchTemplate.resolve(entry.getValue());
+            if (template != null) {
+                templates.put(entry.getKey(), template);
+            }
+        }
+        return Collections.unmodifiableMap(templates);
     }
 
     public record Summary(

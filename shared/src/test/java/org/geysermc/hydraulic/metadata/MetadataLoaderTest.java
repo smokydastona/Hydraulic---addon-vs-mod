@@ -238,6 +238,8 @@ class MetadataLoaderTest {
         assertEquals("Barrel", patch.operations().get("bedrock.block_entity.id"));
         assertEquals("8", patch.operations().get("bedrock.block_entity.data.TransferCooldown"));
         assertEquals("true", patch.operations().get("bedrock.block_entity.data.isMovable"));
+        assertEquals("Barrel", index.blockEntityPatchTemplate(Identifier.fromNamespaceAndPath("example", "test_block_entity")).bedrockIdentifier());
+        assertEquals(2, index.blockEntityPatchTemplate(Identifier.fromNamespaceAndPath("example", "test_block_entity")).mutations().size());
     }
 
     @Test
@@ -266,6 +268,7 @@ class MetadataLoaderTest {
         assertEquals(0, index.summary().validationIssueCount());
         ContentPatch patch = index.contentPatches(Identifier.fromNamespaceAndPath("test", "barrel_menu")).getFirst();
         assertEquals("generic_9x3", patch.operations().get("bedrock.menu.container_type"));
+        assertEquals("GENERIC_9X3", index.menuPatchTemplate(Identifier.fromNamespaceAndPath("test", "barrel_menu")).fallbackContainerType());
     }
 
     @Test

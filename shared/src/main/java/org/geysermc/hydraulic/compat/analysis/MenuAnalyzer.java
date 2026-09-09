@@ -30,9 +30,10 @@ public final class MenuAnalyzer implements CompatibilityAnalyzer {
 
     @Override
     public @NotNull CompatibilityObject analyze(@NotNull ContentInventory.ContentDescriptor descriptor, @NotNull ContentInventory.ModContentInventory inventory, @NotNull MetadataIndex metadataIndex) {
-        IdentifierMapping mapping = metadataIndex.menuMapping(Identifier.parse(descriptor.javaIdentifier()));
-        List<ContentPatch> patches = metadataIndex.contentPatches(Identifier.parse(descriptor.javaIdentifier()));
-        boolean fallbackContainerBridge = org.geysermc.hydraulic.compat.runtime.MenuPatchTemplate.supports(patches);
+        Identifier identifier = Identifier.parse(descriptor.javaIdentifier());
+        IdentifierMapping mapping = metadataIndex.menuMapping(identifier);
+        List<ContentPatch> patches = metadataIndex.contentPatches(identifier);
+        boolean fallbackContainerBridge = metadataIndex.menuPatchTemplate(identifier) != null;
 
         Capability registered = AnalyzerSupport.capability(CapabilityDomain.CONTENT, "registered", "Menu exists in the Java registry.");
         Capability mappingCapability = AnalyzerSupport.capability(CapabilityDomain.STATE_DATA, "menu_mapping", "Menu has explicit metadata or patch routing.");

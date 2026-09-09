@@ -2,6 +2,8 @@ package org.geysermc.hydraulic.compat;
 
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.level.block.state.BlockState;
+import org.geysermc.hydraulic.compat.runtime.BlockEntityPatchTemplate;
+import org.geysermc.hydraulic.compat.runtime.MenuPatchTemplate;
 import org.geysermc.hydraulic.metadata.BlockMapping;
 import org.geysermc.hydraulic.metadata.BlockStateRule;
 import org.geysermc.hydraulic.metadata.IdentifierMapping;
@@ -49,6 +51,16 @@ public final class MappingResolver {
     @Nullable
     public IdentifierMapping menuMapping(@NotNull Identifier javaIdentifier) {
         return this.metadataIndex.menuMapping(javaIdentifier);
+    }
+
+    @Nullable
+    public MenuPatchTemplate menuPatchTemplate(@NotNull Identifier javaIdentifier) {
+        return this.metadataIndex.menuPatchTemplate(javaIdentifier);
+    }
+
+    @Nullable
+    public BlockEntityPatchTemplate blockEntityPatchTemplate(@NotNull Identifier javaIdentifier) {
+        return this.metadataIndex.blockEntityPatchTemplate(javaIdentifier);
     }
 
     @NotNull
