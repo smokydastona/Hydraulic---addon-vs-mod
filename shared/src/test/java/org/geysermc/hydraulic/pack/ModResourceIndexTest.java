@@ -127,6 +127,14 @@ class ModResourceIndexTest {
                 ModResourceIndex index = ModResourceIndex.create(mod, LoggerFactory.getLogger("ModResourceIndexTest"));
 
                 assertEquals(Set.of("othermod", "thirdmod", "fourthmod", "fifthmod"), index.dependencyNamespaces());
+                assertEquals(
+                    Set.of(Key.key("othermod:item/base"), Key.key("thirdmod:item/layer"), Key.key("fourthmod:item/override")),
+                    index.modelDependencies().get(Identifier.fromNamespaceAndPath("examplemod", "item/test_item"))
+                );
+                assertEquals(
+                    Set.of(Key.key("fifthmod:entity/test")),
+                    index.equipmentDependencies().get(Identifier.fromNamespaceAndPath("examplemod", "test_asset"))
+                );
         }
 
     @Test

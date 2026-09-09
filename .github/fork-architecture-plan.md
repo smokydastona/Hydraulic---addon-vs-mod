@@ -236,6 +236,7 @@ The compatibility layer stays above the current Hydraulic conversion pipeline, b
 - State-aware block identifier grouping and per-state runtime metadata now also compile into the runtime dispatch table, so block registration and block-item placement no longer need to re-derive those mappings through `MappingResolver` when compiled entries already exist.
 - The remaining block-item texture fallback decision path now also consumes compiled block compatibility plans instead of looking raw objects back up from the compatibility report during conversion.
 - Post-generation pack validation now also consumes the texture dependency graph's concrete selected texture set, so `pack-validation-report.json` can structurally fail missing generated texture outputs and warn on leftover unreferenced texture files instead of only validating archive shape.
+- Conversion invalidation now also preserves explicit indexed model and equipment dependency edges and hashes only the concrete referenced model and texture file stamps they traverse, so unrelated asset churn in a dependent namespace no longer invalidates another mod's cached pack output.
 
 ### What is materially better than earlier assessments
 - The fork is no longer only a block metadata experiment.
@@ -250,7 +251,7 @@ The compatibility layer stays above the current Hydraulic conversion pipeline, b
 - Live Fabric runtime validation now also shows the texture dependency graph is active in the conversion path. The current bundled test mod reported `discoveredTextures = 17`, `selectedTextures = 17`, and `omittedTextures = 0`, which means the graph is wired correctly even though this small fixture pack currently references every discovered texture.
 - Live Fabric runtime validation now also confirms the structural texture-coverage check matches the current fixture pack: after conversion, both `hydraulic` and `hydraulic_test_mod` were `valid = true` in `pack-validation-report.json`, with no missing selected textures and no leftover unreferenced texture files.
 - Live Fabric runtime validation now also confirms that the first broader indexed texture consumer is real rather than theoretical: pack conversion, block registration, and report generation still complete with the new indexed texture path plus lazy animation-metadata flow, and the runtime artifact remains stable with `selectedTextures = 17` and `textureResolutionCache.hits = 5` on the current fixture mod.
-- Live Fabric runtime validation now also confirms the dependency-aware invalidation slice is live on the real storage path: Hydraulic rewrote per-mod `conversion-key.json` files with `HYDRAULIC_CONVERSION_KEY_V2`, persisted `dependencyFingerprint` and `dependentModCount`, and safely forced reconversion after the cache identity expanded.
+- Live Fabric runtime validation now also confirms the dependency-aware invalidation slice is live on the real storage path: Hydraulic rewrote per-mod `conversion-key.json` files with `HYDRAULIC_CONVERSION_KEY_V3`, persisted `dependencyFingerprint` and `dependentModCount`, and safely forced reconversion after the cache identity expanded to explicit resource-edge hashing.
 
 ### What is still too narrow
 - Discovery is still duplicated across multiple subsystems.
@@ -1583,10 +1584,10 @@ The best next implementation slice from the current repo state is:
 
 1. push lazy indexed access past model paths into broader texture and adjacent resource reads so the new dependency graph can prune larger packs instead of only reporting current fixture usage
 2. widen the compiled-plan surface from current registration and patch seams into richer block-state, menu, block-entity, and transfer-bridge runtime tables
-3. deepen dependency tracking from namespace-level invalidation toward explicit resource-edge invalidation where the data justifies it
-4. turn current analyzer/runtime requirement output for transfer-heavy and fluid behavior into actual bridge adapters instead of reporting-only findings
+3. turn current analyzer/runtime requirement output for transfer-heavy and fluid behavior into actual bridge adapters instead of reporting-only findings
+4. keep narrowing cache invalidation and runtime lookup surfaces only where fresh runtime evidence shows remaining broad scans or coarse dependencies
 
-The first broader texture-read slice, the first dependency-aware invalidation slice, the first diagnostic precompilation slice, the first compiled block-state registration slice, and the first structural texture-coverage validation slice are now all shipped. The next smallest slice is widening the compiled runtime plan into transfer-heavy and deeper behavior paths, because the cache, validation, and indexed-discovery substrate is now strong enough that the remaining hot-path flexibility sits more in those richer runtime decisions than in the already-compiled menu, block-entity, first block-state, and pack-validation seams.
+The first broader texture-read slice, the first dependency-aware invalidation slice, the first explicit resource-edge invalidation slice, the first diagnostic precompilation slice, the first compiled block-state registration slice, and the first structural texture-coverage validation slice are now all shipped. The next smallest slice is widening the compiled runtime plan into transfer-heavy and deeper behavior paths, because the cache, validation, and indexed-discovery substrate is now strong enough that the remaining hot-path flexibility sits more in those richer runtime decisions than in the already-compiled menu, block-entity, block-state, dependency-invalidation, and pack-validation seams.
 
 ## What Not To Do
 - Do not keep extending `BlockStateRule` with every future concern.

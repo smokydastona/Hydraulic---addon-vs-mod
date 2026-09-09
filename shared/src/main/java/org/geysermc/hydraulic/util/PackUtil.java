@@ -5,6 +5,7 @@ import com.google.common.hash.Hashing;
 import com.mojang.logging.LogUtils;
 import net.kyori.adventure.key.Key;
 import net.minecraft.SharedConstants;
+import net.minecraft.resources.Identifier;
 import org.geysermc.hydraulic.Constants;
 import org.geysermc.hydraulic.cache.ConversionKey;
 import org.geysermc.hydraulic.compat.mapping.ContentPatch;
@@ -21,12 +22,15 @@ import org.slf4j.Logger;
 import team.unnamed.creative.model.Model;
 
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashSet;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Queue;
 import java.util.Set;
 
 /**
@@ -34,7 +38,7 @@ import java.util.Set;
  */
 public class PackUtil {
     protected static final Logger LOGGER = LogUtils.getLogger();
-    private static final String CONVERSION_KEY_ALGORITHM = "HYDRAULIC_CONVERSION_KEY_V2";
+    private static final String CONVERSION_KEY_ALGORITHM = "HYDRAULIC_CONVERSION_KEY_V3";
 
     public static String getTextureName(@NotNull String modelName) {
         // TODO Sometimes things end up in the minecraft namespace when they shouldn't.
@@ -127,37 +131,83 @@ public class PackUtil {
             return new DependencyFingerprint("", 0);
         }
 
-        Set<String> dependentModIds = new java.util.TreeSet<>();
-        List<String> pendingNamespaces = new ArrayList<>(resourceIndex.dependencyNamespaces());
-        Set<String> visitedNamespaces = new LinkedHashSet<>();
-
-        for (int index = 0; index < pendingNamespaces.size(); index++) {
-            String namespace = pendingNamespaces.get(index);
-            if (!visitedNamespaces.add(namespace)) {
-                continue;
-            }
-
-            for (Map.Entry<String, ModResourceIndex> entry : allIndexes.entrySet()) {
-                if (mod.id().equals(entry.getKey()) || !entry.getValue().namespaces().contains(namespace)) {
-                    continue;
-                }
-
-                if (dependentModIds.add(entry.getKey())) {
-                    pendingNamespaces.addAll(entry.getValue().dependencyNamespaces());
-                }
-            }
-        }
-
         Hasher hasher = Hashing.sha256().newHasher();
-        for (String dependentModId : dependentModIds) {
-            ModResourceIndex dependentIndex = allIndexes.get(dependentModId);
-            if (dependentIndex == null) {
+        Set<String> dependentModIds = new java.util.TreeSet<>();
+        Set<String> hashedResourceRefs = new LinkedHashSet<>();
+        Set<String> visitedModelRefs = new LinkedHashSet<>();
+        Queue<ModelDependencyNode> pendingModels = new LinkedList<>();
+
+        for (Identifier modelId : resourceIndex.modelDependencies().keySet()) {
+            pendingModels.add(new ModelDependencyNode(mod.id(), Key.key(modelId.getNamespace(), modelId.getPath())));
+        }
+
+        while (!pendingModels.isEmpty()) {
+            ModelDependencyNode node = pendingModels.remove();
+            String visitedKey = node.modId() + "|" + node.modelKey().asString();
+            if (!visitedModelRefs.add(visitedKey)) {
                 continue;
             }
-            hasher.putString(dependentModId, StandardCharsets.UTF_8);
-            hasher.putString(dependentIndex.fingerprint().stableValue(), StandardCharsets.UTF_8);
+
+            ModResourceIndex ownerIndex = allIndexes.get(node.modId());
+            if (ownerIndex == null) {
+                continue;
+            }
+
+            Identifier modelIdentifier = Identifier.fromNamespaceAndPath(node.modelKey().namespace(), node.modelKey().value());
+            for (Key dependency : ownerIndex.modelDependencies().getOrDefault(modelIdentifier, Set.of())) {
+                hashDependency(mod.id(), dependency, allIndexes, dependentModIds, hashedResourceRefs, hasher, pendingModels);
+            }
         }
+
+        for (Set<Key> dependencies : resourceIndex.equipmentDependencies().values()) {
+            for (Key dependency : dependencies) {
+                hashDependency(mod.id(), dependency, allIndexes, dependentModIds, hashedResourceRefs, hasher, pendingModels);
+            }
+        }
+
         return new DependencyFingerprint(hasher.hash().toString(), dependentModIds.size());
+    }
+
+    private static void hashDependency(
+        @NotNull String rootModId,
+        @NotNull Key dependency,
+        @NotNull Map<String, ModResourceIndex> allIndexes,
+        @NotNull Set<String> dependentModIds,
+        @NotNull Set<String> hashedResourceRefs,
+        @NotNull Hasher hasher,
+        @NotNull Queue<ModelDependencyNode> pendingModels
+    ) {
+        for (Map.Entry<String, ModResourceIndex> entry : allIndexes.entrySet()) {
+            ModResourceIndex index = entry.getValue();
+            if (!index.namespaces().contains(dependency.namespace())) {
+                continue;
+            }
+
+            Path resourcePath = index.resolveModelPath(dependency);
+            boolean modelDependency = resourcePath != null;
+            if (resourcePath == null) {
+                resourcePath = index.resolveTexturePath(dependency);
+            }
+            if (resourcePath == null) {
+                continue;
+            }
+
+            String resourceRef = entry.getKey() + "|" + dependency.asString();
+            if (hashedResourceRefs.add(resourceRef) && !rootModId.equals(entry.getKey())) {
+                dependentModIds.add(entry.getKey());
+                ModResourceIndex.FileStamp fileStamp = index.resolveFileStamp(resourcePath);
+                if (fileStamp != null) {
+                    hasher.putString(entry.getKey(), StandardCharsets.UTF_8);
+                    hasher.putString(fileStamp.stablePath(), StandardCharsets.UTF_8);
+                    hasher.putLong(fileStamp.size());
+                    hasher.putLong(fileStamp.lastModifiedEpochMillis());
+                }
+            }
+
+            if (modelDependency) {
+                pendingModels.add(new ModelDependencyNode(entry.getKey(), dependency));
+            }
+        }
     }
 
     @NotNull
@@ -209,6 +259,9 @@ public class PackUtil {
     }
 
     record DependencyFingerprint(@NotNull String value, int modCount) {
+    }
+
+    private record ModelDependencyNode(@NotNull String modId, @NotNull Key modelKey) {
     }
 
     private static void hashBlockMappings(@NotNull Hasher hasher, @NotNull Map<?, BlockMapping> mappings) {

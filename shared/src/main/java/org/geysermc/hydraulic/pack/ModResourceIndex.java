@@ -34,12 +34,15 @@ public final class ModResourceIndex {
     private final Map<Identifier, Path> models;
     private final Map<Key, Path> textures;
     private final Set<String> dependencyNamespaces;
+    private final Map<Identifier, Set<Key>> modelDependencies;
+    private final Map<Identifier, Set<Key>> equipmentDependencies;
     private final Map<String, Set<String>> assetEntries;
     private final ResourceFingerprint fingerprint;
     private final boolean hasAssetFiles;
     private final List<ScanRoot> scanRoots;
     private final List<FileStamp> fileStamps;
     private final List<DirectoryStamp> directoryStamps;
+    private final Map<String, FileStamp> fileStampsByPath;
 
     private ModResourceIndex(
         @NotNull Set<String> namespaces,
@@ -49,6 +52,8 @@ public final class ModResourceIndex {
         @NotNull Map<Identifier, Path> models,
         @NotNull Map<Key, Path> textures,
         @NotNull Set<String> dependencyNamespaces,
+        @NotNull Map<Identifier, Set<Key>> modelDependencies,
+        @NotNull Map<Identifier, Set<Key>> equipmentDependencies,
         @NotNull Map<String, Set<String>> assetEntries,
         @NotNull ResourceFingerprint fingerprint,
         boolean hasAssetFiles,
@@ -63,12 +68,15 @@ public final class ModResourceIndex {
         this.models = Map.copyOf(models);
         this.textures = Map.copyOf(textures);
         this.dependencyNamespaces = Set.copyOf(dependencyNamespaces);
+        this.modelDependencies = copyDependencyMap(modelDependencies);
+        this.equipmentDependencies = copyDependencyMap(equipmentDependencies);
         this.assetEntries = copyAssetEntries(assetEntries);
         this.fingerprint = fingerprint;
         this.hasAssetFiles = hasAssetFiles;
         this.scanRoots = List.copyOf(scanRoots);
         this.fileStamps = List.copyOf(fileStamps);
         this.directoryStamps = List.copyOf(directoryStamps);
+        this.fileStampsByPath = indexFileStamps(this.fileStamps);
     }
 
     @NotNull
@@ -80,6 +88,8 @@ public final class ModResourceIndex {
         Map<Identifier, Path> models = new LinkedHashMap<>();
         Map<Key, Path> textures = new LinkedHashMap<>();
         Set<String> dependencyNamespaces = new LinkedHashSet<>();
+        Map<Identifier, Set<Key>> modelDependencies = new LinkedHashMap<>();
+        Map<Identifier, Set<Key>> equipmentDependencies = new LinkedHashMap<>();
         Map<String, Set<String>> assetEntries = new LinkedHashMap<>();
         List<ScanRoot> scanRoots = new ArrayList<>();
         List<FileStamp> fileStamps = new ArrayList<>();
@@ -111,7 +121,7 @@ public final class ModResourceIndex {
 
                         sawAssetFile = true;
                         fileStamps.add(fileStamp(path, assets, rootOrdinal, "assets"));
-                        indexAssetFile(path, assets, namespaces, blockStates, itemDefinitions, legacyItemModels, models, textures, dependencyNamespaces, assetEntries);
+                        indexAssetFile(path, assets, namespaces, blockStates, itemDefinitions, legacyItemModels, models, textures, dependencyNamespaces, modelDependencies, equipmentDependencies, assetEntries);
                         FileMetadata metadata = fileMetadata(path, assets, rootOrdinal, "assets");
                         fingerprintHasher.putString(metadata.stablePath(), java.nio.charset.StandardCharsets.UTF_8);
                         fingerprintHasher.putLong(metadata.size());
@@ -169,6 +179,8 @@ public final class ModResourceIndex {
             models,
             textures,
             dependencyNamespaces,
+            modelDependencies,
+            equipmentDependencies,
             assetEntries,
             new ResourceFingerprint(FINGERPRINT_ALGORITHM, indexedFileCount, indexedTotalSizeBytes, latestModifiedEpochMillis, fingerprintHasher.hash().toString()),
             hasAssetFiles,
@@ -188,6 +200,8 @@ public final class ModResourceIndex {
             toIdentifierPathMap(snapshot.models()),
             toKeyPathMap(snapshot.textures()),
             snapshot.dependencyNamespaces(),
+            toIdentifierKeySetMap(snapshot.modelDependencies()),
+            toIdentifierKeySetMap(snapshot.equipmentDependencies()),
             snapshot.assetEntries(),
             snapshot.fingerprint(),
             snapshot.hasAssetFiles(),
@@ -236,6 +250,16 @@ public final class ModResourceIndex {
     }
 
     @NotNull
+    public Map<Identifier, Set<Key>> modelDependencies() {
+        return this.modelDependencies;
+    }
+
+    @NotNull
+    public Map<Identifier, Set<Key>> equipmentDependencies() {
+        return this.equipmentDependencies;
+    }
+
+    @NotNull
     public Snapshot snapshot() {
         return new Snapshot(
             this.namespaces,
@@ -245,6 +269,8 @@ public final class ModResourceIndex {
             stringifyIdentifierPaths(this.models),
             stringifyKeyPaths(this.textures),
             this.dependencyNamespaces,
+            stringifyDependencyMap(this.modelDependencies),
+            stringifyDependencyMap(this.equipmentDependencies),
             this.assetEntries,
             this.fingerprint,
             this.hasAssetFiles,
@@ -298,6 +324,11 @@ public final class ModResourceIndex {
         return this.fileStamps;
     }
 
+    @Nullable
+    public FileStamp resolveFileStamp(@NotNull Path path) {
+        return this.fileStampsByPath.get(path.toString());
+    }
+
     @NotNull
     public List<DirectoryStamp> directoryStamps() {
         return this.directoryStamps;
@@ -322,6 +353,8 @@ public final class ModResourceIndex {
         @NotNull Map<Identifier, Path> models,
         @NotNull Map<Key, Path> textures,
         @NotNull Set<String> dependencyNamespaces,
+        @NotNull Map<Identifier, Set<Key>> modelDependencies,
+        @NotNull Map<Identifier, Set<Key>> equipmentDependencies,
         @NotNull Map<String, Set<String>> assetEntries
     ) {
         Path relative = assetsRoot.relativize(file);
@@ -356,8 +389,11 @@ public final class ModResourceIndex {
             Identifier identifier = identifier(namespace, relative.subpath(2, relative.getNameCount()));
             if (identifier != null) {
                 models.putIfAbsent(identifier, file);
+                Set<Key> dependencies = collectModelDependencies(file, namespace, dependencyNamespaces);
+                if (!dependencies.isEmpty()) {
+                    modelDependencies.putIfAbsent(identifier, dependencies);
+                }
             }
-            collectModelDependencyNamespaces(file, namespace, dependencyNamespaces);
         }
 
         if ("textures".equals(firstSegment) && isTextureAsset(file)) {
@@ -377,7 +413,13 @@ public final class ModResourceIndex {
         }
 
         if ("equipment".equals(firstSegment) && file.getFileName().toString().endsWith(".json")) {
-            collectEquipmentDependencyNamespaces(file, namespace, dependencyNamespaces);
+            Identifier identifier = identifier(namespace, relative.subpath(2, relative.getNameCount()));
+            if (identifier != null) {
+                Set<Key> dependencies = collectEquipmentDependencies(file, namespace, dependencyNamespaces);
+                if (!dependencies.isEmpty()) {
+                    equipmentDependencies.putIfAbsent(identifier, dependencies);
+                }
+            }
         }
 
         if (!"models".equals(firstSegment) || relative.getNameCount() < 4 || !"item".equals(relative.getName(2).toString())) {
@@ -485,6 +527,24 @@ public final class ModResourceIndex {
     }
 
     @NotNull
+    private static Map<Identifier, Set<Key>> copyDependencyMap(@NotNull Map<Identifier, Set<Key>> dependencies) {
+        Map<Identifier, Set<Key>> copy = new LinkedHashMap<>();
+        for (Map.Entry<Identifier, Set<Key>> entry : dependencies.entrySet()) {
+            copy.put(entry.getKey(), Set.copyOf(entry.getValue()));
+        }
+        return Map.copyOf(copy);
+    }
+
+    @NotNull
+    private static Map<String, FileStamp> indexFileStamps(@NotNull List<FileStamp> fileStamps) {
+        Map<String, FileStamp> indexed = new LinkedHashMap<>();
+        for (FileStamp fileStamp : fileStamps) {
+            indexed.put(fileStamp.path(), fileStamp);
+        }
+        return Map.copyOf(indexed);
+    }
+
+    @NotNull
     private static Map<String, String> stringifyIdentifierPaths(@NotNull Map<Identifier, Path> values) {
         Map<String, String> result = new LinkedHashMap<>();
         for (Map.Entry<Identifier, Path> entry : values.entrySet()) {
@@ -498,6 +558,19 @@ public final class ModResourceIndex {
         Map<String, String> result = new LinkedHashMap<>();
         for (Map.Entry<Key, Path> entry : values.entrySet()) {
             result.put(entry.getKey().asString(), entry.getValue().toString());
+        }
+        return Map.copyOf(result);
+    }
+
+    @NotNull
+    private static Map<String, Set<String>> stringifyDependencyMap(@NotNull Map<Identifier, Set<Key>> values) {
+        Map<String, Set<String>> result = new LinkedHashMap<>();
+        for (Map.Entry<Identifier, Set<Key>> entry : values.entrySet()) {
+            Set<String> dependencies = new LinkedHashSet<>();
+            for (Key dependency : entry.getValue()) {
+                dependencies.add(dependency.asString());
+            }
+            result.put(entry.getKey().toString(), Set.copyOf(dependencies));
         }
         return Map.copyOf(result);
     }
@@ -531,6 +604,28 @@ public final class ModResourceIndex {
         return Map.copyOf(result);
     }
 
+    @NotNull
+    private static Map<Identifier, Set<Key>> toIdentifierKeySetMap(@NotNull Map<String, Set<String>> values) {
+        Map<Identifier, Set<Key>> result = new LinkedHashMap<>();
+        for (Map.Entry<String, Set<String>> entry : values.entrySet()) {
+            int separator = entry.getKey().indexOf(':');
+            if (separator <= 0 || separator == entry.getKey().length() - 1) {
+                continue;
+            }
+
+            Identifier identifier = Identifier.fromNamespaceAndPath(entry.getKey().substring(0, separator), entry.getKey().substring(separator + 1));
+            Set<Key> dependencies = new LinkedHashSet<>();
+            for (String dependency : entry.getValue()) {
+                try {
+                    dependencies.add(Key.key(dependency));
+                } catch (IllegalArgumentException ignored) {
+                }
+            }
+            result.put(identifier, Set.copyOf(dependencies));
+        }
+        return Map.copyOf(result);
+    }
+
     public record Snapshot(
         @NotNull Set<String> namespaces,
         @NotNull Map<String, String> blockStates,
@@ -539,6 +634,8 @@ public final class ModResourceIndex {
         @NotNull Map<String, String> models,
         @NotNull Map<String, String> textures,
         @NotNull Set<String> dependencyNamespaces,
+        @NotNull Map<String, Set<String>> modelDependencies,
+        @NotNull Map<String, Set<String>> equipmentDependencies,
         @NotNull Map<String, Set<String>> assetEntries,
         @NotNull ResourceFingerprint fingerprint,
         boolean hasAssetFiles,
@@ -554,6 +651,8 @@ public final class ModResourceIndex {
             models = immutableStringMap(models);
             textures = immutableStringMap(textures);
             dependencyNamespaces = dependencyNamespaces == null ? Set.of() : Set.copyOf(dependencyNamespaces);
+            modelDependencies = modelDependencies == null ? Map.of() : copyAssetEntries(modelDependencies);
+            equipmentDependencies = equipmentDependencies == null ? Map.of() : copyAssetEntries(equipmentDependencies);
             assetEntries = assetEntries == null ? Map.of() : copyAssetEntries(assetEntries);
             scanRoots = scanRoots == null ? List.of() : List.copyOf(scanRoots);
             fileStamps = fileStamps == null ? List.of() : List.copyOf(fileStamps);
@@ -611,43 +710,50 @@ public final class ModResourceIndex {
         return Identifier.fromNamespaceAndPath(namespace, path);
     }
 
-    private static void collectModelDependencyNamespaces(@NotNull Path path, @NotNull String ownerNamespace, @NotNull Set<String> dependencyNamespaces) {
+    @NotNull
+    private static Set<Key> collectModelDependencies(@NotNull Path path, @NotNull String ownerNamespace, @NotNull Set<String> dependencyNamespaces) {
         JsonObject root = readObject(path);
         if (root == null) {
-            return;
+            return Set.of();
         }
 
-        collectDependencyNamespace(root.get("parent"), ownerNamespace, dependencyNamespaces);
+        Set<Key> dependencies = new LinkedHashSet<>();
+
+        collectDependency(root.get("parent"), ownerNamespace, dependencyNamespaces, dependencies);
 
         JsonObject textures = object(root.get("textures"));
         if (textures != null) {
             for (Map.Entry<String, JsonElement> entry : textures.entrySet()) {
-                collectDependencyNamespace(entry.getValue(), ownerNamespace, dependencyNamespaces);
+                collectDependency(entry.getValue(), ownerNamespace, dependencyNamespaces, dependencies);
             }
         }
 
         JsonArray overrides = array(root.get("overrides"));
         if (overrides == null) {
-            return;
+            return Set.copyOf(dependencies);
         }
 
         for (JsonElement overrideElement : overrides) {
             JsonObject override = object(overrideElement);
             if (override != null) {
-                collectDependencyNamespace(override.get("model"), ownerNamespace, dependencyNamespaces);
+                collectDependency(override.get("model"), ownerNamespace, dependencyNamespaces, dependencies);
             }
         }
+        return Set.copyOf(dependencies);
     }
 
-    private static void collectEquipmentDependencyNamespaces(@NotNull Path path, @NotNull String ownerNamespace, @NotNull Set<String> dependencyNamespaces) {
+    @NotNull
+    private static Set<Key> collectEquipmentDependencies(@NotNull Path path, @NotNull String ownerNamespace, @NotNull Set<String> dependencyNamespaces) {
         JsonObject root = readObject(path);
         if (root == null) {
-            return;
+            return Set.of();
         }
+
+        Set<Key> dependencies = new LinkedHashSet<>();
 
         JsonObject layers = object(root.get("layers"));
         if (layers == null) {
-            return;
+            return Set.of();
         }
 
         for (Map.Entry<String, JsonElement> entry : layers.entrySet()) {
@@ -658,13 +764,19 @@ public final class ModResourceIndex {
             for (JsonElement element : values) {
                 JsonObject layer = object(element);
                 if (layer != null) {
-                    collectDependencyNamespace(layer.get("texture"), ownerNamespace, dependencyNamespaces);
+                    collectDependency(layer.get("texture"), ownerNamespace, dependencyNamespaces, dependencies);
                 }
             }
         }
+        return Set.copyOf(dependencies);
     }
 
-    private static void collectDependencyNamespace(@Nullable JsonElement element, @NotNull String ownerNamespace, @NotNull Set<String> dependencyNamespaces) {
+    private static void collectDependency(
+        @Nullable JsonElement element,
+        @NotNull String ownerNamespace,
+        @NotNull Set<String> dependencyNamespaces,
+        @NotNull Set<Key> dependencies
+    ) {
         if (element == null || !element.isJsonPrimitive() || !element.getAsJsonPrimitive().isString()) {
             return;
         }
@@ -676,7 +788,12 @@ public final class ModResourceIndex {
 
         try {
             Key key = raw.indexOf(':') >= 0 ? Key.key(raw) : Key.key(ownerNamespace, raw);
-            if (!ownerNamespace.equals(key.namespace()) && !Key.MINECRAFT_NAMESPACE.equals(key.namespace())) {
+            if (Key.MINECRAFT_NAMESPACE.equals(key.namespace())) {
+                return;
+            }
+
+            dependencies.add(key);
+            if (!ownerNamespace.equals(key.namespace())) {
                 dependencyNamespaces.add(key.namespace());
             }
         } catch (IllegalArgumentException ignored) {
