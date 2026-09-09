@@ -67,7 +67,51 @@ class BlockMappingTest {
         assertSame(fallbackRule, mapping.findRule(southState));
         assertSame(fallbackRule, mapping.findRule(southState));
         assertEquals(2, mapping.cachedStateCount());
+        assertEquals(1, mapping.indexedRuleCount());
+        assertEquals(1, mapping.anchorBucketCount());
+        assertEquals(1, mapping.unconditionalRuleCount());
         assertEquals("example:north_block", mapping.resolve(northState).identifier().toString());
         assertEquals("example:fallback_block", mapping.resolve(southState).identifier().toString());
+    }
+
+    @Test
+    void preservesOriginalRulePrecedenceForHigherPriorityUnconditionalRules() {
+        BlockStateRule fallbackRule = new BlockStateRule(
+            Map.of(),
+            Identifier.fromNamespaceAndPath("example", "fallback_block"),
+            null,
+            "example:fallback",
+            null,
+            false,
+            null,
+            MappingOwnership.USER,
+            "test.json",
+            MappingOwnership.USER.priority(),
+            0
+        );
+        BlockStateRule northRule = new BlockStateRule(
+            Map.of("facing", "north"),
+            Identifier.fromNamespaceAndPath("example", "north_block"),
+            null,
+            "example:north",
+            null,
+            false,
+            null,
+            MappingOwnership.USER,
+            "test.json",
+            MappingOwnership.USER.priority(),
+            1
+        );
+        BlockMapping mapping = new BlockMapping(
+            Identifier.fromNamespaceAndPath("example", "test_block"),
+            List.of(fallbackRule, northRule)
+        );
+
+        BlockState northState = Blocks.PISTON.defaultBlockState().setValue(BlockStateProperties.FACING, Direction.NORTH);
+
+        assertSame(fallbackRule, mapping.findRule(northState));
+        assertEquals("example:fallback_block", mapping.resolve(northState).identifier().toString());
+        assertEquals(1, mapping.indexedRuleCount());
+        assertEquals(1, mapping.unconditionalRuleCount());
     }
 }
