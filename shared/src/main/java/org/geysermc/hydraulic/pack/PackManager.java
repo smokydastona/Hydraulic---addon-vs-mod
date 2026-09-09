@@ -267,7 +267,7 @@ public class PackManager {
         replacePipeline(
             pipelines,
             AssetConverters.TEXTURE,
-            AssetConverters.create(new SelectiveTextureExtractor(textureDependencies), org.geysermc.pack.converter.type.texture.TextureConverter.INSTANCE)
+            AssetConverters.create(new SelectiveTextureExtractor(resourceIndex, textureDependencies), org.geysermc.pack.converter.type.texture.TextureConverter.INSTANCE)
         );
         pipelines.add(AssetConverters.create(new MetadataPackModule(mod, conversionKey)));
         this.activeTextureDependencies.put(mod.id(), textureDependencies);
