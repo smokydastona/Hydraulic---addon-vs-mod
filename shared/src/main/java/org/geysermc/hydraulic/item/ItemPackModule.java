@@ -175,20 +175,46 @@ public class ItemPackModule extends TexturePackModule<ItemPackModule> {
     ) {
         try (Reader reader = Files.newBufferedReader(itemAssetPath, StandardCharsets.UTF_8)) {
             JsonElement json = JsonParser.parseReader(reader);
-            return ItemSerializer.INSTANCE.deserializeFromJson(
-                json,
-                Key.key(itemLocation.getNamespace(), itemLocation.getPath()),
-                PackFormat.UNKNOWN
-            );
+            ParsedIndexedItemDefinition parsed = parseIndexedItemDefinition(json, itemLocation);
+            if (parsed.failureReason() != null) {
+                context.logger().warn(
+                    "Skipping indexed modern item definition {} from {} because Hydraulic does not yet support its item model schema: {}",
+                    itemLocation,
+                    itemAssetPath,
+                    parsed.failureReason()
+                );
+            }
+            return parsed.itemDefinition();
         } catch (IOException e) {
             context.logger().warn("Failed to load indexed item definition {} from {}", itemLocation, itemAssetPath, e);
             return null;
         }
     }
 
+    static @NotNull ParsedIndexedItemDefinition parseIndexedItemDefinition(@NotNull JsonElement json, @NotNull Identifier itemLocation) {
+        try {
+            return new ParsedIndexedItemDefinition(
+                ItemSerializer.INSTANCE.deserializeFromJson(
+                    json,
+                    Key.key(itemLocation.getNamespace(), itemLocation.getPath()),
+                    PackFormat.UNKNOWN
+                ),
+                null
+            );
+        } catch (IOException | IllegalArgumentException e) {
+            return new ParsedIndexedItemDefinition(null, e.getMessage());
+        }
+    }
+
     private static boolean isModernItemDefinitionPath(@NotNull Path itemAssetPath, @NotNull Identifier itemLocation) {
         String normalizedPath = itemAssetPath.toString().replace('\\', '/');
         return normalizedPath.contains("/assets/" + itemLocation.getNamespace() + "/items/");
+    }
+
+    record ParsedIndexedItemDefinition(
+        @Nullable team.unnamed.creative.item.Item itemDefinition,
+        @Nullable String failureReason
+    ) {
     }
 
     private void postProcess(@NotNull PackPostProcessContext<ItemPackModule> context) {

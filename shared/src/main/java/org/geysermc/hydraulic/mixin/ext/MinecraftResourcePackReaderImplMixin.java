@@ -21,6 +21,7 @@ import java.io.IOException;
 @Mixin(targets = "team.unnamed.creative.serialize.minecraft.MinecraftResourcePackReaderImpl", remap = false)
 public abstract class MinecraftResourcePackReaderImplMixin {
     private static Logger LOGGER = LoggerFactory.getLogger("MinecraftResourcePackReaderImplMixin");
+    private static final String UNKNOWN_ITEM_MODEL_TYPE_PREFIX = "Unknown item model type:";
 
     /**
      * Redirect the parseJson method to catch any exceptions that may occur
@@ -62,10 +63,20 @@ public abstract class MinecraftResourcePackReaderImplMixin {
         try {
             return instance.deserializeFromJson(jsonElement, key, packFormat);
         } catch (Exception e) {
-            LOGGER.error("Failed to deserialize JSON (" + key + "): " + e.getMessage());
+            if (isUnsupportedItemModelSchema(e)) {
+                LOGGER.debug("Skipping unsupported item model schema for {}: {}", key, e.getMessage());
+            } else {
+                LOGGER.error("Failed to deserialize JSON (" + key + "): " + e.getMessage());
+            }
         }
 
         return null;
+    }
+
+    private static boolean isUnsupportedItemModelSchema(Exception exception) {
+        return exception instanceof IllegalArgumentException
+            && exception.getMessage() != null
+            && exception.getMessage().startsWith(UNKNOWN_ITEM_MODEL_TYPE_PREFIX);
     }
 
     @Redirect(
