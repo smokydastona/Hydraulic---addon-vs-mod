@@ -13,6 +13,7 @@ import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.Item;
 import org.geysermc.event.Event;
 import org.geysermc.geyser.api.GeyserApi;
+import org.geysermc.hydraulic.cache.ConversionKey;
 import org.geysermc.hydraulic.Constants;
 import org.geysermc.hydraulic.HydraulicImpl;
 import org.geysermc.hydraulic.block.StateDefinition;
@@ -28,6 +29,7 @@ import org.geysermc.hydraulic.pack.context.PackPreProcessContext;
 import org.geysermc.hydraulic.pack.converter.CustomModelConverter;
 import org.geysermc.hydraulic.pack.modules.MetadataPackModule;
 import org.geysermc.hydraulic.platform.mod.ModInfo;
+import org.geysermc.hydraulic.util.PackUtil;
 import org.geysermc.pack.converter.PackConverter;
 import org.geysermc.pack.converter.pipeline.AssetConverters;
 import org.geysermc.pack.converter.pipeline.ConverterPipeline;
@@ -237,8 +239,9 @@ public class PackManager {
      */
     @SuppressWarnings({ "rawtypes", "unchecked" })
     PackCreationResult createPack(@NotNull ModInfo mod, @NotNull Path packPath) {
+        ConversionKey conversionKey = this.conversionKey(mod);
         List<ConverterPipeline<?, ?>> pipelines = new ArrayList<>(packConverters);
-        pipelines.add(AssetConverters.create(new MetadataPackModule(mod)));
+        pipelines.add(AssetConverters.create(new MetadataPackModule(mod, conversionKey)));
 
         PackConverter converter = new PackConverter()
                 .packName(mod.name())
@@ -467,6 +470,16 @@ public class PackManager {
 
     void recordPackConversionMetrics(@NotNull PerformanceReport.PackConversionMetrics metrics) {
         this.performanceTracker.recordPackConversion(metrics);
+    }
+
+    @NotNull
+    ConversionKey conversionKey(@NotNull ModInfo mod) {
+        ModResourceIndex resourceIndex = this.modResourceIndexes.get(mod.id());
+        if (resourceIndex == null) {
+            resourceIndex = ModResourceIndex.create(mod, LOGGER);
+            this.modResourceIndexes.put(mod.id(), resourceIndex);
+        }
+        return PackUtil.conversionKey(mod, resourceIndex, this.metadataIndex);
     }
 
     /**

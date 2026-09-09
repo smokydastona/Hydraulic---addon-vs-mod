@@ -10,12 +10,12 @@ import org.geysermc.geyser.api.event.lifecycle.GeyserDefineResourcePacksEvent;
 import org.geysermc.geyser.api.pack.PackCodec;
 import org.geysermc.geyser.api.pack.ResourcePack;
 import org.geysermc.geyser.api.pack.option.PriorityOption;
+import org.geysermc.hydraulic.cache.ConversionKey;
 import org.geysermc.hydraulic.Constants;
 import org.geysermc.hydraulic.HydraulicImpl;
 import org.geysermc.hydraulic.platform.mod.ModInfo;
 import org.geysermc.hydraulic.storage.ModStorage;
 import org.geysermc.hydraulic.util.FormatUtil;
-import org.geysermc.hydraulic.util.PackUtil;
 import org.geysermc.pack.bedrock.resource.Manifest;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
@@ -176,7 +176,9 @@ public class PackListener {
                 LOGGER.info("Converting pack for mod {}", entry.getKey());
                 long modStart = System.currentTimeMillis();
                 try {
-                    PackManager.PackCreationResult result = this.manager.createPack(entry.getValue().getLeft(), entry.getValue().getRight());
+                    ModInfo mod = entry.getValue().getLeft();
+                    ConversionKey conversionKey = this.manager.conversionKey(mod);
+                    PackManager.PackCreationResult result = this.manager.createPack(mod, entry.getValue().getRight());
                     long modMillis = System.currentTimeMillis() - modStart;
                     PerformanceReport.ModConversionMetrics metrics = new PerformanceReport.ModConversionMetrics(
                         result.success() ? "converted" : "failed",
@@ -187,6 +189,9 @@ public class PackListener {
                         result.validation().manualActionCount()
                     );
                     if (result.success()) {
+                        ModStorage storage = this.hydraulic.modStorage(mod);
+                        storage.conversionKey(conversionKey);
+                        storage.save();
                         convertedPacks.incrementAndGet();
                         convertedPackPaths.put(entry.getKey(), entry.getValue().getRight());
                         perModMetrics.put(entry.getKey(), metrics);
@@ -248,9 +253,14 @@ public class PackListener {
             return true;
         }
 
-        String modUUID = PackUtil.getModUUID(mod.roots()).toString();
+        ConversionKey currentKey = this.manager.conversionKey(mod);
+        ModStorage storage = this.hydraulic.modStorage(mod);
+        ConversionKey storedKey = storage.conversionKey();
+        if (storedKey != null && !storedKey.equals(currentKey)) {
+            return true;
+        }
 
-        return !modUUID.equals(packUUID);
+        return !currentKey.packUuid().equals(packUUID);
     }
 
     record PreparedPacks(

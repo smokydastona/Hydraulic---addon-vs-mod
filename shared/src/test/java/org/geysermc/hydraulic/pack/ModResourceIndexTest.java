@@ -77,6 +77,9 @@ class ModResourceIndexTest {
         assertEquals(Set.of("examplemod:machines/crusher"), index.assetEntries("recipes"));
         assertEquals(Set.of("blocks/machines.json"), index.assetEntries("tags"));
         assertEquals(Set.of("blocks/crusher.json"), index.assetEntries("loot_tables"));
+        assertEquals(9, index.fingerprint().fileCount());
+        assertTrue(index.fingerprint().totalSizeBytes() > 0);
+        assertTrue(!index.fingerprint().digest().isEmpty());
     }
 
     @Test

@@ -3,9 +3,11 @@ package org.geysermc.hydraulic.storage;
 import com.mojang.logging.LogUtils;
 import org.geysermc.hydraulic.Constants;
 import org.geysermc.hydraulic.HydraulicImpl;
+import org.geysermc.hydraulic.cache.ConversionKey;
 import org.geysermc.hydraulic.block.Materials;
 import org.geysermc.hydraulic.platform.mod.ModInfo;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 
 import java.io.BufferedReader;
@@ -19,9 +21,12 @@ import java.nio.file.Path;
  */
 public class ModStorage {
     private static final Logger LOGGER = LogUtils.getLogger();
+    private static final String MATERIALS_FILE = "materials.json";
+    private static final String CONVERSION_KEY_FILE = "conversion-key.json";
 
     private ModInfo mod;
     private Materials materials = new Materials();
+    private ConversionKey conversionKey;
     private Path pack;
 
     private ModStorage(@NotNull ModInfo mod) {
@@ -48,6 +53,15 @@ public class ModStorage {
         this.materials = materials;
     }
 
+    @Nullable
+    public ConversionKey conversionKey() {
+        return this.conversionKey;
+    }
+
+    public void conversionKey(@Nullable ConversionKey conversionKey) {
+        this.conversionKey = conversionKey;
+    }
+
     /**
      * Gets the path to the pack for this mod.
      *
@@ -68,8 +82,17 @@ public class ModStorage {
                 Files.createDirectories(path);
             }
 
-            try (BufferedWriter writer = Files.newBufferedWriter(path.resolve("materials.json"))) {
+            try (BufferedWriter writer = Files.newBufferedWriter(path.resolve(MATERIALS_FILE))) {
                 Constants.GSON.toJson(this.materials, writer);
+            }
+
+            Path conversionKeyPath = path.resolve(CONVERSION_KEY_FILE);
+            if (this.conversionKey != null) {
+                try (BufferedWriter writer = Files.newBufferedWriter(conversionKeyPath)) {
+                    Constants.GSON.toJson(this.conversionKey, writer);
+                }
+            } else {
+                Files.deleteIfExists(conversionKeyPath);
             }
         } catch (IOException e) {
             LOGGER.error("Failed to save mod storage for {}", this.mod.id());
@@ -91,12 +114,21 @@ public class ModStorage {
         }
 
         try {
-            try (BufferedReader reader = Files.newBufferedReader(path.resolve("materials.json"))) {
+            try (BufferedReader reader = Files.newBufferedReader(path.resolve(MATERIALS_FILE))) {
                 Materials materials = Constants.GSON.fromJson(reader, Materials.class);
                 storage.materials(materials);
             }
         } catch (IOException e) {
             LOGGER.error("Failed to load mod storage for {}", mod.id());
+        }
+
+        Path conversionKeyPath = path.resolve(CONVERSION_KEY_FILE);
+        if (Files.isRegularFile(conversionKeyPath)) {
+            try (BufferedReader reader = Files.newBufferedReader(conversionKeyPath)) {
+                storage.conversionKey(Constants.GSON.fromJson(reader, ConversionKey.class));
+            } catch (IOException e) {
+                LOGGER.error("Failed to load conversion key for {}", mod.id());
+            }
         }
 
         return storage;

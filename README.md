@@ -188,6 +188,8 @@ On startup, this fork now writes three compatibility artifacts under Hydraulic's
 
 That inventory now reuses the same indexed asset and data pass created during startup, so compatibility reporting no longer performs its own second filesystem walk just to rebuild those discovered resource categories.
 
+Pack invalidation is now also driven by a persisted conversion key under Hydraulic's per-mod storage instead of manifest UUIDs derived from a full-tree hash walk. That key is built from the indexed mod resource fingerprint, Hydraulic version, Minecraft version, and loaded metadata state, so metadata-only changes now correctly force reconversion.
+
 `compatibility-report.json` records per-object analyzer output, including:
 - support levels: `NATIVE`, `AUTOMATIC`, `ADAPTED`, `APPROXIMATED`, `VISUAL_ONLY`, `UNSUPPORTED`
 - the five compatibility domains: content, presentation, state/data, interaction, behavior
@@ -199,7 +201,7 @@ That inventory now reuses the same indexed asset and data pass created during st
 - metadata validation issues emitted during Metadata V2 loading
 - a `packValidation` section merged in after pack preparation completes, summarizing each mod's `valid` flag, `errorCount`, `warningCount`, and `manualActions` from `pack-validation-report.json`, so manual actions are visible next to compatibility findings instead of only in the sibling artifact
 
-`performance-report.json` records the measured startup and conversion costs for the current run, including resource indexing time, indexed blockstate and item-asset totals, metadata load time, compatibility initialization time, resource-pack/model indexing time, cumulative `StateDefinition` model-resolution cache hits and misses, and the last pack-conversion batch with per-mod outcomes. Compatibility inventory generation now rides on that same indexed discovery pass, so this report is the place to inspect when checking whether index/cache changes actually removed duplicated startup work.
+`performance-report.json` records the measured startup and conversion costs for the current run, including resource indexing time, indexed blockstate and item-asset totals, metadata load time, compatibility initialization time, resource-pack/model indexing time, cumulative `StateDefinition` model-resolution cache hits and misses, and the last pack-conversion batch with per-mod outcomes. Compatibility inventory generation and pack invalidation now both ride on indexed discovery data rather than separate mod-root hash walks, so this report is the place to inspect when checking whether index/cache changes actually removed duplicated startup work.
 
 `pack-validation-report.json` records post-generation Bedrock pack validation per converted mod. It currently checks whether a generated pack archive exists, whether `manifest.json` is present and structurally valid, whether all generated JSON entries are parseable, whether the archive contains content beyond manifest scaffolding, and whether `pack_icon.png` is present. Each mod result includes structured `errors`, `warnings`, and `manualActions` so invalid generated output is visible before runtime registration. Hydraulic now prepares converted packs during its own startup and only registers those prepared packs later at the Geyser resource-pack seam, so these structural artifacts still land even when a later Geyser Bedrock bootstrap step fails.
 

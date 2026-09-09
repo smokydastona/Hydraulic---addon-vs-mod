@@ -3,8 +3,8 @@ package org.geysermc.hydraulic.pack.modules;
 import net.kyori.adventure.text.Component;
 import org.apache.commons.lang3.StringUtils;
 import org.geysermc.hydraulic.Constants;
+import org.geysermc.hydraulic.cache.ConversionKey;
 import org.geysermc.hydraulic.platform.mod.ModInfo;
-import org.geysermc.hydraulic.util.PackUtil;
 import org.geysermc.pack.bedrock.resource.BedrockResourcePack;
 import org.geysermc.pack.bedrock.resource.Manifest;
 import org.geysermc.pack.bedrock.resource.manifest.Header;
@@ -26,9 +26,11 @@ import java.util.UUID;
 
 public class MetadataPackModule implements AssetExtractor<ModInfo>, AssetConverter<ModInfo, Manifest>, AssetCombiner<Manifest> {
     private final ModInfo modInfo;
+    private final ConversionKey conversionKey;
 
-    public MetadataPackModule(ModInfo modInfo) {
+    public MetadataPackModule(ModInfo modInfo, ConversionKey conversionKey) {
         this.modInfo = modInfo;
+        this.conversionKey = conversionKey;
     }
 
     @Override
@@ -45,8 +47,7 @@ public class MetadataPackModule implements AssetExtractor<ModInfo>, AssetConvert
 
         Header header = manifest.header();
 
-        // Generate the pack uuid from the mod file
-        String packUuid = PackUtil.getModUUID(mod.roots()).toString();
+        String packUuid = this.conversionKey.packUuid();
         header.uuid(packUuid);
 
         // Generate module uuid based on type
