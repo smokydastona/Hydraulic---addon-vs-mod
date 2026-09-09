@@ -623,6 +623,19 @@ public class PackManager {
     }
 
     @Nullable
+    public Set<net.kyori.adventure.key.Key> selectedTextures(@NotNull String modId) {
+        TextureDependencyGraph dependencies = this.activeTextureDependencies.get(modId);
+        if (dependencies == null) {
+            return null;
+        }
+
+        if (!dependencies.lastSelectedTextures().isEmpty() || !dependencies.requiredTextures().isEmpty()) {
+            return dependencies.lastSelectedTextures();
+        }
+        return null;
+    }
+
+    @Nullable
     public ModResourceIndex modResourceIndex(@NotNull String modId) {
         return this.modResourceIndexes.get(modId);
     }

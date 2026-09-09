@@ -173,13 +173,14 @@ public class BlockPackModule extends TexturePackModule<BlockPackModule> {
             return;
         }
 
-        for (Map.Entry<Key, Path> textureEntry : resourceIndex.texturePaths().entrySet()) {
+        Set<Key> selectedTextures = context.hydraulic().getPackManager().selectedTextures(context.mod().id());
+        Iterable<Map.Entry<Key, Path>> textureEntries = selectedTextures == null
+            ? resourceIndex.texturePaths().entrySet()
+            : selectedTextureEntries(resourceIndex, selectedTextures);
+
+        for (Map.Entry<Key, Path> textureEntry : textureEntries) {
             Key key = textureEntry.getKey();
             String value = key.value();
-
-            if (!context.hydraulic().getPackManager().shouldIncludeTexture(context.mod().id(), key)) {
-                continue;
-            }
 
             if (value.startsWith("block/")) {
                 String cleanPath = value.replace("block/", "").replace(".png", "");
@@ -194,6 +195,18 @@ public class BlockPackModule extends TexturePackModule<BlockPackModule> {
                 }
             }
         }
+    }
+
+    @NotNull
+    private static List<Map.Entry<Key, Path>> selectedTextureEntries(@NotNull ModResourceIndex resourceIndex, @NotNull Set<Key> selectedTextures) {
+        List<Map.Entry<Key, Path>> entries = new ArrayList<>(selectedTextures.size());
+        for (Key selectedTexture : selectedTextures) {
+            Path path = resourceIndex.resolveTexturePath(selectedTexture);
+            if (path != null) {
+                entries.add(Map.entry(selectedTexture, path));
+            }
+        }
+        return List.copyOf(entries);
     }
 
     @Override

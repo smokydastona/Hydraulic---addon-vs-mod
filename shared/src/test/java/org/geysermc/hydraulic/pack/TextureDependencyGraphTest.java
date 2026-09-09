@@ -64,7 +64,22 @@ class TextureDependencyGraphTest {
         assertEquals(2, metrics.selectedTextures());
         assertEquals(2, metrics.omittedTextures());
         assertEquals(2, metrics.dependencySources());
+        assertEquals(Set.of(Key.key("examplemod", "item/base"), Key.key("examplemod", "entity/barrel")), graph.lastSelectedTextures());
         assertTrue(graph.shouldInclude(Key.key("examplemod", "item/base")));
         assertTrue(!graph.shouldInclude(Key.key("examplemod", "item/unused")));
+    }
+
+    @Test
+    void accumulatesSelectedTexturesAcrossMultipleExtractionPasses() {
+        TextureDependencyGraph graph = new TextureDependencyGraph();
+
+        graph.selectTextures(List.of(
+            Texture.texture(Key.key("examplemod", "block/first"), Writable.bytes(new byte[] {1}))
+        ));
+        graph.selectTextures(List.of(
+            Texture.texture(Key.key("examplemod", "block/second"), Writable.bytes(new byte[] {2}))
+        ));
+
+        assertEquals(Set.of(Key.key("examplemod", "block/first"), Key.key("examplemod", "block/second")), graph.lastSelectedTextures());
     }
 }

@@ -53,9 +53,11 @@ public final class TextureDependencyGraph {
     public SelectionResult selectTextures(@NotNull Collection<Texture> availableTextures) {
         List<Texture> discovered = List.copyOf(availableTextures);
         if (this.requiredTextures.isEmpty()) {
-            this.lastSelectedTextures = discovered.stream()
-                .map(Texture::key)
-                .collect(java.util.stream.Collectors.toUnmodifiableSet());
+            Set<Key> selectedKeys = new LinkedHashSet<>(this.lastSelectedTextures);
+            for (Texture texture : discovered) {
+                selectedKeys.add(texture.key());
+            }
+            this.lastSelectedTextures = Set.copyOf(selectedKeys);
             SelectionMetrics metrics = this.lastSelectionMetrics.add(discovered.size(), discovered.size(), 0, this.dependenciesBySource.size());
             this.lastSelectionMetrics = metrics;
             return new SelectionResult(discovered, metrics);
@@ -68,9 +70,11 @@ public final class TextureDependencyGraph {
             }
         }
 
-        this.lastSelectedTextures = selected.stream()
-            .map(Texture::key)
-            .collect(java.util.stream.Collectors.toUnmodifiableSet());
+        Set<Key> selectedKeys = new LinkedHashSet<>(this.lastSelectedTextures);
+        for (Texture texture : selected) {
+            selectedKeys.add(texture.key());
+        }
+        this.lastSelectedTextures = Set.copyOf(selectedKeys);
         SelectionMetrics metrics = this.lastSelectionMetrics.add(discovered.size(), selected.size(), Math.max(0, discovered.size() - selected.size()), this.dependenciesBySource.size());
         this.lastSelectionMetrics = metrics;
         return new SelectionResult(List.copyOf(selected), metrics);
