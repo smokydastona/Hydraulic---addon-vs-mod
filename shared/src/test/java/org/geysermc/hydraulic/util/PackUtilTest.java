@@ -91,6 +91,56 @@ class PackUtilTest {
         assertEquals(withoutMetadata.resourceFingerprint(), withMetadataKey.resourceFingerprint());
     }
 
+        @Test
+        void conversionKeyChangesWhenDependentModFingerprintChanges() throws IOException {
+                Path baseRoot = this.tempDir.resolve("base");
+                Path dependentRoot = this.tempDir.resolve("dependent");
+                Path baseModel = baseRoot.resolve("assets/base/models/item/test_item.json");
+                Path dependentModel = dependentRoot.resolve("assets/dependent/models/item/shared.json");
+                Files.createDirectories(baseModel.getParent());
+                Files.createDirectories(dependentModel.getParent());
+                Files.writeString(baseModel, """
+                        {
+                            "parent": "dependent:item/shared"
+                        }
+                        """);
+                Files.writeString(dependentModel, """
+                        {
+                            "textures": {
+                                "layer0": "dependent:item/shared"
+                            }
+                        }
+                        """);
+
+                ModInfo baseMod = new ModInfo("base", "base", "Base Mod", "1.0.0", null, List.of(baseRoot));
+                ModInfo dependentMod = new ModInfo("dependent", "dependent", "Dependent Mod", "1.0.0", null, List.of(dependentRoot));
+                ModResourceIndex baseIndex = ModResourceIndex.create(baseMod, LoggerFactory.getLogger("PackUtilTest"));
+                ModResourceIndex dependentIndex = ModResourceIndex.create(dependentMod, LoggerFactory.getLogger("PackUtilTest"));
+
+                ConversionKey first = PackUtil.conversionKey(baseMod, baseIndex, Map.of(
+                        baseMod.id(), baseIndex,
+                        dependentMod.id(), dependentIndex
+                ), MetadataIndex.empty());
+
+                Files.writeString(dependentModel, """
+                        {
+                            "textures": {
+                                "layer0": "dependent:item/changed"
+                            }
+                        }
+                        """);
+                ModResourceIndex changedDependentIndex = ModResourceIndex.create(dependentMod, LoggerFactory.getLogger("PackUtilTest"));
+
+                ConversionKey second = PackUtil.conversionKey(baseMod, baseIndex, Map.of(
+                        baseMod.id(), baseIndex,
+                        dependentMod.id(), changedDependentIndex
+                ), MetadataIndex.empty());
+
+                assertEquals(first.resourceFingerprint(), second.resourceFingerprint());
+                assertNotEquals(first.dependencyFingerprint(), second.dependencyFingerprint());
+                assertNotEquals(first.packUuid(), second.packUuid());
+        }
+
     @Test
     void metadataFingerprintHashesAuthoringFieldsWithoutRuntimeReflection() {
         Identifier javaId = Identifier.fromNamespaceAndPath("example", "test_block");

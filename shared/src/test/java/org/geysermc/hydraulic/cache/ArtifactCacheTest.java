@@ -73,7 +73,7 @@ class ArtifactCacheTest {
         cache.storeIndexSnapshot(snapshot);
         cache.storeConversionArtifact("testmod", new ArtifactCache.ConversionArtifact(
             "testmod",
-            new ConversionKey("alg", "testmod", "1.0.0", "hydraulic", "26.2", "rfp", 2, 42, "metadata"),
+            new ConversionKey("alg", "testmod", "1.0.0", "hydraulic", "26.2", "rfp", 2, 42, "metadata", "deps", 1),
             "packs/testmod.mcpack",
             "uuid-1"
         ));

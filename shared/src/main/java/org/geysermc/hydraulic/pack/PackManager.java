@@ -534,7 +534,7 @@ public class PackManager {
             resourceIndex = ModResourceIndex.create(mod, LOGGER);
             this.modResourceIndexes.put(mod.id(), resourceIndex);
         }
-        return PackUtil.conversionKey(mod, resourceIndex, this.metadataIndex);
+        return PackUtil.conversionKey(mod, resourceIndex, this.modResourceIndexes, this.metadataIndex);
     }
 
     /**

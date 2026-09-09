@@ -2,6 +2,10 @@ package org.geysermc.hydraulic.pack;
 
 import com.google.common.hash.Hasher;
 import com.google.common.hash.Hashing;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import net.kyori.adventure.key.Key;
 import net.minecraft.resources.Identifier;
 import org.geysermc.hydraulic.platform.mod.ModInfo;
@@ -29,6 +33,7 @@ public final class ModResourceIndex {
     private final Map<Identifier, Path> legacyItemModels;
     private final Map<Identifier, Path> models;
     private final Map<Key, Path> textures;
+    private final Set<String> dependencyNamespaces;
     private final Map<String, Set<String>> assetEntries;
     private final ResourceFingerprint fingerprint;
     private final boolean hasAssetFiles;
@@ -43,6 +48,7 @@ public final class ModResourceIndex {
         @NotNull Map<Identifier, Path> legacyItemModels,
         @NotNull Map<Identifier, Path> models,
         @NotNull Map<Key, Path> textures,
+        @NotNull Set<String> dependencyNamespaces,
         @NotNull Map<String, Set<String>> assetEntries,
         @NotNull ResourceFingerprint fingerprint,
         boolean hasAssetFiles,
@@ -56,6 +62,7 @@ public final class ModResourceIndex {
         this.legacyItemModels = Map.copyOf(legacyItemModels);
         this.models = Map.copyOf(models);
         this.textures = Map.copyOf(textures);
+        this.dependencyNamespaces = Set.copyOf(dependencyNamespaces);
         this.assetEntries = copyAssetEntries(assetEntries);
         this.fingerprint = fingerprint;
         this.hasAssetFiles = hasAssetFiles;
@@ -72,6 +79,7 @@ public final class ModResourceIndex {
         Map<Identifier, Path> legacyItemModels = new LinkedHashMap<>();
         Map<Identifier, Path> models = new LinkedHashMap<>();
         Map<Key, Path> textures = new LinkedHashMap<>();
+        Set<String> dependencyNamespaces = new LinkedHashSet<>();
         Map<String, Set<String>> assetEntries = new LinkedHashMap<>();
         List<ScanRoot> scanRoots = new ArrayList<>();
         List<FileStamp> fileStamps = new ArrayList<>();
@@ -103,7 +111,7 @@ public final class ModResourceIndex {
 
                         sawAssetFile = true;
                         fileStamps.add(fileStamp(path, assets, rootOrdinal, "assets"));
-                        indexAssetFile(path, assets, namespaces, blockStates, itemDefinitions, legacyItemModels, models, textures, assetEntries);
+                        indexAssetFile(path, assets, namespaces, blockStates, itemDefinitions, legacyItemModels, models, textures, dependencyNamespaces, assetEntries);
                         FileMetadata metadata = fileMetadata(path, assets, rootOrdinal, "assets");
                         fingerprintHasher.putString(metadata.stablePath(), java.nio.charset.StandardCharsets.UTF_8);
                         fingerprintHasher.putLong(metadata.size());
@@ -160,6 +168,7 @@ public final class ModResourceIndex {
             legacyItemModels,
             models,
             textures,
+            dependencyNamespaces,
             assetEntries,
             new ResourceFingerprint(FINGERPRINT_ALGORITHM, indexedFileCount, indexedTotalSizeBytes, latestModifiedEpochMillis, fingerprintHasher.hash().toString()),
             hasAssetFiles,
@@ -178,6 +187,7 @@ public final class ModResourceIndex {
             toIdentifierPathMap(snapshot.legacyItemModels()),
             toIdentifierPathMap(snapshot.models()),
             toKeyPathMap(snapshot.textures()),
+            snapshot.dependencyNamespaces(),
             snapshot.assetEntries(),
             snapshot.fingerprint(),
             snapshot.hasAssetFiles(),
@@ -221,6 +231,11 @@ public final class ModResourceIndex {
     }
 
     @NotNull
+    public Set<String> dependencyNamespaces() {
+        return this.dependencyNamespaces;
+    }
+
+    @NotNull
     public Snapshot snapshot() {
         return new Snapshot(
             this.namespaces,
@@ -229,6 +244,7 @@ public final class ModResourceIndex {
             stringifyIdentifierPaths(this.legacyItemModels),
             stringifyIdentifierPaths(this.models),
             stringifyKeyPaths(this.textures),
+            this.dependencyNamespaces,
             this.assetEntries,
             this.fingerprint,
             this.hasAssetFiles,
@@ -305,6 +321,7 @@ public final class ModResourceIndex {
         @NotNull Map<Identifier, Path> legacyItemModels,
         @NotNull Map<Identifier, Path> models,
         @NotNull Map<Key, Path> textures,
+        @NotNull Set<String> dependencyNamespaces,
         @NotNull Map<String, Set<String>> assetEntries
     ) {
         Path relative = assetsRoot.relativize(file);
@@ -340,6 +357,7 @@ public final class ModResourceIndex {
             if (identifier != null) {
                 models.putIfAbsent(identifier, file);
             }
+            collectModelDependencyNamespaces(file, namespace, dependencyNamespaces);
         }
 
         if ("textures".equals(firstSegment) && isTextureAsset(file)) {
@@ -356,6 +374,10 @@ public final class ModResourceIndex {
 
         if ("lang".equals(firstSegment) && file.getFileName().toString().endsWith(".json")) {
             addRelativeAsset(assetEntries, "lang", relative.subpath(2, relative.getNameCount()));
+        }
+
+        if ("equipment".equals(firstSegment) && file.getFileName().toString().endsWith(".json")) {
+            collectEquipmentDependencyNamespaces(file, namespace, dependencyNamespaces);
         }
 
         if (!"models".equals(firstSegment) || relative.getNameCount() < 4 || !"item".equals(relative.getName(2).toString())) {
@@ -516,6 +538,7 @@ public final class ModResourceIndex {
         @NotNull Map<String, String> legacyItemModels,
         @NotNull Map<String, String> models,
         @NotNull Map<String, String> textures,
+        @NotNull Set<String> dependencyNamespaces,
         @NotNull Map<String, Set<String>> assetEntries,
         @NotNull ResourceFingerprint fingerprint,
         boolean hasAssetFiles,
@@ -530,6 +553,7 @@ public final class ModResourceIndex {
             legacyItemModels = immutableStringMap(legacyItemModels);
             models = immutableStringMap(models);
             textures = immutableStringMap(textures);
+            dependencyNamespaces = dependencyNamespaces == null ? Set.of() : Set.copyOf(dependencyNamespaces);
             assetEntries = assetEntries == null ? Map.of() : copyAssetEntries(assetEntries);
             scanRoots = scanRoots == null ? List.of() : List.copyOf(scanRoots);
             fileStamps = fileStamps == null ? List.of() : List.copyOf(fileStamps);
@@ -585,6 +609,97 @@ public final class ModResourceIndex {
             return null;
         }
         return Identifier.fromNamespaceAndPath(namespace, path);
+    }
+
+    private static void collectModelDependencyNamespaces(@NotNull Path path, @NotNull String ownerNamespace, @NotNull Set<String> dependencyNamespaces) {
+        JsonObject root = readObject(path);
+        if (root == null) {
+            return;
+        }
+
+        collectDependencyNamespace(root.get("parent"), ownerNamespace, dependencyNamespaces);
+
+        JsonObject textures = object(root.get("textures"));
+        if (textures != null) {
+            for (Map.Entry<String, JsonElement> entry : textures.entrySet()) {
+                collectDependencyNamespace(entry.getValue(), ownerNamespace, dependencyNamespaces);
+            }
+        }
+
+        JsonArray overrides = array(root.get("overrides"));
+        if (overrides == null) {
+            return;
+        }
+
+        for (JsonElement overrideElement : overrides) {
+            JsonObject override = object(overrideElement);
+            if (override != null) {
+                collectDependencyNamespace(override.get("model"), ownerNamespace, dependencyNamespaces);
+            }
+        }
+    }
+
+    private static void collectEquipmentDependencyNamespaces(@NotNull Path path, @NotNull String ownerNamespace, @NotNull Set<String> dependencyNamespaces) {
+        JsonObject root = readObject(path);
+        if (root == null) {
+            return;
+        }
+
+        JsonObject layers = object(root.get("layers"));
+        if (layers == null) {
+            return;
+        }
+
+        for (Map.Entry<String, JsonElement> entry : layers.entrySet()) {
+            JsonArray values = array(entry.getValue());
+            if (values == null) {
+                continue;
+            }
+            for (JsonElement element : values) {
+                JsonObject layer = object(element);
+                if (layer != null) {
+                    collectDependencyNamespace(layer.get("texture"), ownerNamespace, dependencyNamespaces);
+                }
+            }
+        }
+    }
+
+    private static void collectDependencyNamespace(@Nullable JsonElement element, @NotNull String ownerNamespace, @NotNull Set<String> dependencyNamespaces) {
+        if (element == null || !element.isJsonPrimitive() || !element.getAsJsonPrimitive().isString()) {
+            return;
+        }
+
+        String raw = element.getAsString();
+        if (raw.isBlank() || raw.startsWith("#")) {
+            return;
+        }
+
+        try {
+            Key key = raw.indexOf(':') >= 0 ? Key.key(raw) : Key.key(ownerNamespace, raw);
+            if (!ownerNamespace.equals(key.namespace()) && !Key.MINECRAFT_NAMESPACE.equals(key.namespace())) {
+                dependencyNamespaces.add(key.namespace());
+            }
+        } catch (IllegalArgumentException ignored) {
+        }
+    }
+
+    @Nullable
+    private static JsonObject readObject(@NotNull Path path) {
+        try (java.io.Reader reader = Files.newBufferedReader(path)) {
+            return object(JsonParser.parseReader(reader));
+        } catch (IOException | RuntimeException ignored) {
+            return null;
+        }
+    }
+
+    @Nullable
+    private static JsonObject object(@Nullable JsonElement element) {
+        return element != null && element.isJsonObject() ? element.getAsJsonObject() : null;
+    }
+
+    @Nullable
+    private static JsonArray array(@Nullable JsonElement element) {
+        return element != null && element.isJsonArray() ? element.getAsJsonArray() : null;
     }
 
     @Nullable

@@ -23,16 +23,18 @@ import team.unnamed.creative.model.Model;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 
 /**
  * Utility class for packs.
  */
 public class PackUtil {
     protected static final Logger LOGGER = LogUtils.getLogger();
-    private static final String CONVERSION_KEY_ALGORITHM = "HYDRAULIC_CONVERSION_KEY_V1";
+    private static final String CONVERSION_KEY_ALGORITHM = "HYDRAULIC_CONVERSION_KEY_V2";
 
     public static String getTextureName(@NotNull String modelName) {
         // TODO Sometimes things end up in the minecraft namespace when they shouldn't.
@@ -91,7 +93,18 @@ public class PackUtil {
 
     @NotNull
     public static ConversionKey conversionKey(@NotNull ModInfo mod, @NotNull ModResourceIndex resourceIndex, @NotNull MetadataIndex metadataIndex) {
+        return conversionKey(mod, resourceIndex, Map.of(mod.id(), resourceIndex), metadataIndex);
+    }
+
+    @NotNull
+    public static ConversionKey conversionKey(
+        @NotNull ModInfo mod,
+        @NotNull ModResourceIndex resourceIndex,
+        @NotNull Map<String, ModResourceIndex> allIndexes,
+        @NotNull MetadataIndex metadataIndex
+    ) {
         ModResourceIndex.ResourceFingerprint resourceFingerprint = resourceIndex.fingerprint();
+        DependencyFingerprint dependencyFingerprint = dependencyFingerprint(mod, allIndexes);
         return new ConversionKey(
             CONVERSION_KEY_ALGORITHM,
             mod.id(),
@@ -101,8 +114,50 @@ public class PackUtil {
             resourceFingerprint.stableValue(),
             resourceFingerprint.fileCount(),
             resourceFingerprint.totalSizeBytes(),
-            metadataFingerprint(metadataIndex)
+            metadataFingerprint(metadataIndex),
+            dependencyFingerprint.value(),
+            dependencyFingerprint.modCount()
         );
+    }
+
+    @NotNull
+    static DependencyFingerprint dependencyFingerprint(@NotNull ModInfo mod, @NotNull Map<String, ModResourceIndex> allIndexes) {
+        ModResourceIndex resourceIndex = allIndexes.get(mod.id());
+        if (resourceIndex == null) {
+            return new DependencyFingerprint("", 0);
+        }
+
+        Set<String> dependentModIds = new java.util.TreeSet<>();
+        List<String> pendingNamespaces = new ArrayList<>(resourceIndex.dependencyNamespaces());
+        Set<String> visitedNamespaces = new LinkedHashSet<>();
+
+        for (int index = 0; index < pendingNamespaces.size(); index++) {
+            String namespace = pendingNamespaces.get(index);
+            if (!visitedNamespaces.add(namespace)) {
+                continue;
+            }
+
+            for (Map.Entry<String, ModResourceIndex> entry : allIndexes.entrySet()) {
+                if (mod.id().equals(entry.getKey()) || !entry.getValue().namespaces().contains(namespace)) {
+                    continue;
+                }
+
+                if (dependentModIds.add(entry.getKey())) {
+                    pendingNamespaces.addAll(entry.getValue().dependencyNamespaces());
+                }
+            }
+        }
+
+        Hasher hasher = Hashing.sha256().newHasher();
+        for (String dependentModId : dependentModIds) {
+            ModResourceIndex dependentIndex = allIndexes.get(dependentModId);
+            if (dependentIndex == null) {
+                continue;
+            }
+            hasher.putString(dependentModId, StandardCharsets.UTF_8);
+            hasher.putString(dependentIndex.fingerprint().stableValue(), StandardCharsets.UTF_8);
+        }
+        return new DependencyFingerprint(hasher.hash().toString(), dependentModIds.size());
     }
 
     @NotNull
@@ -151,6 +206,9 @@ public class PackUtil {
                 hasher.putString(entry.getKey(), StandardCharsets.UTF_8);
                 hasher.putInt(entry.getValue());
             });
+    }
+
+    record DependencyFingerprint(@NotNull String value, int modCount) {
     }
 
     private static void hashBlockMappings(@NotNull Hasher hasher, @NotNull Map<?, BlockMapping> mappings) {

@@ -85,10 +85,49 @@ class ModResourceIndexTest {
         assertEquals(Set.of("examplemod:machines/crusher"), index.assetEntries("recipes"));
         assertEquals(Set.of("blocks/machines.json"), index.assetEntries("tags"));
         assertEquals(Set.of("blocks/crusher.json"), index.assetEntries("loot_tables"));
+                assertEquals(Set.of(), index.dependencyNamespaces());
         assertEquals(10, index.fingerprint().fileCount());
         assertTrue(index.fingerprint().totalSizeBytes() > 0);
         assertTrue(!index.fingerprint().digest().isEmpty());
     }
+
+        @Test
+        void recordsExternalDependencyNamespacesFromModelsAndEquipment() throws IOException {
+                Path root = this.tempDir.resolve("root");
+                Path model = root.resolve("assets/examplemod/models/item/test_item.json");
+                Path equipment = root.resolve("assets/examplemod/equipment/test_asset.json");
+                Files.createDirectories(model.getParent());
+                Files.createDirectories(equipment.getParent());
+                Files.writeString(model, """
+                        {
+                            "parent": "othermod:item/base",
+                            "textures": {
+                                "layer0": "thirdmod:item/layer"
+                            },
+                            "overrides": [
+                                {
+                                    "model": "fourthmod:item/override"
+                                }
+                            ]
+                        }
+                        """);
+                Files.writeString(equipment, """
+                        {
+                            "layers": {
+                                "humanoid": [
+                                    {
+                                        "texture": "fifthmod:entity/test"
+                                    }
+                                ]
+                            }
+                        }
+                        """);
+
+                ModInfo mod = new ModInfo("examplemod", "examplemod", "Example Mod", "1.0.0", null, List.of(root));
+                ModResourceIndex index = ModResourceIndex.create(mod, LoggerFactory.getLogger("ModResourceIndexTest"));
+
+                assertEquals(Set.of("othermod", "thirdmod", "fourthmod", "fifthmod"), index.dependencyNamespaces());
+        }
 
     @Test
     void prefersEarlierRootsWhenDuplicateAssetsExist() throws IOException {
@@ -120,6 +159,7 @@ class ModResourceIndexTest {
         assertEquals(0, index.itemAssetCount());
         assertEquals(0, index.modelCount());
         assertEquals(0, index.textureCount());
+        assertEquals(Set.of(), index.dependencyNamespaces());
         assertTrue(!index.hasItemAsset(Identifier.fromNamespaceAndPath("examplemod", "test_item")));
         assertNull(index.resolveItemAssetPath(Identifier.fromNamespaceAndPath("examplemod", "test_item")));
         assertNull(index.resolveModelPath(Key.key("examplemod", "missing")));
