@@ -25,7 +25,8 @@ public final class CapabilityAdapterRegistry {
         new WearableItemAdapter(),
         new BowItemAdapter(),
         new EntityDefinitionAdapter(),
-        new EntityInteractionPromptAdapter()
+        new EntityInteractionPromptAdapter(),
+        new FluidBucketTextureAdapter()
     );
 
     private CapabilityAdapterRegistry() {
@@ -82,6 +83,7 @@ public final class CapabilityAdapterRegistry {
                 AdapterFeature.CUSTOM_ENTITY_REGISTRATION,
                 AdapterFeature.ENTITY_INTERACTION_PROMPT
             );
+            case "fluid" -> List.of(AdapterFeature.FLUID_BUCKET_TEXTURE_FALLBACK);
             default -> List.of();
         };
     }
@@ -418,6 +420,36 @@ public final class CapabilityAdapterRegistry {
         @Override
         public @NotNull String reason(@NotNull CompatibilityObject compatibilityObject, @Nullable Object runtimeObject, @NotNull AdapterFeature feature) {
             return "existing metadata-backed Bedrock interaction prompt bridge applies";
+        }
+    }
+
+    private static final class FluidBucketTextureAdapter implements CapabilityAdapter {
+        @Override
+        public @NotNull String id() {
+            return "fluid.bucket_texture_fallback";
+        }
+
+        @Override
+        public @NotNull Set<AdapterFeature> features() {
+            return Set.of(AdapterFeature.FLUID_BUCKET_TEXTURE_FALLBACK);
+        }
+
+        @Override
+        public int priority() {
+            return 20;
+        }
+
+        @Override
+        public boolean supports(@NotNull CompatibilityObject compatibilityObject, @Nullable Object runtimeObject, @NotNull AdapterFeature feature) {
+            return contentSupported(compatibilityObject)
+                && presentationSupported(compatibilityObject)
+                && hasInventoryFact(compatibilityObject, "bucket_item")
+                && hasInventoryFact(compatibilityObject, "bucket_texture");
+        }
+
+        @Override
+        public @NotNull String reason(@NotNull CompatibilityObject compatibilityObject, @Nullable Object runtimeObject, @NotNull AdapterFeature feature) {
+            return "existing metadata-backed fluid bucket icon fallback bridge applies";
         }
     }
 }

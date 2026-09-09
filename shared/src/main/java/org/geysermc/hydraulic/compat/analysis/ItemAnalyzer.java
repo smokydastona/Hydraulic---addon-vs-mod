@@ -1,6 +1,9 @@
 package org.geysermc.hydraulic.compat.analysis;
 
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.Identifier;
+import net.minecraft.world.item.BucketItem;
+import net.minecraft.world.item.Item;
 import org.geysermc.hydraulic.compat.ContentInventory;
 import org.geysermc.hydraulic.compat.capability.Capability;
 import org.geysermc.hydraulic.compat.capability.CapabilityDomain;
@@ -33,6 +36,9 @@ public final class ItemAnalyzer implements CompatibilityAnalyzer {
         Identifier identifier = Identifier.parse(descriptor.javaIdentifier());
         IdentifierMapping mapping = metadataIndex.itemMapping(identifier);
         List<ContentPatch> patches = metadataIndex.contentPatches(identifier);
+        Item item = BuiltInRegistries.ITEM.getValue(identifier);
+        String bucketTexture = fluidBucketTexture(item, metadataIndex);
+        String fluidSource = fluidSource(item);
         boolean patched = !patches.isEmpty();
         boolean behaviorRequired = patches.stream().anyMatch(patch -> patch.booleanOperation("behavior.required") || patch.hasOperationPrefix("behavior."));
         String behaviorTag = patches.stream()
@@ -40,6 +46,7 @@ public final class ItemAnalyzer implements CompatibilityAnalyzer {
             .filter(tag -> tag != null && !tag.isBlank())
             .findFirst()
             .orElse(null);
+        boolean assetSupported = descriptor.assetPresent() || bucketTexture != null;
 
         Capability registered = AnalyzerSupport.capability(CapabilityDomain.CONTENT, "registered", "Item exists in the Java registry.");
         Capability icon = AnalyzerSupport.capability(CapabilityDomain.PRESENTATION, "item_asset", "Item has discoverable item-model assets.");
@@ -58,9 +65,9 @@ public final class ItemAnalyzer implements CompatibilityAnalyzer {
         );
         List<CapabilityResult> results = List.of(
             AnalyzerSupport.result(registered, descriptor.registered(), "Registry lookup from BuiltInRegistries.ITEM."),
-            AnalyzerSupport.result(icon, descriptor.assetPresent(), "PackManager found a matching item-model asset for this item."),
+            AnalyzerSupport.result(icon, assetSupported, bucketTexture != null && !descriptor.assetPresent() ? "Item inherits an explicit bucket icon fallback from its source fluid metadata patch." : "PackManager found a matching item-model asset for this item."),
             AnalyzerSupport.result(componentTranslation, true, "ItemPackModule already routes item components through ComponentConverter."),
-            AnalyzerSupport.result(mappingCapability, mapping != null || patched || descriptor.assetPresent(), "Items can use discovered models, explicit mappings, or patches."),
+            AnalyzerSupport.result(mappingCapability, mapping != null || patched || assetSupported, bucketTexture != null && !descriptor.assetPresent() ? "Items can inherit an explicit source-fluid bucket icon fallback when no direct item model exists." : "Items can use discovered models, explicit mappings, or patches."),
             AnalyzerSupport.result(offhand, true, "ItemPackModule currently sets allowOffhand(true) for custom item options."),
             AnalyzerSupport.result(behavior, !behaviorRequired, "Behavior-oriented item patches still require future runtime support.")
         );
@@ -68,14 +75,16 @@ public final class ItemAnalyzer implements CompatibilityAnalyzer {
         CapabilityProfile profile = new CapabilityProfile(descriptor.javaIdentifier(), requirements, results);
         Map<String, SupportResult> supportResults = new LinkedHashMap<>();
         supportResults.put("content", AnalyzerSupport.support("content", SupportLevel.AUTOMATIC, List.of(results.get(0)), List.of("Items are discovered directly from the active item registry.")));
-        supportResults.put("presentation", AnalyzerSupport.support("presentation", patched || mapping != null ? SupportLevel.ADAPTED : SupportLevel.AUTOMATIC, List.of(results.get(1)), List.of("Presentation coverage is based on item-model discovery and optional metadata.")));
-        supportResults.put("state_data", AnalyzerSupport.support("state_data", patched || mapping != null ? SupportLevel.ADAPTED : SupportLevel.AUTOMATIC, List.of(results.get(2), results.get(3)), List.of("Current item analysis benefits from the existing component conversion path.")));
+        supportResults.put("presentation", AnalyzerSupport.support("presentation", patched || mapping != null || bucketTexture != null ? SupportLevel.ADAPTED : SupportLevel.AUTOMATIC, List.of(results.get(1)), List.of(bucketTexture != null && !descriptor.assetPresent() ? "Presentation coverage can fall back to an explicit source-fluid bucket icon." : "Presentation coverage is based on item-model discovery and optional metadata.")));
+        supportResults.put("state_data", AnalyzerSupport.support("state_data", patched || mapping != null || bucketTexture != null ? SupportLevel.ADAPTED : SupportLevel.AUTOMATIC, List.of(results.get(2), results.get(3)), List.of("Current item analysis benefits from the existing component conversion path.")));
         supportResults.put("interaction", AnalyzerSupport.support("interaction", SupportLevel.AUTOMATIC, List.of(results.get(4)), List.of("Custom item registration already covers baseline Bedrock interaction surfaces.")));
         supportResults.put("behavior", AnalyzerSupport.support("behavior", results.get(5).supported() ? SupportLevel.AUTOMATIC : SupportLevel.APPROXIMATED, List.of(results.get(5)), List.of("Behavior-specific item runtime bridges are not implemented yet.")));
 
         List<CompatibilityFinding> findings = new ArrayList<>();
-        if (!descriptor.assetPresent()) {
+        if (!descriptor.assetPresent() && bucketTexture == null) {
             findings.add(new CompatibilityFinding("item.asset.missing", CompatibilityFinding.Severity.WARNING, "presentation", "Item asset discovery failed for " + descriptor.javaIdentifier(), "The item does not currently have a discovered item-model asset in this mod root.", "Add an item model or metadata patch for this item.", null));
+        } else if (!descriptor.assetPresent()) {
+            findings.add(new CompatibilityFinding("item.asset.fluid_bucket_bridge", CompatibilityFinding.Severity.WARNING, "presentation", "Item uses a metadata-backed fluid bucket icon fallback for " + descriptor.javaIdentifier(), "This item has no direct item model asset, so Hydraulic reuses the configured source-fluid bucket icon instead.", "Add a dedicated item model if you want this item to stop depending on the fluid bucket bridge.", null));
         }
         if (behaviorRequired) {
             findings.add(new CompatibilityFinding(
@@ -95,6 +104,12 @@ public final class ItemAnalyzer implements CompatibilityAnalyzer {
         }
 
         Map<String, String> inventoryFacts = AnalyzerSupport.inventoryFacts(descriptor.registered(), descriptor.assetPresent(), mapping != null ? 1 : 0, patches.size());
+        if (fluidSource != null) {
+            inventoryFacts.put("fluid_source", fluidSource);
+        }
+        if (bucketTexture != null) {
+            inventoryFacts.put("bucket_texture", bucketTexture);
+        }
         inventoryFacts.put("behavior_required", Boolean.toString(behaviorRequired));
         if (behaviorTag != null) {
             inventoryFacts.put("behavior_tag", behaviorTag);
@@ -107,9 +122,35 @@ public final class ItemAnalyzer implements CompatibilityAnalyzer {
             inventoryFacts,
             profile,
             supportResults,
-            new Confidence(descriptor.assetPresent() ? (mapping != null || patched ? 0.94D : 0.87D) : 0.52D, "Inventory-backed item analyzer with component translation signals."),
+            new Confidence(assetSupported ? (mapping != null || patched || bucketTexture != null ? 0.94D : 0.87D) : 0.52D, bucketTexture != null && !descriptor.assetPresent() ? "Inventory-backed item analyzer with an explicit source-fluid bucket icon fallback." : "Inventory-backed item analyzer with component translation signals."),
             AnalyzerSupport.provenance(this.getClass().getSimpleName(), mapping != null || patched, patches, metadataSources),
             findings
         );
+    }
+
+    private static String fluidBucketTexture(Item item, MetadataIndex metadataIndex) {
+        if (!(item instanceof BucketItem bucketItem)) {
+            return null;
+        }
+
+        Identifier fluidIdentifier = BuiltInRegistries.FLUID.getKey(bucketItem.getContent());
+        if (fluidIdentifier == null) {
+            return null;
+        }
+
+        return metadataIndex.contentPatches(fluidIdentifier).stream()
+            .map(patch -> patch.operation("visual.bucket_texture"))
+            .filter(texture -> texture != null && !texture.isBlank())
+            .findFirst()
+            .orElse(null);
+    }
+
+    private static String fluidSource(Item item) {
+        if (!(item instanceof BucketItem bucketItem)) {
+            return null;
+        }
+
+        Identifier fluidIdentifier = BuiltInRegistries.FLUID.getKey(bucketItem.getContent());
+        return fluidIdentifier != null ? fluidIdentifier.toString() : null;
     }
 }

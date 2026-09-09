@@ -20,6 +20,7 @@ import org.geysermc.hydraulic.compat.CompatibilityRegistry;
 import org.geysermc.hydraulic.compat.MappingResolver;
 import org.geysermc.hydraulic.compat.ir.CompiledCompatibilityPlan;
 import org.geysermc.hydraulic.compat.runtime.CompatibilityDecisions;
+import org.geysermc.hydraulic.compat.runtime.FluidBucketTextureResolver;
 import org.geysermc.hydraulic.pack.ModResourceIndex;
 import org.geysermc.hydraulic.pack.PackLogListener;
 import org.geysermc.hydraulic.pack.PackModule;
@@ -292,6 +293,18 @@ public class ItemPackModule extends TexturePackModule<ItemPackModule> {
 
                 if (item instanceof BlockItem blockItem && this.shouldUseBlockItemTextureBridge(context, blockItem)) {
                     customItemOptions.icon(itemLocation.toString());
+                }
+
+                if (!itemBuiltinTexture.containsKey(itemLocation.toString())
+                    && !is2d
+                    && !(item instanceof BlockItem && this.shouldUseBlockItemTextureBridge(context, (BlockItem) item))
+                    && item instanceof BucketItem bucketItem
+                ) {
+                    String bucketTexture = FluidBucketTextureResolver.resolve(context.hydraulic().getPackManager().compatibilityRegistry(), bucketItem);
+                    if (bucketTexture != null) {
+                        customItemOptions.icon(bucketTexture);
+                        context.logger().info("Using compatibility-backed fluid bucket icon fallback for {} via {}", itemLocation, BuiltInRegistries.FLUID.getKey(bucketItem.getContent()));
+                    }
                 }
 
                 // Make it handheld if need be

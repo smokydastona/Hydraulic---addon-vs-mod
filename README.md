@@ -15,7 +15,7 @@ The fork now records typed compatibility evidence for discovered mod content, se
 Right now this fork adds:
 - metadata-based block matching by Java block ID and optional Java state filters
 - item, recipe, entity, and menu identifier mapping metadata on the same compatibility/report foundation
-- Metadata V2 patch loading for blocks, items, recipes, entities, and menus
+- Metadata V2 patch loading for blocks, items, recipes, entities, menus, and fluids
 - lazy on-demand model loading from indexed model paths with a bounded cache instead of eager global model deserialization at startup
 - indexed model-provider lookups in item and bow post-processing too, so runtime texture binding and bow override resolution no longer depend on parsed-pack model lookup
 - shared cached texture-output resolution for model- and block-texture paths, with live hit and miss metrics in the performance report
@@ -23,6 +23,7 @@ Right now this fork adds:
 - capability-driven adapter dispatch for the live menu and block-entity bridge seams, so runtime translator creation now follows analyzer-produced adapter bindings
 - typed runtime bridge categories compiled into the runtime dispatch table, so analyzer-derived bridge requirements for blocks, items, entities, menus, block entities, and fluids are available as direct runtime categories instead of only raw strings in the report
 - item creative exposure now also consumes the typed `ITEM_BEHAVIOR` bridge category, so wearable and bow presentation adapters no longer keep behavior-required items in Bedrock creative inventory
+- a first metadata-backed fluid bucket icon bridge that lets custom bucket items inherit explicit fluid presentation through the existing custom-item registration path
 - override support for Bedrock block identifier, geometry, and material
 - typed compatibility objects with support levels, confidence, provenance, findings, and mod fingerprints
 - a first analyzer API with block, item, entity, fluid, block-entity, menu, and recipe analyzers
@@ -108,6 +109,7 @@ Supported fields today:
 - `geometry`: optional Bedrock geometry override
 - `material`: optional Bedrock material override
 - `interaction_prompt`: records a metadata-backed Bedrock entity interaction prompt in compatibility output when present
+- `bucket_texture`: records a metadata-backed fluid bucket icon fallback in compatibility output when present
 - `behavior_required`: marks content that still needs a runtime bridge or behavior-layer support
 - `behavior_tag`: declares the bridge category Hydraulic should report and route through capability adapters
 
@@ -181,6 +183,7 @@ Supported patch paths today:
 - `bedrock.block_entity.data.<key>`
 - `visual.geometry`
 - `visual.material`
+- `visual.bucket_texture`
 - `java.when.<key>`
 - `interaction.prompt`
 - `behavior.required`
@@ -234,6 +237,8 @@ The current compatibility report is now also compiled into a first in-memory run
 
 That compiled runtime slice now also classifies analyzer-derived runtime requirements into typed `RuntimeBridgeKind` categories. Current runtime consumers use those typed categories for clearer suppression and degradation diagnostics, unsupported menu and block-entity warning paths now gather candidate objects through typed bridge-group queries in the dispatch table, fluid plans now expose a compiled `fluidRuntimeRequirements` subset and `requiresFluidRuntime` flag, and future bridge factories can bind to structured bridge classes like `MENU_CONTAINER`, `BLOCK_ENTITY_DATA`, or `FLUID_RUNTIME` without having to reinterpret freeform requirement strings.
 
+Metadata V2 can now also drive a first real fluid-adjacent runtime bridge. A `fluid` patch with `visual.bucket_texture` marks fluid presentation as adapted only when Hydraulic can resolve a real Java bucket item for that fluid, binds the explicit `fluid.bucket_texture_fallback` adapter, and exposes `bucket_item` plus `bucket_texture` in `compatibility-report.json`. The current `ItemAnalyzer` and `ItemPackModule` now consume that compiled fluid plan so a custom `BucketItem` without its own discoverable item model can inherit the configured icon through the existing custom-item registration path. Live Fabric validation now shows `hydraulic_test_mod:barrel_fluid` binding `FLUID_BUCKET_TEXTURE_FALLBACK` with only `fluid_runtime_bridge` still outstanding, while `hydraulic_test_mod:barrel_bucket` records `fluid_source = hydraulic_test_mod:barrel_fluid`, `bucket_texture = hydraulic_test_mod:barrel_pack`, and the explicit fallback finding instead of a plain missing-asset warning.
+
 `compatibility-report.json` records per-object analyzer output, including:
 - support levels: `NATIVE`, `AUTOMATIC`, `ADAPTED`, `APPROXIMATED`, `VISUAL_ONLY`, `UNSUPPORTED`
 - the five compatibility domains: content, presentation, state/data, interaction, behavior
@@ -264,6 +269,8 @@ Metadata V2 can now also drive a first real block-entity data bridge. A `block_e
 Metadata V2 can now also drive a first real entity interaction bridge. An `entity` patch with `interaction.prompt` marks interaction support as adapted, records that prompt in `compatibility-report.json`, binds the explicit `entity.interaction_prompt` adapter, and overrides Bedrock hover text at Geyser's `BedrockInteractTranslator` seam while still reusing the existing downstream Java interact packet path. The bundled `barrel_cube` test entity now also opens its test menu on Java interaction, so the bridge is tied to a real controlled runtime outcome instead of a report-only label. This slice is intentionally narrow: it improves discoverability and routing for explicit metadata-backed entity interactions, but richer entity behavior remains unsupported.
 
 The current report is still conservative. It is intended to answer "what do we know right now from registries, assets, metadata, and patches?" not "is this mod fully playable end-to-end on Bedrock?" Behavior-heavy entities, fluids, menus, and block entities will still show low support until dedicated runtime bridges are implemented. For items, behavior-tagged patches already affect runtime exposure decisions, and explicit typed `ITEM_BEHAVIOR` bridge requirements now keep those items out of Bedrock creative exposure even when a wearable or bow presentation adapter still applies. For entities, metadata-backed identifier mappings only drive custom entity registration when the compiled plan still requires behavior-layer runtime support but metadata explicitly marks that downgrade as `visual_only_runtime`; metadata-backed `interaction.prompt` patches now also surface a real Bedrock hover prompt and clear `entity_interaction_bridge` from the report when Hydraulic can truthfully reuse the existing Java interaction packet path.
+
+That fluid bucket icon slice is intentionally narrow. It improves presentation and custom item registration for bucket items backed by explicit fluid metadata, but it does not translate world fluid blocks, transfer, storage, or fluid interaction behavior yet.
 
 ## Contributing
 Any contributions are appreciated. Please feel free to reach out to us on [Discord](https://discord.gg/geysermc) if

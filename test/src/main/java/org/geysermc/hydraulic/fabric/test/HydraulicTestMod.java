@@ -8,6 +8,7 @@ public class HydraulicTestMod implements ModInitializer {
     @Override
     public void onInitialize() {
         HydraulicTestMetadataBootstrap.installBundledMetadata();
+        ModFluids.init();
         ModItems.init();
         ModBlocks.init();
         ModEntities.init();
