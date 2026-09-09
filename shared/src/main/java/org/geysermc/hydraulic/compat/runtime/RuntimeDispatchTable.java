@@ -214,6 +214,10 @@ public final class RuntimeDispatchTable {
         SupportLevel behaviorLevel = object.supportResults().containsKey("behavior") ? object.supportResults().get("behavior").level() : null;
         String behaviorTag = object.inventoryFacts().get("behavior_tag");
         boolean requiresMenuBridge = object.runtimeRequirements().contains("container_bridge");
+        List<String> menuRuntimeRequirements = object.runtimeRequirements().stream()
+            .filter(requirement -> requirement.equals("container_bridge") || requirement.startsWith("menu_"))
+            .sorted()
+            .toList();
         List<String> blockEntityRuntimeRequirements = object.runtimeRequirements().stream()
             .filter(requirement -> requirement.startsWith("block_entity_"))
             .sorted()
@@ -241,6 +245,7 @@ public final class RuntimeDispatchTable {
             supportsAttachablePresentation,
             requiresMenuBridge,
             menuFallbackContainerType(object, javaIdentifier, mappingResolver),
+            menuRuntimeRequirements,
             blockEntityRuntimeRequirements,
             blockEntityPatchTemplate(object, javaIdentifier, mappingResolver),
             !blockEntityRuntimeRequirements.isEmpty(),

@@ -26,20 +26,31 @@ class CompatibilityRuntimeDiagnosticsTest {
     void surfacesCompatibilityCandidatesForUnsupportedMenuOpen() {
         CompatibilityRegistry registry = compatibilityRegistry();
 
-        String message = UnsupportedMenuDiagnosticFormatter.format("GENERIC_9X3", "Barrel Menu", registry);
+        String message = UnsupportedMenuDiagnosticFormatter.format("GENERIC_9X3", "Barrel Menu", "example:test_menu", registry);
 
         assertTrue(message.contains("GENERIC_9X3"));
         assertTrue(message.contains("Barrel Menu"));
-        assertTrue(message.contains("container_bridge"));
         assertTrue(message.contains("example:test_menu"));
+        assertTrue(message.contains("container_bridge"));
+        assertTrue(message.contains("menu_behavior_bridge"));
     }
 
     @Test
     void fallsBackToGenericReasonWhenNoMenuCandidatesExist() {
-        String message = UnsupportedMenuDiagnosticFormatter.format("GENERIC_9X3", null, CompatibilityRegistry.empty());
+        String message = UnsupportedMenuDiagnosticFormatter.format("GENERIC_9X3", null, null, CompatibilityRegistry.empty());
 
         assertTrue(message.contains("GENERIC_9X3"));
         assertTrue(message.contains("no discovered menu objects"));
+    }
+
+    @Test
+    void suppressesDuplicateMatchedMenuFromCandidateTail() {
+        CompatibilityRegistry registry = compatibilityRegistry();
+
+        String message = UnsupportedMenuDiagnosticFormatter.format("GENERIC_9X3", "Barrel Menu", "example:test_menu", registry);
+
+        assertTrue(message.contains("Compatibility report still marks this menu as requiring"));
+        assertTrue(message.contains("Compatibility report candidates still requiring menu runtime bridges: none."));
     }
 
     @Test

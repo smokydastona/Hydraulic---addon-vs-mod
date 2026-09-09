@@ -33,12 +33,13 @@ public abstract class JavaOpenScreenTranslatorMixin {
         InventoryTranslator<?> translator = original.call(containerType);
         if (translator == null) {
             CompatibilityRegistry compatibilityRegistry = CompatibilityRuntimeDiagnostics.currentRegistry();
-            InventoryTranslator<?> fallbackTranslator = MenuPatchTranslatorFactory.create(session, packet, compatibilityRegistry);
+            String javaIdentifier = CompatibilityRuntimeDiagnostics.resolveJavaMenuIdentifier(session, packet.getContainerId());
+            InventoryTranslator<?> fallbackTranslator = MenuPatchTranslatorFactory.create(javaIdentifier, compatibilityRegistry);
             if (fallbackTranslator != null) {
                 return fallbackTranslator;
             }
 
-            CompatibilityRuntimeDiagnostics.reportUnsupportedMenuOpen(containerType, title(packet.getTitle(), session));
+            CompatibilityRuntimeDiagnostics.reportUnsupportedMenuOpen(containerType, title(packet.getTitle(), session), javaIdentifier);
         }
         return translator;
     }

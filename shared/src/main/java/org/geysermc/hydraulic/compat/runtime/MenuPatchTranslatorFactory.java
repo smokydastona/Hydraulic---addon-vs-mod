@@ -20,6 +20,14 @@ public final class MenuPatchTranslatorFactory {
         @NotNull CompatibilityRegistry compatibilityRegistry
     ) {
         String javaIdentifier = CompatibilityRuntimeDiagnostics.resolveJavaMenuIdentifier(session, packet.getContainerId());
+        return create(javaIdentifier, compatibilityRegistry);
+    }
+
+    @Nullable
+    public static InventoryTranslator<?> create(
+        @Nullable String javaIdentifier,
+        @NotNull CompatibilityRegistry compatibilityRegistry
+    ) {
         if (javaIdentifier == null) {
             return null;
         }

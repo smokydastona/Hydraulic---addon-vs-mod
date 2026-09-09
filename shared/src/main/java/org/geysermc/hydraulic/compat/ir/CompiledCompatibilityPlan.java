@@ -35,6 +35,7 @@ public record CompiledCompatibilityPlan(
     boolean supportsAttachablePresentation,
     boolean requiresMenuBridge,
     @Nullable String menuFallbackContainerType,
+    @NotNull List<String> menuRuntimeRequirements,
     @NotNull List<String> blockEntityRuntimeRequirements,
     @Nullable BlockEntityPatchTemplate blockEntityPatchTemplate,
     boolean requiresBlockEntityRuntime,
@@ -45,6 +46,7 @@ public record CompiledCompatibilityPlan(
         adapterBindings = List.copyOf(adapterBindings);
         runtimeRequirements = List.copyOf(runtimeRequirements);
         inventoryFacts = Collections.unmodifiableMap(new LinkedHashMap<>(inventoryFacts));
+        menuRuntimeRequirements = List.copyOf(menuRuntimeRequirements);
         blockEntityRuntimeRequirements = List.copyOf(blockEntityRuntimeRequirements);
     }
 

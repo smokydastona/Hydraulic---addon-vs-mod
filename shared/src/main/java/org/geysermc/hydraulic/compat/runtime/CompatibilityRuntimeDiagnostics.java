@@ -28,13 +28,13 @@ public final class CompatibilityRuntimeDiagnostics {
     private CompatibilityRuntimeDiagnostics() {
     }
 
-    public static void reportUnsupportedMenuOpen(@NotNull ContainerType containerType, @Nullable String title) {
-        String warningKey = containerType.name() + '|' + normalizeTitle(title);
+    public static void reportUnsupportedMenuOpen(@NotNull ContainerType containerType, @Nullable String title, @Nullable String javaIdentifier) {
+        String warningKey = (javaIdentifier != null ? javaIdentifier : containerType.name()) + '|' + normalizeTitle(title);
         if (!WARNED_UNSUPPORTED_MENUS.add(warningKey)) {
             return;
         }
 
-        LOGGER.warn(UnsupportedMenuDiagnosticFormatter.format(containerType.name(), title, currentRegistry()));
+        LOGGER.warn(UnsupportedMenuDiagnosticFormatter.format(containerType.name(), title, javaIdentifier, currentRegistry()));
     }
 
     public static void reportUnsupportedBlockEntityData(
@@ -66,7 +66,7 @@ public final class CompatibilityRuntimeDiagnostics {
         @Nullable String title,
         @NotNull CompatibilityRegistry compatibilityRegistry
     ) {
-        return UnsupportedMenuDiagnosticFormatter.format(containerType.name(), title, compatibilityRegistry);
+        return UnsupportedMenuDiagnosticFormatter.format(containerType.name(), title, null, compatibilityRegistry);
     }
 
     @NotNull
@@ -75,7 +75,7 @@ public final class CompatibilityRuntimeDiagnostics {
         @Nullable String title,
         @NotNull CompatibilityRegistry compatibilityRegistry
     ) {
-        return UnsupportedMenuDiagnosticFormatter.format(containerTypeName, title, compatibilityRegistry);
+        return UnsupportedMenuDiagnosticFormatter.format(containerTypeName, title, null, compatibilityRegistry);
     }
 
     @NotNull
@@ -108,7 +108,7 @@ public final class CompatibilityRuntimeDiagnostics {
     }
 
     @Nullable
-    static String resolveJavaMenuIdentifier(@NotNull GeyserSession session, int containerId) {
+    public static String resolveJavaMenuIdentifier(@NotNull GeyserSession session, int containerId) {
         try {
             ServerPlayer player = HydraulicImpl.instance().server().getPlayerList().getPlayer(session.javaUuid());
             if (player == null) {

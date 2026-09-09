@@ -232,6 +232,7 @@ The compatibility layer stays above the current Hydraulic conversion pipeline, b
 - Current runtime consumers already use compatibility decisions for block registration, item registration and exposure, armor and bow attachables, and metadata-backed custom entity registration.
 - Current runtime bridges already include explicit metadata-backed menu fallback and block-entity patch translation at real Geyser seams.
 - Unsupported menu-open and block-entity fallback diagnostics now also consume precompiled runtime-dispatch candidate indexes instead of rescanning the full compatibility report during live warnings.
+- Unsupported menu-open handling now also preserves the resolved live Java menu identifier across the mixin, fallback, and warning paths, so the runtime warning can bind directly to the matched compiled menu plan and its explicit menu bridge requirements instead of only reporting a container type plus global candidates.
 - State-aware block identifier grouping and per-state runtime metadata now also compile into the runtime dispatch table, so block registration and block-item placement no longer need to re-derive those mappings through `MappingResolver` when compiled entries already exist.
 - The remaining block-item texture fallback decision path now also consumes compiled block compatibility plans instead of looking raw objects back up from the compatibility report during conversion.
 
