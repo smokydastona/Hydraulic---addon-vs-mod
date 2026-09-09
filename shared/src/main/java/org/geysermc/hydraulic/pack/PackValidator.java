@@ -13,9 +13,13 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Enumeration;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
@@ -23,6 +27,11 @@ import java.util.zip.ZipFile;
 final class PackValidator {
     @NotNull
     PackValidationReport.ModValidation validate(@NotNull Path packPath) {
+        return this.validate(packPath, TextureExpectations.empty());
+    }
+
+    @NotNull
+    PackValidationReport.ModValidation validate(@NotNull Path packPath, @NotNull TextureExpectations textureExpectations) {
         long started = System.currentTimeMillis();
         List<PackValidationReport.ValidationMessage> errors = new ArrayList<>();
         List<PackValidationReport.ValidationMessage> warnings = new ArrayList<>();
@@ -47,6 +56,7 @@ final class PackValidator {
         }
 
         try (ZipFile zip = new ZipFile(packPath.toFile())) {
+            Map<String, String> archiveTextureEntries = new LinkedHashMap<>();
             ZipEntry manifestEntry = zip.getEntry("manifest.json");
             if (manifestEntry == null) {
                 errors.add(new PackValidationReport.ValidationMessage(
@@ -99,6 +109,9 @@ final class PackValidator {
                     manualActions.add("Inspect invalid generated JSON entries before shipping or registering this pack.");
                 }
             }
+
+            collectTextureEntries(zip, archiveTextureEntries);
+            validateTextureCoverage(textureExpectations, archiveTextureEntries, errors, warnings, manualActions);
         } catch (IOException e) {
             errors.add(new PackValidationReport.ValidationMessage(
                 "pack.archive.unreadable",
@@ -212,6 +225,91 @@ final class PackValidator {
                 "manifest.json"
             ));
             manualActions.add("Regenerate the pack manifest so required Bedrock header metadata is populated.");
+        }
+    }
+
+    private static void collectTextureEntries(@NotNull ZipFile zip, @NotNull Map<String, String> archiveTextureEntries) {
+        Enumeration<? extends ZipEntry> entries = zip.entries();
+        while (entries.hasMoreElements()) {
+            ZipEntry entry = entries.nextElement();
+            if (entry.isDirectory()) {
+                continue;
+            }
+
+            String normalized = normalizePath(entry.getName());
+            if (!normalized.startsWith("textures/") || !(normalized.endsWith(".png") || normalized.endsWith(".tga"))) {
+                continue;
+            }
+            if (normalized.equals("pack_icon.png")) {
+                continue;
+            }
+
+            archiveTextureEntries.put(normalized, entry.getName());
+        }
+    }
+
+    private static void validateTextureCoverage(
+        @NotNull TextureExpectations textureExpectations,
+        @NotNull Map<String, String> archiveTextureEntries,
+        @NotNull List<PackValidationReport.ValidationMessage> errors,
+        @NotNull List<PackValidationReport.ValidationMessage> warnings,
+        @NotNull Set<String> manualActions
+    ) {
+        if (textureExpectations.requiredArchiveEntries().isEmpty()) {
+            return;
+        }
+
+        List<String> missingEntries = textureExpectations.requiredArchiveEntries().stream()
+            .filter(expected -> !archiveTextureEntries.containsKey(expected))
+            .toList();
+        for (String missingEntry : missingEntries) {
+            errors.add(new PackValidationReport.ValidationMessage(
+                "pack.texture.required_missing",
+                "Generated pack is missing a required selected texture output.",
+                missingEntry
+            ));
+        }
+        if (!missingEntries.isEmpty()) {
+            manualActions.add("Inspect texture conversion and dependency selection output for missing generated textures before shipping this pack.");
+        }
+
+        List<String> unreferencedEntries = archiveTextureEntries.keySet().stream()
+            .filter(entry -> !textureExpectations.requiredArchiveEntries().contains(entry))
+            .toList();
+        for (String unreferencedEntry : unreferencedEntries) {
+            warnings.add(new PackValidationReport.ValidationMessage(
+                "pack.texture.unreferenced_output",
+                "Generated pack still contains a texture file that was not selected by the texture dependency graph.",
+                archiveTextureEntries.get(unreferencedEntry)
+            ));
+        }
+        if (!unreferencedEntries.isEmpty()) {
+            manualActions.add("Review texture dependency tracking for this mod; unreferenced generated textures indicate pruning is incomplete.");
+        }
+    }
+
+    @NotNull
+    private static String normalizePath(@NotNull String path) {
+        return path.replace('\\', '/').toLowerCase(Locale.ROOT);
+    }
+
+    record TextureExpectations(@NotNull Set<String> requiredArchiveEntries) {
+        TextureExpectations {
+            requiredArchiveEntries = Set.copyOf(requiredArchiveEntries);
+        }
+
+        @NotNull
+        static TextureExpectations empty() {
+            return new TextureExpectations(Set.of());
+        }
+
+        @NotNull
+        static TextureExpectations ofArchiveEntries(@NotNull Collection<String> archiveEntries) {
+            Set<String> normalized = new LinkedHashSet<>();
+            for (String archiveEntry : archiveEntries) {
+                normalized.add(normalizePath(archiveEntry));
+            }
+            return new TextureExpectations(normalized);
         }
     }
 }

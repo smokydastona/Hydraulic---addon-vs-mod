@@ -20,6 +20,7 @@ public final class TextureDependencyGraph {
     private final Map<String, Set<Key>> dependenciesBySource = new LinkedHashMap<>();
     private final Set<Key> requiredTextures = new LinkedHashSet<>();
     private final Map<String, Set<String>> requiredTexturePathsByNamespace = new LinkedHashMap<>();
+    private volatile Set<Key> lastSelectedTextures = Set.of();
     private volatile SelectionMetrics lastSelectionMetrics = new SelectionMetrics(0, 0, 0, 0);
 
     public void recordModel(@Nullable Model model) {
@@ -52,6 +53,9 @@ public final class TextureDependencyGraph {
     public SelectionResult selectTextures(@NotNull Collection<Texture> availableTextures) {
         List<Texture> discovered = List.copyOf(availableTextures);
         if (this.requiredTextures.isEmpty()) {
+            this.lastSelectedTextures = discovered.stream()
+                .map(Texture::key)
+                .collect(java.util.stream.Collectors.toUnmodifiableSet());
             SelectionMetrics metrics = this.lastSelectionMetrics.add(discovered.size(), discovered.size(), 0, this.dependenciesBySource.size());
             this.lastSelectionMetrics = metrics;
             return new SelectionResult(discovered, metrics);
@@ -64,6 +68,9 @@ public final class TextureDependencyGraph {
             }
         }
 
+        this.lastSelectedTextures = selected.stream()
+            .map(Texture::key)
+            .collect(java.util.stream.Collectors.toUnmodifiableSet());
         SelectionMetrics metrics = this.lastSelectionMetrics.add(discovered.size(), selected.size(), Math.max(0, discovered.size() - selected.size()), this.dependenciesBySource.size());
         this.lastSelectionMetrics = metrics;
         return new SelectionResult(List.copyOf(selected), metrics);
@@ -96,6 +103,11 @@ public final class TextureDependencyGraph {
     @NotNull
     public Set<Key> requiredTextures() {
         return Set.copyOf(this.requiredTextures);
+    }
+
+    @NotNull
+    public Set<Key> lastSelectedTextures() {
+        return this.lastSelectedTextures;
     }
 
     @NotNull

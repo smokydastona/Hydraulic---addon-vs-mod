@@ -64,8 +64,9 @@ final class TextureResolutionCache {
 
     @NotNull
     private static String resolveModelOutputUncached(@NotNull String modId, @NotNull String value) {
-        String directory = StringUtils.substringBefore(value, "/");
-        String remaining = StringUtils.substringAfter(value, "/");
+        String normalizedValue = normalizeTextureValue(value);
+        String directory = StringUtils.substringBefore(normalizedValue, "/");
+        String remaining = StringUtils.substringAfter(normalizedValue, "/");
         String finalDir = TextureConverter.DIRECTORY_LOCATIONS.getOrDefault(directory, directory) + "/" + modId;
         return String.format(Constants.BEDROCK_TEXTURE_LOCATION, finalDir + "/" + remaining);
     }
@@ -74,6 +75,21 @@ final class TextureResolutionCache {
     private static String resolveBlockTextureOutputUncached(@NotNull String modId, @NotNull String value) {
         String cleanPath = value.replace("block/", "").replace(".png", "");
         return String.format(Constants.BEDROCK_TEXTURE_LOCATION, "blocks/" + modId + "/" + cleanPath);
+    }
+
+    @NotNull
+    private static String normalizeTextureValue(@NotNull String value) {
+        String normalized = value.replace('\\', '/');
+        if (normalized.startsWith("textures/")) {
+            normalized = normalized.substring("textures/".length());
+        }
+        if (normalized.endsWith(".png")) {
+            return normalized.substring(0, normalized.length() - 4);
+        }
+        if (normalized.endsWith(".tga")) {
+            return normalized.substring(0, normalized.length() - 4);
+        }
+        return normalized;
     }
 
     record CacheMetrics(long hits, long misses, long evictions, long size) {

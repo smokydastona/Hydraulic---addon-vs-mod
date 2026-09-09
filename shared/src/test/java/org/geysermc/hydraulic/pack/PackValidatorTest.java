@@ -64,6 +64,46 @@ class PackValidatorTest {
         assertTrue(validation.errors().stream().anyMatch(message -> message.code().equals("pack.json.invalid")));
     }
 
+    @Test
+    void reportsErrorsForMissingRequiredSelectedTextures() throws IOException {
+        Path pack = this.tempDir.resolve("missing-texture.mcpack");
+        writeZip(pack,
+            entry("manifest.json", """
+                {"header":{"name":"Example","uuid":"123e4567-e89b-12d3-a456-426614174000","version":[1,0,0]},"modules":[{"type":"resources","uuid":"123e4567-e89b-12d3-a456-426614174001","version":[1,0,0]}]}
+                """),
+            entry("items/example.json", "{}")
+        );
+
+        PackValidationReport.ModValidation validation = new PackValidator().validate(
+            pack,
+            PackValidator.TextureExpectations.ofArchiveEntries(java.util.List.of("textures/items/examplemod/required.png"))
+        );
+
+        assertFalse(validation.valid());
+        assertTrue(validation.errors().stream().anyMatch(message -> message.code().equals("pack.texture.required_missing")));
+    }
+
+    @Test
+    void reportsWarningsForUnreferencedGeneratedTextures() throws IOException {
+        Path pack = this.tempDir.resolve("extra-texture.mcpack");
+        writeZip(pack,
+            entry("manifest.json", """
+                {"header":{"name":"Example","uuid":"123e4567-e89b-12d3-a456-426614174000","version":[1,0,0]},"modules":[{"type":"resources","uuid":"123e4567-e89b-12d3-a456-426614174001","version":[1,0,0]}]}
+                """),
+            entry("items/example.json", "{}"),
+            entry("textures/items/examplemod/required.png", "png"),
+            entry("textures/items/examplemod/extra.png", "png")
+        );
+
+        PackValidationReport.ModValidation validation = new PackValidator().validate(
+            pack,
+            PackValidator.TextureExpectations.ofArchiveEntries(java.util.List.of("textures/items/examplemod/required.png"))
+        );
+
+        assertTrue(validation.valid());
+        assertTrue(validation.warnings().stream().anyMatch(message -> message.code().equals("pack.texture.unreferenced_output")));
+    }
+
     private static void writeZip(Path output, ZipContent... contents) throws IOException {
         try (ZipOutputStream stream = new ZipOutputStream(Files.newOutputStream(output))) {
             for (ZipContent content : contents) {

@@ -52,6 +52,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -329,7 +330,7 @@ public class PackManager {
             }
 
             boolean created = Files.exists(packPath);
-            PackValidationReport.ModValidation validation = this.packValidator.validate(packPath);
+            PackValidationReport.ModValidation validation = this.packValidator.validate(packPath, expectedTextureOutputs(mod.id(), textureDependencies));
             this.packValidationTracker.record(mod.id(), validation);
             if (!validation.valid()) {
                 LOGGER.warn(
@@ -704,6 +705,19 @@ public class PackManager {
     @NotNull
     private static PerformanceReport.CacheMetrics toPerformanceCacheMetrics(@NotNull StateDefinition.CacheMetrics cacheMetrics) {
         return new PerformanceReport.CacheMetrics(cacheMetrics.hits(), cacheMetrics.misses());
+    }
+
+    @NotNull
+    private PackValidator.TextureExpectations expectedTextureOutputs(@NotNull String modId, @NotNull TextureDependencyGraph textureDependencies) {
+        if (textureDependencies.lastSelectedTextures().isEmpty()) {
+            return PackValidator.TextureExpectations.empty();
+        }
+
+        Set<String> archiveEntries = new LinkedHashSet<>();
+        for (net.kyori.adventure.key.Key textureKey : textureDependencies.lastSelectedTextures()) {
+            archiveEntries.add(this.textureResolutionCache.resolveModelOutput(modId, textureKey));
+        }
+        return PackValidator.TextureExpectations.ofArchiveEntries(archiveEntries);
     }
 
     private record LookupSummary(
