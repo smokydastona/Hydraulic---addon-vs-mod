@@ -83,13 +83,17 @@ public final class RuntimeDispatchTable {
         Map<RuntimeBridgeKind, List<CompiledCompatibilityPlan>> plansByRuntimeBridgeKind = new EnumMap<>(RuntimeBridgeKind.class);
         for (CompatibilityProfile profile : report.mods().values()) {
             for (CompatibilityObject object : profile.objects()) {
-                CompiledCompatibilityPlan plan = compilePlan(object, mappingResolver);
-                plansByIdentifier.put(key(object.contentType(), object.javaIdentifier()), plan);
-                plansByModAndType.computeIfAbsent(key(profile.modId(), object.contentType()), ignored -> new ArrayList<>()).add(plan);
+                plansByIdentifier.put(key(object.contentType(), object.javaIdentifier()), compilePlan(object, mappingResolver));
                 compileBlockStatePlans(object, mappingResolver, blockDefinitionsByIdentifier, blockStatesByIdentifierAndState);
-                for (RuntimeBridgeKind kind : plan.runtimeBridgeKinds()) {
+            }
+        }
+
+        for (CompiledCompatibilityPlan basePlan : List.copyOf(plansByIdentifier.values())) {
+            CompiledCompatibilityPlan plan = refineCreativeExposure(basePlan, plansByIdentifier);
+            plansByIdentifier.put(key(plan.contentType(), plan.javaIdentifier()), plan);
+            plansByModAndType.computeIfAbsent(key(plan.modId(), plan.contentType()), ignored -> new ArrayList<>()).add(plan);
+            for (RuntimeBridgeKind kind : plan.runtimeBridgeKinds()) {
                     plansByRuntimeBridgeKind.computeIfAbsent(kind, ignored -> new ArrayList<>()).add(plan);
-                }
             }
         }
         return new RuntimeDispatchTable(
@@ -99,6 +103,79 @@ public final class RuntimeDispatchTable {
             blockStatesByIdentifierAndState,
             plansByRuntimeBridgeKind
         );
+    }
+
+    @NotNull
+    private static CompiledCompatibilityPlan refineCreativeExposure(
+        @NotNull CompiledCompatibilityPlan plan,
+        @NotNull Map<String, CompiledCompatibilityPlan> plansByIdentifier
+    ) {
+        if (!"item".equals(plan.contentType()) || !plan.allowsCreativeExposure()) {
+            return plan;
+        }
+
+        String fluidSource = plan.inventoryFacts().get("fluid_source");
+        if (fluidSource == null || fluidSource.isBlank()) {
+            return plan;
+        }
+
+        CompiledCompatibilityPlan fluidPlan = plansByIdentifier.get(key("fluid", fluidSource));
+        if (fluidPlan == null || !fluidPlan.requiresFluidRuntime()) {
+            return plan;
+        }
+
+        return withCreativeExposure(plan, false, fluidCreativeExposureReason(fluidPlan));
+    }
+
+    @NotNull
+    private static CompiledCompatibilityPlan withCreativeExposure(
+        @NotNull CompiledCompatibilityPlan plan,
+        boolean allowsCreativeExposure,
+        @Nullable String creativeExposureReason
+    ) {
+        return new CompiledCompatibilityPlan(
+            plan.modId(),
+            plan.contentType(),
+            plan.javaIdentifier(),
+            plan.resolvedIdentifier(),
+            plan.overallLevel(),
+            plan.overallStatus(),
+            plan.overallScore(),
+            plan.confidence(),
+            plan.adapterBindings(),
+            plan.runtimeRequirements(),
+            plan.runtimeBridgeKinds(),
+            plan.inventoryFacts(),
+            allowsCreativeExposure,
+            creativeExposureReason,
+            plan.allowsCustomRegistration(),
+            plan.customRegistrationReason(),
+            plan.supportsBlockItemTextureFallback(),
+            plan.supportsBlockPlacement(),
+            plan.supportsWearablePresentation(),
+            plan.supportsAttachablePresentation(),
+            plan.requiresMenuBridge(),
+            plan.menuFallbackContainerType(),
+            plan.interactionPrompt(),
+            plan.menuRuntimeRequirements(),
+            plan.blockEntityRuntimeRequirements(),
+            plan.fluidRuntimeRequirements(),
+            plan.blockEntityPatchTemplate(),
+            plan.requiresBlockEntityRuntime(),
+            plan.requiresFluidRuntime(),
+            plan.behaviorLevel(),
+            plan.behaviorTag()
+        );
+    }
+
+    @NotNull
+    private static String fluidCreativeExposureReason(@NotNull CompiledCompatibilityPlan fluidPlan) {
+        StringBuilder reason = new StringBuilder("source fluid runtime bridge is required (fluid: ")
+            .append(fluidPlan.javaIdentifier());
+        if (fluidPlan.behaviorTag() != null && !fluidPlan.behaviorTag().isBlank()) {
+            reason.append(", tag: ").append(fluidPlan.behaviorTag());
+        }
+        return reason.append(')').toString();
     }
 
     @Nullable

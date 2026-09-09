@@ -55,6 +55,7 @@ class RuntimeDispatchTableTest {
         Identifier menu = Identifier.fromNamespaceAndPath("example", "test_menu");
         Identifier blockEntity = Identifier.fromNamespaceAndPath("example", "test_block_entity");
         Identifier fluid = Identifier.fromNamespaceAndPath("example", "test_fluid");
+        Identifier fluidBucket = Identifier.fromNamespaceAndPath("minecraft", "water_bucket");
         Identifier behaviorItem = Identifier.fromNamespaceAndPath("example", "behavior_item");
         Identifier northBlock = Identifier.fromNamespaceAndPath("example", "north_piston");
 
@@ -132,6 +133,7 @@ class RuntimeDispatchTableTest {
                             object("entity", entity.toString(), Map.of("behavior_required", "true", "behavior_tag", "visual_only_runtime"), supportResults(SupportLevel.ADAPTED, SupportLevel.ADAPTED, SupportLevel.APPROXIMATED)),
                             object("menu", menu.toString(), Map.of(), supportResults(SupportLevel.AUTOMATIC, SupportLevel.AUTOMATIC, SupportLevel.AUTOMATIC)),
                             object("block_entity", blockEntity.toString(), Map.of(), supportResults(SupportLevel.AUTOMATIC, SupportLevel.AUTOMATIC, SupportLevel.AUTOMATIC)),
+                            object("item", fluidBucket.toString(), Map.of("fluid_source", fluid.toString(), "bucket_texture", "example:bucket"), supportResults(SupportLevel.AUTOMATIC, SupportLevel.ADAPTED, SupportLevel.AUTOMATIC)),
                             object("fluid", fluid.toString(), Map.of("behavior_tag", "fluid_tank"), supportResults(SupportLevel.AUTOMATIC, SupportLevel.UNSUPPORTED, SupportLevel.UNSUPPORTED))
                         ),
                         List.of(),
@@ -167,6 +169,11 @@ class RuntimeDispatchTableTest {
         assertTrue(behaviorItemPlan.requiresRuntimeBridge(RuntimeBridgeKind.ITEM_BEHAVIOR));
         assertFalse(behaviorItemPlan.allowsCreativeExposure());
         assertEquals("item behavior runtime bridge is required (tag: wearable)", behaviorItemPlan.creativeExposureReason());
+
+        var fluidBucketPlan = registry.dispatchTable().item(fluidBucket);
+        assertNotNull(fluidBucketPlan);
+        assertFalse(fluidBucketPlan.allowsCreativeExposure());
+        assertEquals("source fluid runtime bridge is required (fluid: example:test_fluid, tag: fluid_tank)", fluidBucketPlan.creativeExposureReason());
 
         var entityPlan = registry.dispatchTable().entity(entity);
         assertNotNull(entityPlan);
@@ -208,7 +215,7 @@ class RuntimeDispatchTableTest {
         assertEquals(1, registry.dispatchTable().menuBridgePlans().size());
         assertEquals(1, registry.dispatchTable().blockEntityBridgePlans().size());
         assertEquals(3, registry.dispatchTable().metrics().blocks().hits());
-        assertEquals(2, registry.dispatchTable().metrics().items().hits());
+        assertEquals(3, registry.dispatchTable().metrics().items().hits());
         assertEquals(1, registry.dispatchTable().metrics().items().misses());
         assertEquals(2, registry.dispatchTable().metrics().entities().hits());
         assertEquals(1, registry.dispatchTable().metrics().menus().hits());

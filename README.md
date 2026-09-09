@@ -24,6 +24,7 @@ Right now this fork adds:
 - typed runtime bridge categories compiled into the runtime dispatch table, so analyzer-derived bridge requirements for blocks, items, entities, menus, block entities, and fluids are available as direct runtime categories instead of only raw strings in the report
 - item creative exposure now also consumes the typed `ITEM_BEHAVIOR` bridge category, so wearable and bow presentation adapters no longer keep behavior-required items in Bedrock creative inventory
 - a first metadata-backed fluid bucket icon bridge that lets custom bucket items inherit explicit fluid presentation through the existing custom-item registration path
+- fluid-backed bucket items now also stay out of Bedrock creative inventory when their source fluid still requires a deeper runtime bridge, even if the icon can fall back through compatibility metadata
 - override support for Bedrock block identifier, geometry, and material
 - typed compatibility objects with support levels, confidence, provenance, findings, and mod fingerprints
 - a first analyzer API with block, item, entity, fluid, block-entity, menu, and recipe analyzers
