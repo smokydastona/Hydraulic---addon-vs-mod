@@ -257,11 +257,12 @@ public class PackManager {
         ConversionKey conversionKey = this.conversionKey(mod);
         List<ConverterPipeline<?, ?>> pipelines = new ArrayList<>(packConverters);
         TextureDependencyGraph textureDependencies = new TextureDependencyGraph();
+        ModResourceIndex resourceIndex = this.modResourceIndexes.get(mod.id());
         seedEquipmentTextureDependencies(mod, textureDependencies);
         replacePipeline(
             pipelines,
             AssetConverters.MODEL,
-            AssetConverters.create(new CustomModelConverter(modelProvider, textureDependencies), AssetConverters.MODEL, AssetConverters.MODEL)
+            AssetConverters.create(new CustomModelConverter(resourceIndex, modelProvider, textureDependencies), AssetConverters.MODEL, AssetConverters.MODEL)
         );
         replacePipeline(
             pipelines,
