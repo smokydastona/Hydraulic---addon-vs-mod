@@ -27,11 +27,15 @@ import java.util.concurrent.atomic.AtomicLong;
 public final class RuntimeDispatchTable {
     private final Map<String, CompiledCompatibilityPlan> plansByTypeAndIdentifier;
     private final Map<String, List<CompiledCompatibilityPlan>> plansByModAndType;
+    private final List<CompiledCompatibilityPlan> menuBridgePlans;
+    private final List<CompiledCompatibilityPlan> blockEntityBridgePlans;
     private final Map<String, LookupCounters> countersByType;
 
     private RuntimeDispatchTable(
         @NotNull Map<String, CompiledCompatibilityPlan> plansByTypeAndIdentifier,
-        @NotNull Map<String, List<CompiledCompatibilityPlan>> plansByModAndType
+        @NotNull Map<String, List<CompiledCompatibilityPlan>> plansByModAndType,
+        @NotNull List<CompiledCompatibilityPlan> menuBridgePlans,
+        @NotNull List<CompiledCompatibilityPlan> blockEntityBridgePlans
     ) {
         this.plansByTypeAndIdentifier = Collections.unmodifiableMap(new LinkedHashMap<>(plansByTypeAndIdentifier));
         Map<String, List<CompiledCompatibilityPlan>> copy = new LinkedHashMap<>();
@@ -39,6 +43,8 @@ public final class RuntimeDispatchTable {
             copy.put(entry.getKey(), List.copyOf(entry.getValue()));
         }
         this.plansByModAndType = Collections.unmodifiableMap(copy);
+        this.menuBridgePlans = List.copyOf(menuBridgePlans);
+        this.blockEntityBridgePlans = List.copyOf(blockEntityBridgePlans);
         this.countersByType = Map.of(
             "block", new LookupCounters(),
             "item", new LookupCounters(),
@@ -50,21 +56,31 @@ public final class RuntimeDispatchTable {
 
     @NotNull
     public static RuntimeDispatchTable empty() {
-        return new RuntimeDispatchTable(Map.of(), Map.of());
+        return new RuntimeDispatchTable(Map.of(), Map.of(), List.of(), List.of());
     }
 
     @NotNull
     public static RuntimeDispatchTable compile(@NotNull CompatibilityReport report, @NotNull MappingResolver mappingResolver) {
         Map<String, CompiledCompatibilityPlan> plansByIdentifier = new LinkedHashMap<>();
         Map<String, List<CompiledCompatibilityPlan>> plansByModAndType = new LinkedHashMap<>();
+        List<CompiledCompatibilityPlan> menuBridgePlans = new ArrayList<>();
+        List<CompiledCompatibilityPlan> blockEntityBridgePlans = new ArrayList<>();
         for (CompatibilityProfile profile : report.mods().values()) {
             for (CompatibilityObject object : profile.objects()) {
                 CompiledCompatibilityPlan plan = compilePlan(object, mappingResolver);
                 plansByIdentifier.put(key(object.contentType(), object.javaIdentifier()), plan);
                 plansByModAndType.computeIfAbsent(key(profile.modId(), object.contentType()), ignored -> new ArrayList<>()).add(plan);
+                if (plan.requiresMenuBridge()) {
+                    menuBridgePlans.add(plan);
+                }
+                if (plan.requiresBlockEntityRuntime()) {
+                    blockEntityBridgePlans.add(plan);
+                }
             }
         }
-        return new RuntimeDispatchTable(plansByIdentifier, plansByModAndType);
+        menuBridgePlans.sort(planComparator());
+        blockEntityBridgePlans.sort(planComparator());
+        return new RuntimeDispatchTable(plansByIdentifier, plansByModAndType, menuBridgePlans, blockEntityBridgePlans);
     }
 
     @Nullable
@@ -112,6 +128,16 @@ public final class RuntimeDispatchTable {
     }
 
     @NotNull
+    public List<CompiledCompatibilityPlan> menuBridgePlans() {
+        return this.menuBridgePlans;
+    }
+
+    @NotNull
+    public List<CompiledCompatibilityPlan> blockEntityBridgePlans() {
+        return this.blockEntityBridgePlans;
+    }
+
+    @NotNull
     private static CompiledCompatibilityPlan compilePlan(@NotNull CompatibilityObject object, @NotNull MappingResolver mappingResolver) {
         Identifier javaIdentifier = Identifier.parse(object.javaIdentifier());
         Block block = "block".equals(object.contentType()) ? BuiltInRegistries.BLOCK.getValue(javaIdentifier) : null;
@@ -153,6 +179,11 @@ public final class RuntimeDispatchTable {
 
         SupportLevel behaviorLevel = object.supportResults().containsKey("behavior") ? object.supportResults().get("behavior").level() : null;
         String behaviorTag = object.inventoryFacts().get("behavior_tag");
+        boolean requiresMenuBridge = object.runtimeRequirements().contains("container_bridge");
+        List<String> blockEntityRuntimeRequirements = object.runtimeRequirements().stream()
+            .filter(requirement -> requirement.startsWith("block_entity_"))
+            .sorted()
+            .toList();
 
         return new CompiledCompatibilityPlan(
             object.modId(),
@@ -174,11 +205,21 @@ public final class RuntimeDispatchTable {
             CompatibilityDecisions.shouldApplyBlockPlacementBridge(object, block),
             supportsWearablePresentation,
             supportsAttachablePresentation,
+            requiresMenuBridge,
             menuFallbackContainerType(object, javaIdentifier, mappingResolver),
+            blockEntityRuntimeRequirements,
             blockEntityPatchTemplate(object, javaIdentifier, mappingResolver),
+            !blockEntityRuntimeRequirements.isEmpty(),
             behaviorLevel,
             behaviorTag
         );
+    }
+
+    @NotNull
+    private static java.util.Comparator<CompiledCompatibilityPlan> planComparator() {
+        return java.util.Comparator
+            .comparing(CompiledCompatibilityPlan::modId)
+            .thenComparing(CompiledCompatibilityPlan::javaIdentifier);
     }
 
     @Nullable

@@ -33,8 +33,11 @@ public record CompiledCompatibilityPlan(
     boolean supportsBlockPlacement,
     boolean supportsWearablePresentation,
     boolean supportsAttachablePresentation,
+    boolean requiresMenuBridge,
     @Nullable String menuFallbackContainerType,
+    @NotNull List<String> blockEntityRuntimeRequirements,
     @Nullable BlockEntityPatchTemplate blockEntityPatchTemplate,
+    boolean requiresBlockEntityRuntime,
     @Nullable SupportLevel behaviorLevel,
     @Nullable String behaviorTag
 ) {
@@ -42,6 +45,7 @@ public record CompiledCompatibilityPlan(
         adapterBindings = List.copyOf(adapterBindings);
         runtimeRequirements = List.copyOf(runtimeRequirements);
         inventoryFacts = Collections.unmodifiableMap(new LinkedHashMap<>(inventoryFacts));
+        blockEntityRuntimeRequirements = List.copyOf(blockEntityRuntimeRequirements);
     }
 
     public boolean hasMenuFallback() {

@@ -1,13 +1,10 @@
 package org.geysermc.hydraulic.compat.runtime;
 
-import org.geysermc.hydraulic.compat.CompatibilityProfile;
 import org.geysermc.hydraulic.compat.CompatibilityRegistry;
-import org.geysermc.hydraulic.compat.model.CompatibilityObject;
+import org.geysermc.hydraulic.compat.ir.CompiledCompatibilityPlan;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.List;
 
 final class UnsupportedBlockEntityDiagnosticFormatter {
@@ -21,9 +18,9 @@ final class UnsupportedBlockEntityDiagnosticFormatter {
         @NotNull String position,
         @NotNull CompatibilityRegistry compatibilityRegistry
     ) {
-        List<CompatibilityObject> blockedBlockEntities = blockedBlockEntities(compatibilityRegistry);
-        CompatibilityObject matchedObject = javaIdentifier != null ? blockEntity(javaIdentifier, compatibilityRegistry) : null;
-        if (matchedObject != null && !requiresRuntimeBridge(matchedObject)) {
+        List<CompiledCompatibilityPlan> blockedBlockEntities = compatibilityRegistry.dispatchTable().blockEntityBridgePlans();
+        CompiledCompatibilityPlan matchedObject = javaIdentifier != null ? compatibilityRegistry.dispatchTable().plan("block_entity", javaIdentifier) : null;
+        if (matchedObject != null && !matchedObject.requiresBlockEntityRuntime()) {
             return null;
         }
         if (matchedObject == null && blockedBlockEntities.isEmpty()) {
@@ -42,7 +39,7 @@ final class UnsupportedBlockEntityDiagnosticFormatter {
 
         if (matchedObject != null) {
             builder.append("Compatibility report still marks this object as requiring ");
-            appendRequirements(builder, matchedObject.runtimeRequirements());
+            appendRequirements(builder, matchedObject.blockEntityRuntimeRequirements());
             builder.append(".");
         } else if (javaIdentifier != null && !javaIdentifier.isBlank()) {
             builder.append("Hydraulic has no matching block_entity compatibility object for this identifier.");
@@ -63,62 +60,21 @@ final class UnsupportedBlockEntityDiagnosticFormatter {
         return builder.toString();
     }
 
-    @Nullable
-    private static CompatibilityObject blockEntity(@NotNull String javaIdentifier, @NotNull CompatibilityRegistry compatibilityRegistry) {
-        for (CompatibilityProfile profile : compatibilityRegistry.report().mods().values()) {
-            for (CompatibilityObject object : profile.objects()) {
-                if ("block_entity".equals(object.contentType()) && javaIdentifier.equals(object.javaIdentifier())) {
-                    return object;
-                }
-            }
-        }
-        return null;
-    }
-
-    @NotNull
-    private static List<CompatibilityObject> blockedBlockEntities(@NotNull CompatibilityRegistry compatibilityRegistry) {
-        List<CompatibilityObject> blockedBlockEntities = new ArrayList<>();
-        for (CompatibilityProfile profile : compatibilityRegistry.report().mods().values()) {
-            for (CompatibilityObject object : profile.objects()) {
-                if (!"block_entity".equals(object.contentType())) {
-                    continue;
-                }
-                if (!requiresRuntimeBridge(object)) {
-                    continue;
-                }
-                blockedBlockEntities.add(object);
-            }
-        }
-
-        blockedBlockEntities.sort(Comparator
-            .comparing(CompatibilityObject::modId)
-            .thenComparing(CompatibilityObject::javaIdentifier));
-        return List.copyOf(blockedBlockEntities);
-    }
-
-    private static boolean requiresRuntimeBridge(@NotNull CompatibilityObject object) {
-        return object.runtimeRequirements().stream().anyMatch(requirement -> requirement.startsWith("block_entity_"));
-    }
-
     private static void appendRequirements(@NotNull StringBuilder builder, @NotNull List<String> runtimeRequirements) {
-        List<String> blockEntityRequirements = runtimeRequirements.stream()
-            .filter(requirement -> requirement.startsWith("block_entity_"))
-            .sorted()
-            .toList();
-        for (int i = 0; i < blockEntityRequirements.size(); i++) {
+        for (int i = 0; i < runtimeRequirements.size(); i++) {
             if (i > 0) {
-                builder.append(i == blockEntityRequirements.size() - 1 ? " and " : ", ");
+                builder.append(i == runtimeRequirements.size() - 1 ? " and " : ", ");
             }
-            builder.append(blockEntityRequirements.get(i));
+            builder.append(runtimeRequirements.get(i));
         }
     }
 
     private static void appendCandidates(
         @NotNull StringBuilder builder,
-        @NotNull List<CompatibilityObject> blockedBlockEntities,
-        @Nullable CompatibilityObject matchedObject
+        @NotNull List<CompiledCompatibilityPlan> blockedBlockEntities,
+        @Nullable CompiledCompatibilityPlan matchedObject
     ) {
-        List<CompatibilityObject> candidates = blockedBlockEntities.stream()
+        List<CompiledCompatibilityPlan> candidates = blockedBlockEntities.stream()
             .filter(object -> matchedObject == null || !object.javaIdentifier().equals(matchedObject.javaIdentifier()))
             .toList();
         if (candidates.isEmpty()) {
@@ -128,11 +84,11 @@ final class UnsupportedBlockEntityDiagnosticFormatter {
 
         int displayCount = Math.min(candidates.size(), 3);
         for (int i = 0; i < displayCount; i++) {
-            CompatibilityObject object = candidates.get(i);
+            CompiledCompatibilityPlan plan = candidates.get(i);
             if (i > 0) {
                 builder.append(", ");
             }
-            builder.append(object.javaIdentifier());
+            builder.append(plan.javaIdentifier());
         }
 
         int remaining = candidates.size() - displayCount;

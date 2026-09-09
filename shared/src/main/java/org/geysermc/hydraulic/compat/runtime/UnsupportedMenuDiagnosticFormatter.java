@@ -1,13 +1,10 @@
 package org.geysermc.hydraulic.compat.runtime;
 
-import org.geysermc.hydraulic.compat.CompatibilityProfile;
 import org.geysermc.hydraulic.compat.CompatibilityRegistry;
-import org.geysermc.hydraulic.compat.model.CompatibilityObject;
+import org.geysermc.hydraulic.compat.ir.CompiledCompatibilityPlan;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.List;
 
 final class UnsupportedMenuDiagnosticFormatter {
@@ -20,7 +17,7 @@ final class UnsupportedMenuDiagnosticFormatter {
         @Nullable String title,
         @NotNull CompatibilityRegistry compatibilityRegistry
     ) {
-        List<CompatibilityObject> blockedMenus = blockedMenus(compatibilityRegistry);
+        List<CompiledCompatibilityPlan> blockedMenus = compatibilityRegistry.dispatchTable().menuBridgePlans();
         StringBuilder builder = new StringBuilder("Geyser could not open Java container type ")
             .append(containerTypeName);
         if (title != null && !title.isBlank()) {
@@ -40,35 +37,14 @@ final class UnsupportedMenuDiagnosticFormatter {
         return builder.toString();
     }
 
-    @NotNull
-    private static List<CompatibilityObject> blockedMenus(@NotNull CompatibilityRegistry compatibilityRegistry) {
-        List<CompatibilityObject> blockedMenus = new ArrayList<>();
-        for (CompatibilityProfile profile : compatibilityRegistry.report().mods().values()) {
-            for (CompatibilityObject object : profile.objects()) {
-                if (!"menu".equals(object.contentType())) {
-                    continue;
-                }
-                if (!object.runtimeRequirements().contains("container_bridge")) {
-                    continue;
-                }
-                blockedMenus.add(object);
-            }
-        }
-
-        blockedMenus.sort(Comparator
-            .comparing(CompatibilityObject::modId)
-            .thenComparing(CompatibilityObject::javaIdentifier));
-        return List.copyOf(blockedMenus);
-    }
-
-    private static void appendCandidates(@NotNull StringBuilder builder, @NotNull List<CompatibilityObject> blockedMenus) {
+    private static void appendCandidates(@NotNull StringBuilder builder, @NotNull List<CompiledCompatibilityPlan> blockedMenus) {
         int displayCount = Math.min(blockedMenus.size(), 3);
         for (int i = 0; i < displayCount; i++) {
-            CompatibilityObject object = blockedMenus.get(i);
+            CompiledCompatibilityPlan plan = blockedMenus.get(i);
             if (i > 0) {
                 builder.append(", ");
             }
-            builder.append(object.javaIdentifier());
+            builder.append(plan.javaIdentifier());
         }
 
         int remaining = blockedMenus.size() - displayCount;

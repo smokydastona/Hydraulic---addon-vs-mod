@@ -105,15 +105,20 @@ class RuntimeDispatchTableTest {
 
         var menuPlan = registry.dispatchTable().menu(menu);
         assertNotNull(menuPlan);
+        assertTrue(menuPlan.requiresMenuBridge());
         assertEquals("GENERIC_9X3", menuPlan.menuFallbackContainerType());
 
         var blockEntityPlan = registry.dispatchTable().blockEntity(blockEntity);
         assertNotNull(blockEntityPlan);
+        assertTrue(blockEntityPlan.requiresBlockEntityRuntime());
         assertNotNull(blockEntityPlan.blockEntityPatchTemplate());
         assertEquals("BedrockChest", blockEntityPlan.blockEntityPatchTemplate().bedrockIdentifier());
+        assertEquals(List.of("block_entity_behavior_bridge", "block_entity_data_bridge"), blockEntityPlan.blockEntityRuntimeRequirements());
 
         assertNull(registry.dispatchTable().plan("item", "example:missing"));
         assertEquals(1, registry.dispatchTable().entityPlans("testmod").size());
+        assertEquals(1, registry.dispatchTable().menuBridgePlans().size());
+        assertEquals(1, registry.dispatchTable().blockEntityBridgePlans().size());
         assertEquals(1, registry.dispatchTable().metrics().items().hits());
         assertEquals(1, registry.dispatchTable().metrics().items().misses());
         assertEquals(2, registry.dispatchTable().metrics().entities().hits());
@@ -134,7 +139,11 @@ class RuntimeDispatchTableTest {
             inventoryFacts,
             new CapabilityProfile(javaIdentifier, List.of(), List.of()),
             List.of(new AdapterBinding("adapter", AdapterFeature.CUSTOM_ITEM_REGISTRATION, "reason")),
-            List.of("runtime.requirement"),
+            "menu".equals(contentType)
+                ? List.of("runtime.requirement", "container_bridge")
+                : "block_entity".equals(contentType)
+                    ? List.of("runtime.requirement", "block_entity_data_bridge", "block_entity_behavior_bridge")
+                    : List.of("runtime.requirement"),
             supportResults,
             SupportLevel.ADAPTED,
             CompatibilityStatus.COMPLETE,
