@@ -41,8 +41,10 @@ public record CompiledCompatibilityPlan(
     @Nullable ContainerType menuFallbackContainerType,
     @NotNull List<String> menuRuntimeRequirements,
     @NotNull List<String> blockEntityRuntimeRequirements,
+    @NotNull List<String> fluidRuntimeRequirements,
     @Nullable BlockEntityPatchTemplate blockEntityPatchTemplate,
     boolean requiresBlockEntityRuntime,
+    boolean requiresFluidRuntime,
     @Nullable SupportLevel behaviorLevel,
     @Nullable String behaviorTag
 ) {
@@ -53,6 +55,7 @@ public record CompiledCompatibilityPlan(
         inventoryFacts = Collections.unmodifiableMap(new LinkedHashMap<>(inventoryFacts));
         menuRuntimeRequirements = List.copyOf(menuRuntimeRequirements);
         blockEntityRuntimeRequirements = List.copyOf(blockEntityRuntimeRequirements);
+        fluidRuntimeRequirements = List.copyOf(fluidRuntimeRequirements);
     }
 
     public boolean hasMenuFallback() {

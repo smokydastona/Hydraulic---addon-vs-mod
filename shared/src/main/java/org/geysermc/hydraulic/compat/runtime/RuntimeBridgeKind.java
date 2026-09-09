@@ -26,6 +26,7 @@ public enum RuntimeBridgeKind {
 
     private static final List<RuntimeBridgeKind> MENU_RUNTIME_KINDS = List.of(MENU_CONTAINER, MENU_BEHAVIOR);
     private static final List<RuntimeBridgeKind> BLOCK_ENTITY_RUNTIME_KINDS = List.of(BLOCK_ENTITY_DATA, BLOCK_ENTITY_INTERACTION, BLOCK_ENTITY_BEHAVIOR);
+    private static final List<RuntimeBridgeKind> FLUID_RUNTIME_KINDS = List.of(FLUID_TRANSLATOR, FLUID_RUNTIME);
 
     private final String requirementId;
     private final String contentType;
@@ -53,6 +54,11 @@ public enum RuntimeBridgeKind {
     @NotNull
     public static List<RuntimeBridgeKind> blockEntityRuntimeKinds() {
         return BLOCK_ENTITY_RUNTIME_KINDS;
+    }
+
+    @NotNull
+    public static List<RuntimeBridgeKind> fluidRuntimeKinds() {
+        return FLUID_RUNTIME_KINDS;
     }
 
     @NotNull

@@ -161,10 +161,13 @@ class RuntimeDispatchTableTest {
         var fluidPlan = registry.dispatchTable().fluid(fluid);
         assertNotNull(fluidPlan);
         assertEquals(List.of(RuntimeBridgeKind.FLUID_TRANSLATOR, RuntimeBridgeKind.FLUID_RUNTIME), fluidPlan.runtimeBridgeKinds());
+        assertTrue(fluidPlan.requiresFluidRuntime());
+        assertEquals(List.of("fluid_runtime_bridge", "fluid_translator"), fluidPlan.fluidRuntimeRequirements());
         assertEquals(List.of(fluidPlan), registry.dispatchTable().runtimeBridgePlans(RuntimeBridgeKind.FLUID_RUNTIME));
 
         assertEquals(1, registry.dispatchTable().runtimeBridgePlans(RuntimeBridgeKind.MENU_CONTAINER).size());
         assertEquals(1, registry.dispatchTable().runtimeBridgePlans(RuntimeBridgeKind.BLOCK_ENTITY_DATA).size());
+        assertEquals(List.of(fluidPlan), registry.dispatchTable().runtimeBridgePlans(RuntimeBridgeKind.fluidRuntimeKinds()));
         assertEquals(List.of(menuPlan), registry.dispatchTable().runtimeBridgePlans(RuntimeBridgeKind.menuRuntimeKinds()));
         assertEquals(List.of(blockEntityPlan), registry.dispatchTable().runtimeBridgePlans(RuntimeBridgeKind.blockEntityRuntimeKinds()));
 

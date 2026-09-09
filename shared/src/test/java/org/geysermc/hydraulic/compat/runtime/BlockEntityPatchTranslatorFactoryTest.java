@@ -106,6 +106,7 @@ class BlockEntityPatchTranslatorFactoryTest {
             null,
             List.of(),
             List.of(runtimeBridgeKind.requirementId()),
+            List.of(),
             BlockEntityPatchTemplate.resolve(List.of(new ContentPatch(
                 Identifier.fromNamespaceAndPath("example", "test_block_entity"),
                 "block_entity",
@@ -116,6 +117,7 @@ class BlockEntityPatchTranslatorFactoryTest {
                 0
             ))),
             true,
+            false,
             SupportLevel.UNSUPPORTED,
             null
         );

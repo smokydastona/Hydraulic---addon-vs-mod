@@ -243,6 +243,7 @@ public final class RuntimeDispatchTable {
         boolean requiresMenuBridge = runtimeBridgeKinds.contains(RuntimeBridgeKind.MENU_CONTAINER);
         List<String> menuRuntimeRequirements = bridgeRequirements(runtimeBridgeKinds, "menu");
         List<String> blockEntityRuntimeRequirements = bridgeRequirements(runtimeBridgeKinds, "block_entity");
+        List<String> fluidRuntimeRequirements = bridgeRequirements(runtimeBridgeKinds, "fluid");
 
         return new CompiledCompatibilityPlan(
             object.modId(),
@@ -269,8 +270,10 @@ public final class RuntimeDispatchTable {
             menuFallbackContainerType(object, javaIdentifier, mappingResolver),
             menuRuntimeRequirements,
             blockEntityRuntimeRequirements,
+            fluidRuntimeRequirements,
             blockEntityPatchTemplate(object, javaIdentifier, mappingResolver),
             !blockEntityRuntimeRequirements.isEmpty(),
+            !fluidRuntimeRequirements.isEmpty(),
             behaviorLevel,
             behaviorTag
         );

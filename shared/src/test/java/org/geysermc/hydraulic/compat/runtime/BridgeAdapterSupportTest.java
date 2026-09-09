@@ -67,7 +67,9 @@ class BridgeAdapterSupportTest {
             ContainerType.GENERIC_9X3,
             List.of(runtimeBridgeKind.requirementId()),
             List.of(),
+            List.of(),
             null,
+            false,
             false,
             SupportLevel.UNSUPPORTED,
             null
@@ -100,6 +102,7 @@ class BridgeAdapterSupportTest {
             null,
             List.of(),
             List.of(runtimeBridgeKind.requirementId()),
+            List.of(),
             BlockEntityPatchTemplate.resolve(List.of(new ContentPatch(
                 Identifier.fromNamespaceAndPath("example", "test_block_entity"),
                 "block_entity",
@@ -110,6 +113,7 @@ class BridgeAdapterSupportTest {
                 0
             ))),
             true,
+            false,
             SupportLevel.UNSUPPORTED,
             null
         );
