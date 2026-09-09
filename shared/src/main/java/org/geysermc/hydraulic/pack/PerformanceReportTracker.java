@@ -34,6 +34,11 @@ final class PerformanceReportTracker {
         this.write();
     }
 
+    synchronized void recordModelProviderCache(@NotNull PerformanceReport.ModelProviderMetrics metrics) {
+        this.report = this.report.withModelProviderCache(metrics);
+        this.write();
+    }
+
     synchronized void recordArtifactCache(@NotNull PerformanceReport.ArtifactCacheMetrics metrics) {
         this.report = this.report.withArtifactCache(metrics);
         this.write();

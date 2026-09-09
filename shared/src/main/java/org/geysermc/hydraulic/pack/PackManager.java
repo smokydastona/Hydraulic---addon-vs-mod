@@ -190,6 +190,7 @@ public class PackManager {
             this.metadataIndex.summary().patchCount(),
             this.metadataIndex.summary().validationIssueCount()
         ));
+        this.recordModelProviderMetrics();
         this.recordArtifactCacheMetrics();
 
         this.packConverters = new ArrayList<>(AssetConverters.converters(hydraulic.isDev()));
@@ -294,6 +295,7 @@ public class PackManager {
             );
             this.packValidationTracker.record(mod.id(), validation);
             this.performanceTracker.recordModelResolutionCache(toPerformanceCacheMetrics(StateDefinition.cacheMetrics()));
+            this.recordModelProviderMetrics();
             return new PackCreationResult(false, validation);
         }
 
@@ -310,6 +312,7 @@ public class PackManager {
             );
             this.packValidationTracker.record(mod.id(), validation);
             this.performanceTracker.recordModelResolutionCache(toPerformanceCacheMetrics(StateDefinition.cacheMetrics()));
+            this.recordModelProviderMetrics();
             return new PackCreationResult(false, validation);
         }
 
@@ -326,6 +329,7 @@ public class PackManager {
             );
         }
         this.performanceTracker.recordModelResolutionCache(toPerformanceCacheMetrics(StateDefinition.cacheMetrics()));
+        this.recordModelProviderMetrics();
         return new PackCreationResult(created && validation.valid(), validation);
     }
 
@@ -552,6 +556,19 @@ public class PackManager {
 
     public void recordRuntimeDispatchMetrics() {
         this.performanceTracker.recordRuntimeDispatch(this.compatibilityRegistry.dispatchTable().metrics());
+    }
+
+    public void recordModelProviderMetrics() {
+        if (this.modelProvider instanceof IndexedModelProvider provider) {
+            IndexedModelProvider.CacheMetrics metrics = provider.cacheMetrics();
+            this.performanceTracker.recordModelProviderCache(new PerformanceReport.ModelProviderMetrics(
+                metrics.hits(),
+                metrics.misses(),
+                metrics.evictions(),
+                metrics.size(),
+                metrics.indexedModels()
+            ));
+        }
     }
 
     void recordConversionCacheUsage(long hits, long misses) {

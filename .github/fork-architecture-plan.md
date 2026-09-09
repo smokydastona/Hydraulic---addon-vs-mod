@@ -234,6 +234,7 @@ The compatibility layer stays above the current Hydraulic conversion pipeline, b
 - Validation artifacts now exist after pack generation.
 - Performance artifacts now include real cache evidence for some hot paths.
 - Live Fabric runtime validation now shows the model-provider startup slice is effectively reduced to indexed setup cost rather than eager model deserialization; the current run recorded `modelIndexBuildMillis = 6` while pack conversion and Geyser registration still completed.
+- The runtime artifact now also records lazy model-provider hit, miss, eviction, size, and indexed-model counts, so bounded on-demand model behavior is measurable instead of inferred.
 
 ### What is still too narrow
 - Discovery is still duplicated across multiple subsystems.
@@ -1422,7 +1423,7 @@ Current state:
 - first `CompiledCompatibilityPlan` projections now compile from the generated compatibility report into an in-memory `RuntimeDispatchTable`
 - current block, item, armor, bow, entity, menu, and block-entity runtime consumers now use direct identifier-driven plan lookup instead of re-reading flexible report and metadata structures on hot paths
 - item presentation compilation now avoids early component-binding hazards by using safe runtime probes and conservative fallbacks when item components are not yet bound
-- deeper resource IR, broader lazy resource loading, and richer dispatch metrics are still pending
+- deeper resource IR and broader lazy resource loading are still pending
 
 Build:
 - `DiscoveryIr`
@@ -1561,7 +1562,7 @@ This order is intentional. Do not start writing dozens of adapters before the un
 The best next implementation slice from the current repo state is:
 
 1. promote the current cached index snapshot into true index rehydration with dependency-aware invalidation instead of persistence-only storage
-2. extend `performance-report.json` with stage-level cache hit and miss evidence for the lazy model provider, texture resolution, and runtime dispatch
+2. extend `performance-report.json` with stage-level cache hit and miss evidence for texture resolution and adjacent lazy resource paths beyond the current model provider and runtime dispatch surfaces
 3. widen lazy indexed access beyond models into broader texture and resource resolution paths that still eagerly deserialize pack data
 4. widen the compiled-plan surface from current registration and patch seams into richer block-state, menu, block-entity, and transfer-bridge runtime tables
 

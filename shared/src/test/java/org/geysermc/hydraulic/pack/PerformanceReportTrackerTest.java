@@ -25,6 +25,7 @@ class PerformanceReportTrackerTest {
 
         tracker.recordStartup(new PerformanceReport.StartupMetrics(11, 12, 13, 14, 15, 16, 9, 7, 5, 44, 55, 4, 3, 2, 1, 6, 8, 10, 12, 14));
         tracker.recordModelResolutionCache(new PerformanceReport.CacheMetrics(5, 2));
+        tracker.recordModelProviderCache(new PerformanceReport.ModelProviderMetrics(12, 4, 3, 7, 99));
         tracker.recordArtifactCache(new PerformanceReport.ArtifactCacheMetrics(
             new PerformanceReport.CacheMetrics(1, 0),
             new PerformanceReport.CacheMetrics(0, 1),
@@ -60,6 +61,8 @@ class PerformanceReportTrackerTest {
         assertEquals(42, snapshot.lastPackConversion().totalMillis());
         assertEquals(5, snapshot.modelResolutionCache().hits());
         assertEquals(2, snapshot.modelResolutionCache().misses());
+        assertEquals(12, snapshot.modelProviderCache().hits());
+        assertEquals(3, snapshot.modelProviderCache().evictions());
         assertEquals(1, snapshot.artifactCache().index().hits());
         assertEquals(1, snapshot.artifactCache().compatibility().misses());
         assertEquals(7, snapshot.runtimeDispatch().items().hits());
@@ -74,6 +77,8 @@ class PerformanceReportTrackerTest {
         assertEquals(15, written.startup().modelIndexBuildMillis());
         assertEquals(44, written.startup().indexedBlockStates());
         assertEquals(7, written.modelResolutionCache().requests());
+        assertEquals(16, written.modelProviderCache().requests());
+        assertEquals(99, written.modelProviderCache().indexedModels());
         assertEquals(5, written.artifactCache().validation().misses());
         assertEquals(13, written.runtimeDispatch().menus().requests());
         assertEquals(3, written.lastPackConversion().perMod().get("examplemod").validationManualActions());
