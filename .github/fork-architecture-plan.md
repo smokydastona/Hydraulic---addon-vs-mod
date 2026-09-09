@@ -1000,16 +1000,64 @@ Priority: high
 
 Test real representative modpacks rather than only isolated toy examples.
 
+## Current-State Execution Roadmap
+
+Use the live Hydraulic repo as the control document for execution order.
+
+The project is no longer at pure scaffolding stage. The repo now already contains:
+
+- partial state caching in `BlockMapping`
+- per-mod resource indexing in `ModResourceIndex`
+- performance artifacts through `performance-report.json`
+- a live `CapabilityAdapterRegistry`
+- first metadata-backed menu and block-entity runtime bridges
+
+That means the next roadmap should finish and generalize partially landed systems rather than re-plan them from zero.
+
+### Execution order
+
+1. refresh the baseline before each batch and treat the live repo plus runtime artifacts as authoritative over older notes
+2. finish the block metadata hot-path optimization by removing remaining first-hit linear rule traversal costs and caching compact resolved block-state answers
+3. split flexible metadata loading from compact runtime metadata so runtime consumers stop traversing nested rule and patch structures
+4. complete startup indexing and eliminate remaining repeated probing by routing blockstate, item-definition, legacy-model, and model-provider lookups through indexes or prebuilt maps
+5. make conversion selective, cacheable, and evidence-driven using indexed startup data, compatibility inventory, and strict invalidation keys
+6. expand observability from the current performance artifact into a decision system with cache-hit, miss, and timing breakdowns plus snapshot-versus-history reporting
+7. generalize the current runtime-bridge seams after the performance substrate is cheaper and measurable, extending menu, block-entity, fluid, container, and richer behavior support
+8. add the first compatibility knowledge layer only after real generalized bridge seams exist
+9. re-rank long-term breadth work after the missing external Copilot-share content is available and the performance substrate changes are landed
+
+### Current execution anchors
+
+- `shared/src/main/java/org/geysermc/hydraulic/metadata/BlockMapping.java`
+- `shared/src/main/java/org/geysermc/hydraulic/metadata/BlockStateRule.java`
+- `shared/src/main/java/org/geysermc/hydraulic/metadata/MetadataLoader.java`
+- `shared/src/main/java/org/geysermc/hydraulic/compat/MappingResolver.java`
+- `shared/src/main/java/org/geysermc/hydraulic/pack/PackManager.java`
+- `shared/src/main/java/org/geysermc/hydraulic/pack/ModResourceIndex.java`
+- `shared/src/main/java/org/geysermc/hydraulic/pack/PerformanceReportTracker.java`
+- `shared/src/main/java/org/geysermc/hydraulic/compat/adapter/CapabilityAdapterRegistry.java`
+- `shared/src/main/java/org/geysermc/hydraulic/compat/runtime/MenuPatchTranslatorFactory.java`
+- `shared/src/main/java/org/geysermc/hydraulic/compat/runtime/BlockEntityPatchTranslatorFactory.java`
+
+### Execution rules
+
+- preserve compatibility semantics first, then optimize
+- prove each performance claim with focused measurements and runtime artifacts
+- keep metadata expressive at load time but compact at runtime
+- finish the partially landed performance substrate before widening broad runtime bridge scope
+- keep README and this architecture plan aligned with what was actually validated
+
 ## Recommended Immediate Next Slice
 
 The best next implementation slice from the current repo state is:
 
-1. add the first real generic container or menu bridge on top of the existing menu analyzer and metadata mapping surface
-2. extend the new block-entity data bridge beyond constant tag synthesis into interaction and behavior translation, or land the first real entity runtime bridge using the existing compatibility report and Geyser lifecycle hooks
-3. promote runtime validation from log-only checks into committed regression coverage for compatibility-driven runtime consumers
-4. extend the current capability-adapter layer from blocks, items, and entity registration into container, block-entity, fluid, and richer behavior surfaces
+1. finish the current block metadata hot-path work by compiling the remaining rule-matching path into cheaper runtime structures and caching compact resolved block-state answers
+2. complete resource and model lookup indexing so startup and conversion stop paying repeated filesystem or flattened-pack search costs
+3. promote runtime validation and performance validation from log-only checks into committed regression coverage plus artifact-backed measurement
+4. once the performance substrate is proven, widen the existing menu and block-entity seams into the first more generic container or interaction bridge
+5. extend the current capability-adapter layer from blocks, items, and entity registration into container, block-entity, fluid, and richer behavior surfaces
 
-This is the smallest next slice that materially moves the fork from compatibility-aware pack generation into broader runtime bridge execution.
+This is the smallest next slice that lets both plans complete coherently: the architecture plan keeps its bridge-first long-term direction, while the current-state execution plan front-loads the substrate work needed to scale those bridges safely.
 
 ## What Not To Do
 - Do not keep extending `BlockStateRule` with every future concern.
