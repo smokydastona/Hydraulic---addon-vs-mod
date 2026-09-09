@@ -1,44 +1,49 @@
 # Hydraulic Fork Architecture Plan
 
 ## Goal
-Turn this fork from a narrow override layer into a general compatibility system that can support the maximum practical number of mods with the least possible per-mod hand work.
+Turn this fork from a narrow override layer into a general compatibility system that can support the maximum practical number of Java mods for Bedrock players with the least possible per-mod hand work.
 
 The target is not:
 
 - block-only JSON overrides
+- a pile of per-mod special cases
+- a second full resource manager that keeps the whole modpack resident forever
+- a fake compatibility score that hides broken behavior
+- a Bedrock behavior-pack-first design that ignores what Geyser actually supports
 
 The target is:
 
-- Java registry discovery
-- per-mod content inventory
-- automatic compatibility analysis
-- declarative metadata corrections and overrides
-- generated Bedrock resource content
-- generated Bedrock behavior content where needed
-- runtime bridges for interactions that cannot be solved by assets alone
+- one discovery pass over mod and resource roots
+- one authoritative index shared by compatibility, conversion, validation, and caching
+- typed compatibility data and compiled runtime plans
+- automatic resource generation for the visual layer
+- Hydraulic runtime bridges for interaction and behavior where assets are insufficient
+- generic capability adapters before mod-specific adapters
+- explicit reporting, provenance, confidence, and degradation evidence
 
-The long-term architecture remains:
+The long-term scaling strategy remains:
 
 1. automatic translation
 2. metadata correction and override
-3. dedicated mod adapters only when the first two layers are insufficient
+3. generic capability adapter
+4. mod-specific adapter
+5. explicit unsupported result when gaps remain
 
-## Guiding Principles
-- Keep the current Hydraulic conversion pipeline as the base engine.
-- Keep new behavior additive and reversible.
-- Treat metadata as an override layer, not the primary implementation strategy.
-- Prefer shared compatibility logic in `shared/` over platform-specific logic.
-- Prefer graceful degradation over aborting a full conversion run.
-- Build around typed compatibility data instead of endlessly extending block-specific classes.
-- Separate visual compatibility from gameplay compatibility in both design and reporting.
-
-## Audit Snapshot
+## Ground Truth Snapshot
 
 ### Date
 - 2026-09-08
 
-### Audit scope
+### Validated repo baseline
+- Live fork: `smokydastona/Hydraulic--Skeleton_Key`
+- Current workspace branch tracks Minecraft `26.2`
+- Current workspace branch tracks Java `25`
+- The live repository is the authority over older notes that still mention `1.20.1` or Java `17`
+
+### Validated code and runtime scope
 - `shared/src/main/java/org/geysermc/hydraulic/pack/PackManager.java`
+- `shared/src/main/java/org/geysermc/hydraulic/pack/ModResourceIndex.java`
+- `shared/src/main/java/org/geysermc/hydraulic/pack/PackUtil.java`
 - `shared/src/main/java/org/geysermc/hydraulic/block/BlockPackModule.java`
 - `shared/src/main/java/org/geysermc/hydraulic/item/ItemPackModule.java`
 - `shared/src/main/java/org/geysermc/hydraulic/metadata/*`
@@ -48,45 +53,215 @@ The long-term architecture remains:
 - `fabric/run/config/hydraulic/metadata/*`
 - `fabric/run/config/hydraulic/reports/*`
 
+### Validated Geyser constraints
+- Geyser is the correct foundation for Bedrock pack delivery.
+- Geyser can register Bedrock resource packs and deliver them to clients.
+- Geyser does not provide a normal server-side Bedrock behavior-pack or add-on execution model that Hydraulic can treat as its primary behavior architecture.
+- Hydraulic should therefore treat generated Bedrock resource packs as first-class and generated Bedrock behavior content as optional and secondary to Hydraulic runtime bridges.
+- Public Geyser APIs already help with resource packs and custom block, item, and entity registration, but menu and block-entity runtime integration remains constrained and may require carefully targeted seams rather than broad assumptions.
+
+## Executive Verdict
+
+The architecture is directionally correct, but the main performance problem is not one isolated slow method.
+
+The main problem is duplicated discovery and repeated parsing across multiple subsystems.
+
+Today the same mod can be touched repeatedly by:
+
+- `ModResourceIndex`
+- `CompatibilityManager` asset scanning
+- `PackUtil.getModUUID()` tree hashing
+- resource-pack readers
+- model indexing
+- actual conversion
+
+That must be replaced with:
+
+```text
+                 MOD / RESOURCE ROOTS
+                         |
+                         v
+              +-----------------------+
+              | UNIVERSAL INDEX       |
+              |                       |
+              | files                 |
+              | resources             |
+              | registries            |
+              | models                |
+              | textures              |
+              | blockstates           |
+              | data                  |
+              | fingerprints          |
+              | dependencies          |
+              +-----------+-----------+
+                          |
+             +------------+------------+
+             |            |            |
+             v            v            v
+      COMPATIBILITY   CONVERSION   VALIDATION
+         ANALYSIS       ENGINE       ENGINE
+             |            |            |
+             +------------+------------+
+                          |
+                          v
+                 GENERATED ARTIFACTS
+                          |
+                    PERSISTENT CACHE
+                          |
+                          v
+                     GEYSER / BEDROCK
+```
+
+One discovery pass. One source of truth. Aggressive caching. Lazy parsing. Bounded memory. Parallel work only when data shows it helps.
+
 ## Locked Architecture
 
 ```text
-             HYDRAULIC
-               |
-            Compatibility Core
-               |
-        +--------------+--------------+
-        |              |              |
-      Discovery      Knowledge      Metadata
-        |              |              |
-        +--------------+--------------+
-               |
-             Analyzers
-               |
-            Capability Model
-               |
-          Automatic Translators
-               |
-          +----------+----------+
-          |                     |
-      Resource Layer         Behavior Layer
-          |                     |
-          +----------+----------+
-               |
-            Runtime Bridges
-               |
-             Mod Adapters
-               |
-          Compatibility Report
-               |
-             Bedrock Client
+                         HYDRAULIC
+                             |
+                      Mod Discovery
+                             |
+                             v
+                   +--------------------+
+                   | UNIVERSAL INDEX    |
+                   +---------+----------+
+                             |
+          +------------------+------------------+
+          |                  |                  |
+          v                  v                  v
+    Registry Facts     Resource Facts      Runtime Facts
+          |                  |                  |
+          +------------------+------------------+
+                             |
+                             v
+                  +-----------------------+
+                  | DISCOVERY IR          |
+                  +-----------+-----------+
+                              |
+                              v
+                  +-----------------------+
+                  | COMPATIBILITY IR      |
+                  +-----------+-----------+
+                              |
+          +-------------------+-------------------+
+          |                   |                   |
+          v                   v                   v
+     Automatic           Knowledge           Adapter
+    Translators           Engine              Engine
+          |                   |                   |
+          +-------------------+-------------------+
+                              |
+                              v
+                  +-----------------------+
+                  | COMPILED              |
+                  | COMPATIBILITY PLAN    |
+                  +-----+-----------+-----+
+                        |           |
+                        |           +---------------------+
+                        |                                 |
+                        v                                 v
+              +------------------+             +------------------+
+              | RESOURCE IR      |             | BRIDGE IR        |
+              +--------+---------+             +--------+---------+
+                       |                                |
+                       v                                v
+              Bedrock Resource Pack           Hydraulic Runtime Bridges
+                       |                                |
+                       +---------------+----------------+
+                                       |
+                                       v
+                               Validation / QA
+                                       |
+                                       v
+                           Content-Addressed Artifact Cache
+                                       |
+                                       v
+                              Geyser Pack Delivery
+                                       |
+                                       v
+                                 Bedrock Player
 ```
 
-The compatibility layer stays above the current Hydraulic conversion pipeline, but it should no longer be treated as a single undifferentiated mapping system.
+The compatibility layer stays above the current Hydraulic conversion pipeline, but it must stop being a collection of independent rediscovery passes.
+
+## Guiding Principles
+- Keep the current Hydraulic conversion pipeline as the base engine.
+- Make the live repo and runtime artifacts authoritative over stale notes.
+- Fix root-cause duplication before broadening adapter count.
+- Keep compatibility semantics correct before optimizing hot paths.
+- Prefer one indexed source of truth over repeated filesystem walks.
+- Prefer typed IR and compiled runtime plans over flexible runtime interpretation.
+- Treat metadata as an override and patch layer, not the primary implementation strategy.
+- Prefer shared compatibility logic in `shared/` over platform-specific logic.
+- Prefer graceful degradation over aborting a full conversion run.
+- Separate presentation compatibility from interaction, behavior, and network compatibility.
+- Keep Bedrock resource generation first-class and Bedrock behavior generation optional.
+- Make runtime dispatch identifier-driven and approximately `O(1)`.
+- Bound memory, not just thread count.
+- Prove optimization claims with artifacts and measurements.
+
+## Current State Summary
+
+### What is already implemented
+- Pack orchestration still centers correctly in `PackManager`.
+- A real `compat` foundation already exists under `shared/`.
+- Deterministic metadata loading and precedence already exist.
+- Typed compatibility data already exists:
+  - `CompatibilityObject`
+  - `CapabilityProfile`
+  - `SupportResult`
+  - `CompatibilityFinding`
+  - `Confidence`
+  - `Provenance`
+  - `ModFingerprint`
+- Analyzer-backed compatibility reporting already exists for blocks, items, recipes, entities, menus, fluids, and block entities.
+- `MappingResolver` already carries compact resolved block metadata for current block runtime consumers.
+- `MetadataIndex` already precompiles compact menu and block-entity patch templates.
+- Hydraulic already emits `content-inventory.json`, `compatibility-report.json`, `performance-report.json`, and `pack-validation-report.json`.
+- Eager pack preparation already happens during Hydraulic startup, so conversion evidence survives later Geyser bootstrap or HTTPS failures.
+- Current runtime consumers already use compatibility decisions for block registration, item registration and exposure, armor and bow attachables, and metadata-backed custom entity registration.
+- Current runtime bridges already include explicit metadata-backed menu fallback and block-entity patch translation at real Geyser seams.
+
+### What is materially better than earlier assessments
+- The fork is no longer only a block metadata experiment.
+- Compatibility reporting is already a real regression surface.
+- Runtime bridge seams now exist in production code, even if they remain narrow.
+- Validation artifacts now exist after pack generation.
+- Performance artifacts now include real cache evidence for some hot paths.
+
+### What is still too narrow
+- Discovery is still duplicated across multiple subsystems.
+- Fingerprinting and cache invalidation are still too coarse.
+- Resource loading is still too eager.
+- Runtime dispatch still scales too much by scanning modules and mods instead of direct identifier lookup.
+- Compatibility analysis still reconstructs facts too often and still depends on repeated asset discovery.
+- Non-block compatibility remains shallower than the block path.
+- Fluids, machines, transfer systems, richer menu behavior, entity interaction, custom networking, and custom rendering analysis remain incomplete.
+- There is still no universal compiled runtime plan that removes compatibility reasoning from hot paths.
+
+## Primary Architectural Correction
+
+The future architecture should not be described primarily as "more analyzers plus more metadata".
+
+The correct architectural correction is:
+
+1. unify discovery
+2. formalize intermediate representations
+3. compile compatibility into runtime plans
+4. cache intermediate and final artifacts
+5. only then widen behavior and adapter breadth
+
+The key rule is:
+
+```text
+analyze once
+compile once
+dispatch directly at runtime
+```
 
 ## Compatibility Domains
 
-The engine should be split into five domains that are analyzed and reported separately.
+The engine should evaluate each object across six domains, not one flattened compatibility status.
 
 ```text
 HYDRAULIC COMPATIBILITY ENGINE
@@ -122,150 +297,406 @@ HYDRAULIC COMPATIBILITY ENGINE
 |   +-- entity interactions
 |
 +-- 5. BEHAVIOR
-  +-- behavior-pack generation
-  +-- runtime translation
-  +-- Java <-> Bedrock events
-  +-- generic capability adapters
-  +-- mod-specific adapters
+|   +-- ticking
+|   +-- automation
+|   +-- fluid handling
+|   +-- energy handling
+|   +-- server-side rules
+|   +-- generic capability adapters
+|   +-- mod-specific adapters
+|
++-- 6. NETWORK / PROTOCOL
+    +-- custom packets
+    +-- custom synchronization
+    +-- clientbound state requirements
+    +-- serverbound interaction requirements
 ```
 
-This separation is fundamental, not just a reporting refinement. A converted model is not proof of compatibility.
+This separation is fundamental. A converted model is not proof of compatibility.
 
-## Current State Summary
+## Universal Index
 
-### What is already implemented
-- Pack orchestration still centers correctly in `PackManager`.
-- A `compat` foundation already exists under `shared/`:
-  - `CompatibilityManager`
-  - `CompatibilityRegistry`
-  - `CompatibilityReport`
-  - `CompatibilityProfile`
-  - `ContentInventory`
-  - `MappingResolver`
-  - `MappingOwnership`
-- `MetadataLoader` already performs recursive deterministic JSON discovery using `Files.walk(...)` plus sorted normalized paths.
-- Metadata ownership and precedence already exist:
-  - `builtin = 0`
-  - `mods = 100`
-  - `server = 500`
-  - `user = 1000`
-  - `legacy = 500`
-- `MetadataLoader` already supports more than blocks:
-  - block rules
-  - item identifier mappings
-  - recipe identifier mappings
-  - entity identifier mappings
-  - menu identifier mappings
-  - typed content patches
-- `CompatibilityManager` already emits early artifacts under `config/hydraulic/reports/`:
-  - `content-inventory.json`
-  - `compatibility-report.json`
-- Typed compatibility data is now implemented and emitted:
-  - `CompatibilityObject`
-  - `CapabilityProfile`
-  - `SupportResult`
-  - `CompatibilityFinding`
-  - `Confidence`
-  - `Provenance`
-  - `ModFingerprint`
-- Analyzer-backed compatibility reporting now exists for:
-  - blocks
-  - items
-  - recipes
-  - entities
-  - menus
-  - fluids
-  - block entities
-- `MappingResolver` already has state-aware block resolution and groups block states by resolved Bedrock identifier.
-- `MappingResolver` now also carries compact resolved block metadata for block-state overrides, geometry overrides, and material overrides so block runtime consumers no longer need to reopen flexible rule objects after resolution.
-- `MetadataIndex` now precompiles compact menu and block-entity patch templates so analyzers and runtime bridges stop reparsing raw patch operations on hot paths.
-- `performance-report.json` startup snapshots now include indexed blockstate and item-asset totals alongside the existing timing breakdowns, making the startup indexing work observable in artifacts instead of only by code inspection.
-- `StateDefinition` model-resolution caching now emits cumulative hit/miss evidence into `performance-report.json`, so the first block hot-path cache is measurable from runtime artifacts instead of only from code.
-- Hydraulic now emits `pack-validation-report.json` with structured per-mod `errors`, `warnings`, and `manualActions` after generated pack export, and pack conversion metrics now record validator timing and validation counts.
-- Hydraulic now prepares converted packs during Hydraulic startup before later Geyser resource-pack registration, so pack-validation and conversion artifacts are no longer blocked by downstream Bedrock bootstrap failures.
-- `BlockPackModule` already consumes resolved state-aware block definitions during custom block registration.
-- `ItemPackModule` already uses compatibility-aware block placement for block items, consults item compatibility objects for non-block custom item registration, suppresses creative exposure when item behavior is only approximated, and continues to translate modern item components through `ComponentConverter`.
-- `ArmorPackModule` now generates humanoid armor attachables from direct equipment-asset loading and gates them through compatibility decisions.
-- `BowPackModule` now consumes compatibility-driven item presentation decisions before generating bow attachables.
-- `EntityPackModule` now consumes metadata-backed entity compatibility objects and registers custom entities through `GeyserDefineEntitiesEvent` when presentation support exists.
-- A first capability-adapter layer now exists for current block, item, armor, bow, and entity runtime consumers, driven by explicit adapter features and `behavior_tag` metadata when present.
-- `CompatibilityObject` now carries derived adapter bindings so the report can describe which current generic runtime bridges apply to a given block, item, or entity.
-- `CompatibilityObject` now carries derived runtime requirements so the report can describe which bridge or generator category is still missing for a given object.
-- Patch-declared behavior requirements and tags now flow into compatibility objects, structured findings, and runtime suppression reasons.
-- Item discovery now falls back from modern `assets/<ns>/items/*.json` definitions to legacy `models/item/*.json` assets for compatibility inventory and conversion indexing.
-- Focused tests already exist for loader precedence, resolver behavior, compatibility decisions, equipment asset loading, item asset lookup, and report generation.
-- The local Fabric runtime has already produced report artifacts and logged metadata/report initialization successfully.
-- Geyser unsupported runtime paths now emit compatibility-backed diagnostics for unsupported Java menu opens and for block entity data packets that fall through to Geyser's default empty block-entity translator when Hydraulic already knows the affected object still needs block-entity bridges.
-- Hydraulic now has a first real metadata-backed menu fallback bridge at the Geyser open-screen seam: when Hydraulic can resolve the live Java menu identifier and metadata declares an explicit fallback `bedrock.menu.container_type`, it can substitute an existing Geyser inventory translator instead of only warning.
-- Hydraulic now has a first real metadata-backed block-entity data bridge at the Geyser empty-translator seam: explicit `bedrock.block_entity.id` and `bedrock.block_entity.data.*` patches can synthesize Bedrock block-entity tags before the unsupported-runtime warning path.
+The current `ModResourceIndex` should evolve into a universal, authoritative index shared across the entire pipeline.
 
-### What is materially better than the earlier fork assessment
-- The fork is no longer only a block metadata experiment.
-- Phase 0 scaffolding is already present in code, not just planned.
-- Deterministic metadata loading is already implemented.
-- Compatibility reporting already exists as an early regression surface.
-- Item, recipe, entity, and menu metadata hooks already exist, even though they are still shallow.
-
-### What is still too narrow
-- Non-block metadata is still shallow compared to the block path. It can now express typed patches and behavior requirements, but it still does not model full rendering, slots, recipes, fluids, or rich interactions.
-- The block path remains the richest end-to-end compatibility path.
-- There is no behavior-pack generator.
-- There are still no generic runtime interaction bridges for fluids, machines, or entity behavior logic, and menu or block-entity support remains limited to explicit metadata-backed seams rather than broad protocol translation.
-- Runtime consumption of compatibility decisions now exists for block custom registration, block item texture fallback, item custom registration, item creative exposure, armor attachables, bow attachables, and metadata-backed custom entity registration, but broad interaction and behavior bridges still do not.
-- Entity runtime consumption now reaches metadata-backed custom entity registration, but not interaction or behavior translation.
-- There is no compatibility knowledge layer yet, and the current capability-adapter layer covers only the runtime bridges that already exist.
-- Runtime consumers now resolve those current bridges through explicit adapter bindings, but fluids, machines, richer entity behavior, and broad menu/block-entity interaction still have no adapter-backed runtime implementation.
-
-## Actual Current Control Flow
-
-Today the relevant control path is:
+Suggested package direction:
 
 ```text
-PackManager.initialize
-  -> initializeModLookups
-  -> MetadataLoader.load(config/hydraulic/metadata)
-  -> CompatibilityManager.initialize(...)
-    -> build ContentInventory
-    -> run analyzers
-    -> build CompatibilityReport
-    -> write reports/content-inventory.json
-    -> write reports/compatibility-report.json
-    -> create CompatibilityRegistry + MappingResolver
-    -> CompatibilityDecisions resolves current runtime bridges through CapabilityAdapterRegistry
-  -> prepare and validate generated packs
-  -> later Geyser resource-pack event registers prepared packs
-  -> BlockPackModule consumes resolved block mappings during custom block registration
-    -> ItemPackModule consumes compatibility-aware block placement mapping plus adapter-aware registration/exposure decisions
-    -> ArmorPackModule consumes adapter-aware wearable decisions for attachable generation
-    -> BowPackModule consumes adapter-aware attachable decisions for bow generation
-    -> EntityPackModule consumes adapter-aware entity registration decisions
+org.geysermc.hydraulic.pack.index
+  UniversalResourceIndex
+  ModIndex
+  ResourceFile
+  ResourceKind
+  ResourceNamespace
+  ResourceFingerprint
+  ResourceDependency
+  IndexBuilder
+  IndexCache
+  IndexVersion
 ```
 
-This remains the correct insertion point. The architecture change is not to move the compatibility layer. The change is to deepen what the layer knows and how it decides.
+Suggested `ResourceKind` coverage:
 
-## Core Architectural Correction
+```text
+BLOCKSTATE
+ITEM_DEFINITION
+ITEM_MODEL
+MODEL
+TEXTURE
+ANIMATION
+SOUND
+LANG
+RECIPE
+TAG
+LOOT_TABLE
+ENTITY
+PARTICLE
+FONT
+SHADER
+GEOMETRY
+DATA
+UNKNOWN
+```
 
-The current inventory list is useful, but the future system should not treat blocks, items, entities, fluids, recipes, menus, particles, sounds, tags, dimensions, effects, and enchantments as if they all flow through one identical compatibility mechanism.
+Each indexed resource should track at least:
 
-The engine should instead evaluate each object across the five domains above:
+```text
+namespace
+relative path
+kind
+source root
+size
+last modified
+fingerprint
+dependencies
+```
 
-- content
-- presentation
-- state and data
-- interaction
-- behavior
+Each `ModIndex` should eventually expose:
 
-That distinction should drive:
+- registry index
+- resource index
+- blockstate index
+- item-definition index
+- item-model index
+- model index
+- texture index
+- recipe index
+- entity index
+- menu index
+- block-entity index
+- dependency graph
+- fingerprint
+- compatibility facts
 
-- analyzers
-- support results
-- metadata patches
-- runtime bridges
-- final reporting
+Every subsystem that currently rescans disk should consume this index instead.
+
+## Discovery IR
+
+Hydraulic needs a formal IR boundary between discovery and compatibility decisions.
+
+```text
+Java resources and registries
+  -> Discovery IR
+  -> Compatibility IR
+  -> Compiled Compatibility Plan
+  -> Resource IR / Bridge IR
+```
+
+The discovery layer should gather facts without making Bedrock decisions.
+
+Example direction:
+
+```text
+JavaBlockIR
+  -> identifier
+  -> owning mod
+  -> state definition
+  -> default state
+  -> model references
+  -> texture references
+  -> collision facts
+  -> selection facts
+  -> block-entity facts
+  -> tags
+  -> interaction facts
+  -> capability hints
+  -> dependencies
+```
+
+The same pattern should exist for items, entities, fluids, menus, recipes, and block entities.
+
+## Compatibility IR
+
+The next major shift remains the move from raw mapping tables to typed compatibility objects, but the IR boundary must become explicit.
+
+```text
+CompatibilityObject
+  -> content type
+  -> Java identifier
+  -> owning mod
+  -> mod fingerprint
+  -> discovery facts
+  -> capability profile
+  -> analyzer findings
+  -> metadata patches
+  -> adapter bindings
+  -> runtime requirements
+  -> support results
+  -> confidence
+  -> provenance
+  -> degradation actions
+  -> reasons
+```
+
+Every object should answer:
+
+1. What capabilities does it require?
+2. Which capabilities are automatically representable on Bedrock?
+3. Which gaps can metadata patches close?
+4. Which gaps can generic capability adapters close?
+5. Which gaps require a mod-specific adapter?
+6. Which gaps are impossible or not worth simulating?
+
+## Compiled Compatibility Plan
+
+The compatibility layer should disappear from hot runtime paths.
+
+Compatibility analysis belongs to startup and conversion time.
+Runtime should execute compiled plans.
+
+Add:
+
+```text
+CompiledCompatibilityPlan
+  -> object identifier
+  -> presentation plan
+  -> placement plan
+  -> interaction plan
+  -> behavior plan
+  -> network plan
+  -> block-entity plan
+  -> container plan
+  -> resource-pack references
+  -> adapter references
+  -> fallback plan
+  -> support level
+  -> critical failures
+  -> confidence
+```
+
+Example:
+
+```text
+create:mechanical_press
+
+presentation:
+  GENERATED_CUSTOM_BLOCK
+
+placement:
+  GEYSER_CUSTOM_BLOCK
+
+interaction:
+  MACHINE_CONTAINER_BRIDGE
+
+behavior:
+  CREATE_KINETIC_ADAPTER
+
+block_entity:
+  CREATE_BLOCK_ENTITY_BRIDGE
+
+resource_pack:
+  pack-7a82...
+
+confidence:
+  0.97
+```
+
+This is the object runtime should consult, not flexible metadata or late analyzer logic.
+
+## Runtime Dispatch Architecture
+
+Current runtime dispatch should evolve from "ask every module for every event" to direct lookup.
+
+Target:
+
+```text
+Java event
+  -> extract identifier
+  -> lookup compiled runtime plan
+  -> execute bridge or fallback
+```
+
+Add:
+
+```text
+RuntimeDispatchTable
+  block id       -> BlockRuntimePlan
+  item id        -> ItemRuntimePlan
+  entity id      -> EntityRuntimePlan
+  menu id        -> MenuRuntimePlan
+  block entity   -> BlockEntityRuntimePlan
+  fluid id       -> FluidRuntimePlan
+```
+
+Each runtime plan should already contain:
+
+- translator
+- adapter
+- fallback
+- support level
+- requirements
+
+This is one of the highest-value runtime optimizations in the fork.
+
+## Persistent Fingerprints And Conversion Keys
+
+The current full-tree hashing approach in `PackUtil.getModUUID()` is too expensive for routine invalidation.
+
+Replace it with persistent incremental fingerprints.
+
+For directories, fingerprint from:
+
+- relative path
+- file count
+- size
+- last modified
+- content hash only when metadata shows change
+
+For jars, fingerprint from:
+
+- size
+- last modified
+- sha-256
+
+Persist something like:
+
+```json
+{
+  "mod": "create",
+  "fingerprint": "...",
+  "algorithm": "HYDRAULIC_INDEX_V2",
+  "fileCount": 18342
+}
+```
+
+The cache key must become more precise than "mod changed or not".
+
+Add:
+
+```text
+ConversionKey
+  -> mod fingerprint
+  -> hydraulic version
+  -> converter version
+  -> metadata fingerprint
+  -> target Minecraft version
+  -> target Bedrock version
+  -> Geyser version
+  -> generator schema version
+  -> relevant config fingerprint
+```
+
+Same key means cache hit and no reconversion.
+
+## Persistent Artifact Cache
+
+Make the cache a first-class subsystem.
+
+Suggested layout:
+
+```text
+config/hydraulic/
+  cache/
+    index/
+    compatibility/
+    models/
+    textures/
+    conversions/
+    validation/
+    manifests/
+```
+
+Suggested service surface:
+
+```text
+ArtifactCache
+  get(key)
+  put(key, artifact)
+  contains(key)
+  invalidate(key)
+  invalidateMod(modId)
+```
+
+Do not cache only the final pack zip. Cache expensive intermediate results too.
+
+## Lazy Loading And Bounded Memory
+
+Current resource loading is too eager for large modpacks.
+
+Target lifecycle:
+
+```text
+INDEX
+  -> LOAD ONLY WHAT IS NEEDED
+  -> CONVERT
+  -> GENERATE
+  -> VALIDATE
+  -> WRITE CACHE
+  -> RELEASE
+```
+
+Do not keep the entire modpack resident after generation just because it was loaded once.
+
+### Model system direction
+- Replace all-models-resident behavior with a `ModelIndex` of paths and dependencies.
+- Parse model JSON on demand.
+- Cache parsed models in a bounded LRU cache.
+- Resolve parent-model closure lazily and cache resolved closures.
+
+### Texture system direction
+- Build a texture dependency graph.
+- Convert only textures required by converted models.
+- Deduplicate atlas membership.
+- Avoid converting every texture simply because it exists.
+
+### Block-state direction
+- Keep metadata authoring human-readable.
+- Compile runtime block-state resolution into compact tables.
+- Prefer state ordinals or packed state keys over string-heavy hot-path evaluation.
+
+## Data-Oriented Compatibility Engine
+
+The compatibility engine should stop reconstructing facts independently for each analysis phase.
+
+For each object:
+
+```text
+object
+  -> fact collection
+  -> capability inference
+  -> domain analysis
+  -> decision
+  -> compiled plan
+```
+
+Do not keep a future design where every object linearly searches all analyzers.
+
+Add:
+
+```text
+AnalyzerRegistry
+  block        -> BlockAnalyzer
+  item         -> ItemAnalyzer
+  entity       -> EntityAnalyzer
+  fluid        -> FluidAnalyzer
+  menu         -> MenuAnalyzer
+  blockentity  -> BlockEntityAnalyzer
+```
+
+That avoids repeated `supports(...)` scans and makes analyzer routing explicit.
 
 ## Capability Model
 
-The next major subsystem should be a dedicated capability layer.
+The capability layer remains central, but it must drive both compatibility decisions and compiled runtime planning.
 
 ```text
 org.geysermc.hydraulic.compat.capability
@@ -274,16 +705,14 @@ org.geysermc.hydraulic.compat.capability
   Capability
   CapabilityRequirement
   CapabilityResult
+  CriticalCapability
+  CapabilityWeightProfile
 ```
 
-Every registered object should receive a capability profile before the engine decides whether the object is automatic, metadata-assisted, adapter-driven, visual-only, or unsupported.
-
-Example capability shape:
+Example shape:
 
 ```text
 Create: crushing_wheel
-
-CAPABILITIES
 
 visual:
   model              YES
@@ -310,68 +739,37 @@ behavior:
 data:
   block_entity       YES
   custom_data        YES
+
+network:
+  custom_packets     NO
+  custom_sync        YES
 ```
-
-The central question becomes: can Bedrock represent the required capabilities, and if not, what is the smallest layer needed to close the gap?
-
-## Target Compatibility Model
-
-The next major shift should be from raw mapping tables to typed compatibility data.
-
-```text
-CompatibilityObject
-  -> content type
-  -> Java identifier
-  -> owning mod
-  -> mod fingerprint
-  -> inventory facts
-  -> capability profile
-  -> analyzer findings
-  -> automatic translation result
-  -> metadata patches
-  -> adapter bindings
-  -> runtime requirements
-  -> support results
-  -> confidence
-  -> provenance
-  -> reasons
-```
-
-Every object should eventually answer:
-
-1. What capabilities does it require?
-2. Which of those capabilities are automatically representable on Bedrock?
-3. Which gaps can be closed by metadata patches?
-4. Which gaps require a generic capability adapter?
-5. Which gaps require a mod-specific adapter?
-6. If gaps remain, is the result approximated, visual-only, or unsupported?
 
 ## Multidimensional Support Results
 
 Do not store only one support level.
 
-The engine should store domain-level and capability-level support first, then derive the overall result.
+Store domain-level and capability-level support first, then derive the overall result.
 
 Example:
 
 ```text
-overall = ADAPTED
-
-visual = COMPLETE
-placement = COMPLETE
-state = COMPLETE
-interaction = PARTIAL
-inventory = COMPLETE
-behavior = PARTIAL
-animation = COMPLETE
-audio = COMPLETE
+overall      = ADAPTED
+visual       = COMPLETE
+placement    = COMPLETE
+state        = COMPLETE
+interaction  = PARTIAL
+inventory    = COMPLETE
+behavior     = PARTIAL
+network      = PARTIAL
+audio        = COMPLETE
 ```
 
-The final report can still expose a single overall status, but that overall value must be derived from richer support results.
+The final report may still expose a single overall status, but it must be derived from richer support results and critical-capability rules.
 
 ## Compatibility Taxonomy
 
-Keep the current `CompatibilityStatus` values for coarse coverage math when useful, but add a separate final support vocabulary:
+Keep coarse compatibility status values where useful, but add a final support vocabulary for human-facing results:
 
 - `NATIVE`
 - `AUTOMATIC`
@@ -380,240 +778,55 @@ Keep the current `CompatibilityStatus` values for coarse coverage math when usef
 - `VISUAL_ONLY`
 - `UNSUPPORTED`
 
-These values should describe the end result, not replace the underlying per-domain support data.
+Also add explicit degradation actions for implementation planning and reporting:
 
-## Compatibility Score
+- `APPROXIMATE`
+- `SIMPLIFY`
+- `SCRIPT`
+- `STUB`
+- `OMIT`
 
-Add a machine-readable score, but never use the score as a substitute for support level.
+These do not replace support results. They explain how Hydraulic degraded behavior.
 
-Example:
+## Compatibility Score And Critical Capability Rules
 
-```text
-Visual:       100%
-Placement:    100%
-Interaction:   90%
-Behavior:      75%
-Data:         100%
+Add a machine-readable score, but never let the score overrule a missing critical capability.
 
-Overall:       91%
-Status:        ADAPTED
-```
-
-Scores are useful for ranking, regression tracking, and modpack summaries. Support levels remain the human-facing verdict.
-
-## Reason Engine
-
-Every degraded result should explain why, not just what the status is.
-
-Example unsupported result:
+Example weighting direction:
 
 ```text
-UNSUPPORTED
-
-Reason:
-Java block entity requires server-side kinetic capability
-with no generic Bedrock representation.
-
-Suggested resolution:
-Create capability adapter or mod adapter for kinetic behavior.
+Presentation   10%
+Placement      10%
+State          10%
+Interaction    25%
+Behavior       25%
+Data           10%
+Network        10%
 ```
 
-Example visual-only result:
+Object classes may need different weight profiles.
+
+Examples:
+
+- machines should weight behavior, container semantics, and transfer heavily
+- decorative blocks should weight presentation and placement heavily
+- entities should weight behavior and interaction heavily
+
+Add critical-capability rules such as:
 
 ```text
-VISUAL_ONLY
-
-Reason:
-Model and texture converted successfully.
-
-Missing:
-- custom inventory
-- block entity interaction
-- machine processing
+machine:
+  processing = CRITICAL
+  inventory  = CRITICAL
+  visual     = NON_CRITICAL
 ```
 
-This becomes critical once the project is evaluating hundreds of objects across many mods.
-
-## Analyzer Inputs
-
-The analyzer engine should inspect more than registries.
-
-It should pull facts from four sources:
-
-### Registry
-- blocks
-- items
-- entities
-- fluids
-- menus
-- recipes
-- sounds
-- particles
-
-### Resources
-- models
-- blockstates
-- textures
-- animations
-- lang
-- loot tables
-- tags
-- recipes
-
-### Runtime objects
-- `Block`
-- `Item`
-- `BlockEntity`
-- `Entity`
-- `Menu`
-- `Fluid`
-
-### Capabilities
-- inventory
-- energy
-- fluid handling
-- redstone
-- ticking
-- interaction
-- animation
-- custom rendering
-
-Without this wider fact set, the analyzer cannot make credible automatic decisions.
-
-## Mod Fingerprint
-
-Every mod should receive a machine-readable fingerprint that adapters and analyzers can target safely.
-
-```text
-ModFingerprint
-  -> mod_id
-  -> version
-  -> loader
-  -> minecraft_version
-  -> registered_blocks
-  -> registered_items
-  -> registered_entities
-  -> registered_fluids
-  -> registered_menus
-  -> registered_recipes
-  -> uses_block_entities
-  -> uses_custom_renderers
-  -> uses_custom_networking
-  -> uses_capabilities
-  -> uses_custom_item_components
-  -> uses_custom_models
-  -> uses_custom_particles
-  -> uses_custom_sounds
-```
-
-Adapters should be able to declare supported mod ranges and required capabilities instead of blindly activating on namespace alone.
-
-## CompatibilityKnowledge
-
-Add a reusable knowledge layer that captures learned patterns without turning each discovery into hardcoded special-case logic.
-
-```text
-compat/
-  knowledge/
-    blocks/
-    items/
-    models/
-    capabilities/
-    interactions/
-    mods/
-```
-
-Examples of reusable knowledge:
-
-- blocks with this model structure behave like stairs
-- menus with these slot families can use generic container X
-- this renderer requires Java-side runtime support
-- this capability appears across these mod families
-
-This is the mechanism that should let the engine improve over time without exploding in adapter count.
-
-## Proposed Package Direction
-
-### Keep current classes
-
-```text
-org.geysermc.hydraulic.compat
-  CompatibilityManager
-  CompatibilityRegistry
-  CompatibilityReport
-  ContentInventory
-  MappingResolver
-  MappingOwnership
-```
-
-### Add explicit subpackages
-
-```text
-org.geysermc.hydraulic.compat.capability
-  CapabilityAnalyzer
-  CapabilityProfile
-  Capability
-  CapabilityRequirement
-  CapabilityResult
-
-org.geysermc.hydraulic.compat.analysis
-  RegistryAnalyzer
-  BlockAnalyzer
-  ModelAnalyzer
-  StateAnalyzer
-  ItemAnalyzer
-  ComponentAnalyzer
-  EntityAnalyzer
-  FluidAnalyzer
-  MenuAnalyzer
-  BlockEntityAnalyzer
-
-org.geysermc.hydraulic.compat.knowledge
-  CompatibilityKnowledge
-  KnowledgeEntry
-  KnowledgeSource
-
-org.geysermc.hydraulic.compat.model
-  CompatibilityObject
-  SupportResult
-  CompatibilityFinding
-  Confidence
-  Provenance
-  ModFingerprint
-
-org.geysermc.hydraulic.compat.mapping
-  ContentPatch
-  StateTranslator
-  ModelClassifier
-  GeometryResolver
-  ItemTranslator
-  FluidTranslator
-  ContainerTranslator
-
-org.geysermc.hydraulic.compat.bridge
-  InteractionBridge
-  ContainerBridge
-  BlockEntityBridge
-  FluidBridge
-  EntityBridge
-
-org.geysermc.hydraulic.compat.generator
-  BehaviorPackGenerator
-  BehaviorDefinition
-  BehaviorAdapter
-  ReportGenerator
-
-org.geysermc.hydraulic.compat.adapter
-  ModAdapter
-  CapabilityAdapter
-```
-
-The important point is not package purity. The important point is to separate knowledge, capability analysis, translation, runtime bridging, and final adapters into explicit architectural layers.
+If critical behavior is missing, the result must remain `UNSUPPORTED` or `VISUAL_ONLY` even when presentation looks good.
 
 ## Metadata Evolution Plan
 
 ### Current state
-The loader already supports recursive discovery and ownership precedence. That part should be preserved.
+Keep deterministic recursive discovery and ownership precedence.
 
 ### Next structure
 
@@ -625,8 +838,8 @@ config/hydraulic/metadata/
   user/
 ```
 
-### Metadata as patch system
-Do not think of metadata as primary mappings. Treat metadata as compatibility patches over automatic analysis.
+### Design rule
+Metadata is a patch layer over automatic analysis, not the primary mapping source.
 
 Example direction:
 
@@ -634,14 +847,12 @@ Example direction:
 {
   "target": "create:andesite_casing",
   "patch": {
-  "visual.geometry": "...",
-  "state.facing": "...",
-  "interaction.use": "create:casing_use"
+    "visual.geometry": "...",
+    "state.facing": "...",
+    "interaction.use": "create:casing_use"
   }
 }
 ```
-
-This lets automatic translation provide the baseline while metadata modifies only the parts that need correction.
 
 ### Generated versus manual separation
 
@@ -655,66 +866,217 @@ config/hydraulic/
     user/
 ```
 
-Generated compatibility suggestions should never overwrite manual server or user overrides.
+Generated compatibility suggestions must never overwrite server or user intent.
 
-### Provenance for generated data
-Every generated result should carry provenance:
+### Compilation rule
+Flexible authoring metadata must compile into compact runtime metadata.
 
-```text
-source:
-  AUTOMATIC_ANALYZER
-
-analyzer:
-  BlockModelAnalyzer
-
-confidence:
-  0.97
-
-generated_at:
-  timestamp
-
-hydraulic_version:
-  ...
-
-overridden:
-  false
-```
-
-### Metadata design rules
-- Keep legacy simple block files working.
-- Add typed schemas instead of stuffing unrelated concerns into `BlockStateRule`.
-- Make validation strict enough to reject bad entries and tolerant enough to skip them without killing the load.
-- Report conflicts and invalid entries as compatibility findings, not just log noise.
-
-## Confidence Model
-
-Automatic translation should record confidence so the engine can avoid confidently doing the wrong thing.
-
-Example thresholds:
+Target flow:
 
 ```text
->= 0.95     AUTOMATIC
-0.75-0.94   AUTOMATIC + WARNING
-0.50-0.74   APPROXIMATED
-< 0.50      NEEDS PATCH OR ADAPTER
+Metadata JSON
+  -> validated metadata
+  -> flexible metadata IR
+  -> compiled runtime metadata
+  -> compiled compatibility plan
 ```
 
-Confidence should influence decisions and report severity, but it should not replace support results or reasons.
+Runtime representations should prefer:
 
-## Geyser Knowledge Integration
+- enums
+- integer ids
+- bit flags
+- direct references
+- compact arrays
 
-Hydraulic should explicitly build on Geyser's existing mapping ecosystem rather than recreate it.
+Runtime should avoid:
+
+- generic patch maps
+- JSON objects
+- string-keyed interpretation in hot paths
+
+## Behavior Fact Extraction
+
+The biggest remaining compatibility leap is not arbitrary Java bytecode translation.
+
+It is behavior fact extraction.
+
+Hydraulic should get better at answering "how does this object behave" by extracting facts such as:
+
+- ticks
+- has block entity
+- opens menu
+- has inventory
+- accepts items
+- produces items
+- consumes items
+- uses fluids
+- uses energy
+- reacts to redstone
+- changes state
+- spawns entities
+- plays sounds
+- emits particles
+- uses custom networking
+- uses server-only logic
+- uses custom rendering
+
+Those facts should feed the capability model and the compiled runtime plan.
+
+## Generic Machine, Container, And Transfer Model
+
+This is the highest-return compatibility layer after the performance substrate.
+
+### Machine profile direction
+
+```text
+MachineProfile
+  inventory
+    -> input slots
+    -> output slots
+    -> fuel slots
+    -> upgrade slots
+
+  processing
+    -> recipes
+    -> duration
+    -> progress
+    -> outputs
+
+  fluids
+    -> input tanks
+    -> output tanks
+
+  energy
+    -> input
+    -> output
+    -> capacity
+
+  state
+    -> active
+    -> progress
+    -> orientation
+
+  interaction
+    -> menu
+    -> block interaction
+
+  automation
+    -> sided insertion
+    -> sided extraction
+    -> filtering
+    -> redstone
+```
+
+### Transfer capabilities
+- `ItemTransfer`
+- `FluidTransfer`
+- `EnergyTransfer`
+
+### Container direction
+Infer container archetypes before writing mod-specific menu adapters.
+
+Examples:
+
+- `CHEST`
+- `DOUBLE_CHEST`
+- `FURNACE`
+- `CRAFTING`
+- `PROCESSOR`
+- `MACHINE`
+- `STORAGE`
+- `ENERGY_MACHINE`
+- `FLUID_MACHINE`
+- `CUSTOM_GRID`
+
+Also map slot semantics, not just slot numbers:
+
+- `INPUT`
+- `OUTPUT`
+- `FUEL`
+- `UPGRADE`
+- `FLUID_INPUT`
+- `FLUID_OUTPUT`
+- `CATALYST`
+
+This is how Hydraulic avoids writing hundreds of UI adapters for machines that share the same semantics.
+
+## Fluids, Entities, Networking, And Rendering
+
+### Fluids
+Fluids remain a major missing subsystem.
+
+Hydraulic needs:
+
+- `FluidTranslator`
+- `FluidBridge`
+- fluid block representation
+- bucket and item representation
+- tank representation
+- transfer semantics
+- machine interaction semantics
+
+### Entities
+Treat entities as three layers:
+
+- presentation
+- interaction
+- behavior
+
+Hydraulic should not attempt arbitrary AI translation. It should infer and map a generic AI vocabulary when possible.
+
+Examples:
+
+- wander
+- follow
+- attack
+- flee
+- guard
+- look_at
+- trade
+- pickup
+- work
+- breed
+
+### Networking
+Networking is its own compatibility domain.
+
+Detect and report:
+
+- custom packets
+- custom synchronization
+- clientbound state requirements
+- serverbound interaction requirements
+
+Unknown or essential custom network behavior should escalate compatibility risk automatically.
+
+### Custom rendering
+Detect:
+
+- block entity renderers
+- entity renderers
+- item renderers
+- custom shaders
+- custom vertex pipelines
+
+Then classify:
+
+- standard renderer -> automatic
+- known renderer pattern -> generic adapter
+- unknown custom renderer -> approximation or unsupported
+
+## Geyser Integration Strategy
+
+Hydraulic should explicitly build on Geyser rather than trying to recreate it.
 
 The architecture should be:
 
 ```text
-Geyser Knowledge
-     +
-Hydraulic Conversion
-     +
-Hydraulic Compatibility Engine
-     +
-Mod-specific knowledge
+Geyser knowledge
+  + Hydraulic conversion
+  + Hydraulic compatibility engine
+  + Hydraulic runtime bridges
+  + optional generated Bedrock behavior content
 ```
 
 not:
@@ -723,146 +1085,274 @@ not:
 Hydraulic recreates Geyser
 ```
 
-That reduces divergence and makes the compatibility layer focus on modded gaps rather than re-implementing the base Java to Bedrock knowledge set.
+### Important correction
+Do not make a generated Bedrock behavior pack the foundation of the project.
 
-## Real-World Constraint
-
-There is no architecture that can make every Java mod fully compatible with Bedrock automatically.
-
-The practical goal is:
-
-- automatically achieve the highest possible compatibility
-- isolate irreducible Java-specific behavior behind runtime bridges and adapters
-- make limitations explicit instead of pretending unsupported mechanics work
-
-That is the technically defensible goal for the project.
-
-## Compatibility Pipeline
-
-The intended pipeline is:
-
-1. Enumerate Java registries.
-2. Group content by owning mod.
-3. Build typed content inventory and mod fingerprint data.
-4. Run analyzers across content, presentation, state/data, interaction, and behavior domains.
-5. Build capability profiles and support results.
-6. Emit an early compatibility report with reasons, confidence, and provenance.
-7. Attempt automatic translation.
-8. Apply metadata patches.
-9. Apply generic capability adapters where possible.
-10. Apply mod-specific adapters only when required.
-11. Generate Bedrock resource and behavior content.
-12. Register runtime bridges.
-13. Emit final compatibility results.
-
-Today the code only fully reaches the early inventory/report stage and partially reaches metadata-assisted resolution for the current block path.
-
-## Stability Work Before Breadth
-
-### 1. Never-crash conversion policy
-Any individual asset or mapping failure should:
-
-- log the failure
-- record a structured finding
-- emit fallback output when possible
-- continue processing the rest of the mod and modpack
-
-### 2. Per-mod isolation
-One degraded mod should not stop the rest of the pack from converting.
-
-### 3. Per-asset isolation
-Texture, model, metadata, and registration failures need explicit boundaries at the smallest practical scope.
-
-### 4. Deterministic conflict reporting
-Now that rule ordering is deterministic, conflicts should be surfaced as structured compatibility findings.
-
-### 5. Correctness over optimistic coverage
-Do not classify something as complete because an asset exists if the runtime behavior is still missing.
-
-## Adapter Model
-
-Do not make adapters only flat per-mod buckets.
-
-The adapter structure should be capability-driven:
+The primary behavior mechanism should be:
 
 ```text
-ModAdapter
-   |
-   +-- identifies mod
-   +-- declares supported versions
-   +-- declares capabilities
-   +-- registers analyzers
-   +-- registers mappings
-   +-- registers runtime bridges
-   +-- registers generators
+Java server authoritative state
+  -> Hydraulic semantic translation and runtime bridges
+  -> Geyser transport and Bedrock-facing registration
+  -> Bedrock client
 ```
 
-Example direction:
+Generated Bedrock behavior content can still exist where useful, but it is secondary to the runtime bridge architecture.
+
+### Pack delivery
+Automatic Bedrock resource-pack delivery is realistic and should stay in scope.
+
+Target:
 
 ```text
-CreateAdapter
-  +-- KineticCapability
-  +-- ContraptionCapability
-  +-- StressCapability
-  +-- BasinCapability
+modpack installed
+  -> Hydraulic converts
+  -> pack generated
+  -> content-addressed artifact cached
+  -> Geyser registers pack or URL
+  -> Bedrock player downloads automatically
 ```
 
-This makes reusable logic possible across mod families.
+Consider incremental pack structure later:
 
-## Generic Machine Compatibility
+- `hydraulic-core.mcpack`
+- `create.mcpack`
+- `mekanism.mcpack`
+- optional feature packs
 
-Machines deserve an explicit intermediate layer before mod-specific adapters.
+But design this around actual Geyser resource-pack behavior, not assumptions borrowed from Java resource packs.
 
-```text
-MachineCompatibility
+## Reporting And Validation Model
 
-INPUT
-  +-- item slots
-  +-- fluid slots
-  +-- energy
-  +-- processing
-  +-- upgrades
-  +-- output
-
-OUTPUT
-  +-- generic container
-  +-- generic interaction
-  +-- optional mod-specific behavior
-```
-
-Without this layer, every tech mod risks reinventing the same inventory and container logic under different adapter names.
-
-## Reporting Model
-
-The report should eventually answer three things simultaneously:
+The report should answer three things simultaneously:
 
 1. What works.
 2. How well it works across each domain.
-3. Why it does not work when support is partial or missing.
+3. Why support is partial or missing.
 
-Example future output:
+### Report modes
+- production mode
+- diagnostic mode
+- deep-audit mode
+
+Suggested outputs:
+
+- `compatibility-summary.json`
+- `compatibility-report.json`
+- deep-audit inventory and dependency artifacts only when explicitly requested
+
+### Validator role
+Validation should remain a separate stage after generation.
+
+It should emit structured:
+
+- `errors`
+- `warnings`
+- `manualActions`
+
+Validation evidence should feed follow-up work for metadata, bridges, generators, and adapters.
+
+## Performance And Observability
+
+The current performance report is useful, but it should evolve into a profiler-lite evidence system.
+
+Target structure:
 
 ```text
-Create
------------------------------
-Blocks             98.2%
-Items              97.4%
-Machines           83.1%
-Entities           91.7%
-Fluids            100.0%
-Recipes            96.5%
+startup
+  discovery
+  indexing
+  metadata
+  compatibility
+  cache load
 
-Overall            93.8%
+conversion
+  per mod
+    parsing
+    models
+    textures
+    blocks
+    items
+    entities
+    packaging
+    validation
 
-NATIVE             102
-AUTOMATIC          421
-ADAPTED             87
-APPROXIMATED        31
-VISUAL_ONLY         12
-UNSUPPORTED          6
+runtime
+  bridge calls
+  translation calls
+  dispatch lookups
+  cache hits
+  cache misses
+
+memory
+  peak heap
+  index memory
+  model cache
+  texture cache
 ```
 
-This should be backed by per-object reasons, support results, confidence, and suggested resolutions.
+Capture when practical:
+
+- count
+- total time
+- average time
+- `p50`
+- `p95`
+- `p99`
+- cache hits
+- cache misses
+
+Add stage-level metrics for:
+
+- resource index
+- model resolver
+- texture resolver
+- block-state resolver
+- metadata resolver
+- compatibility analyzer
+- conversion artifact cache
+- runtime dispatch
+
+Optimization should be evidence-driven, not intuition-driven.
+
+## Conversion Scheduler
+
+The current thread-pool heuristic is acceptable as a first pass, but the long-term system should schedule conversion work by cost and memory budget.
+
+Target:
+
+```text
+ConversionScheduler
+  -> max workers
+  -> memory budget
+  -> queue
+  -> priority
+  -> estimated cost
+```
+
+The scheduler should optimize throughput per memory and I/O budget, not just raw thread count.
+
+Bound memory as well as concurrency.
+
+## Proposed Package Direction
+
+### Keep current high-level classes
+
+```text
+org.geysermc.hydraulic.compat
+  CompatibilityManager
+  CompatibilityRegistry
+  CompatibilityReport
+  ContentInventory
+  MappingResolver
+  MappingOwnership
+```
+
+### Add or evolve explicit subpackages
+
+```text
+org.geysermc.hydraulic.pack.index
+  UniversalResourceIndex
+  ModIndex
+  ResourceFile
+  ResourceKind
+  ResourceFingerprint
+  ResourceDependency
+  IndexBuilder
+  IndexCache
+
+org.geysermc.hydraulic.compat.analysis
+  AnalyzerRegistry
+  RegistryAnalyzer
+  BlockAnalyzer
+  ModelAnalyzer
+  StateAnalyzer
+  ItemAnalyzer
+  ComponentAnalyzer
+  EntityAnalyzer
+  FluidAnalyzer
+  MenuAnalyzer
+  BlockEntityAnalyzer
+  NetworkAnalyzer
+  RenderAnalyzer
+
+org.geysermc.hydraulic.compat.capability
+  CapabilityAnalyzer
+  CapabilityProfile
+  Capability
+  CapabilityRequirement
+  CapabilityResult
+  CriticalCapability
+  CapabilityWeightProfile
+
+org.geysermc.hydraulic.compat.model
+  CompatibilityObject
+  SupportResult
+  CompatibilityFinding
+  Confidence
+  Provenance
+  ModFingerprint
+  DegradationAction
+
+org.geysermc.hydraulic.compat.ir
+  DiscoveryIr
+  CompatibilityIr
+  ResourceIr
+  BridgeIr
+  CompiledCompatibilityPlan
+
+org.geysermc.hydraulic.compat.knowledge
+  CompatibilityKnowledge
+  KnowledgeEntry
+  KnowledgeSource
+  PatternClassifier
+
+org.geysermc.hydraulic.compat.mapping
+  ContentPatch
+  PatchCompiler
+  CompiledPatch
+  StateTranslator
+  ModelClassifier
+  GeometryResolver
+  ItemTranslator
+  FluidTranslator
+  ContainerTranslator
+
+org.geysermc.hydraulic.compat.runtime
+  RuntimeDispatchTable
+  BlockRuntimePlan
+  ItemRuntimePlan
+  EntityRuntimePlan
+  MenuRuntimePlan
+  BlockEntityRuntimePlan
+  FluidRuntimePlan
+
+org.geysermc.hydraulic.compat.bridge
+  InteractionBridge
+  ContainerBridge
+  BlockEntityBridge
+  FluidBridge
+  EntityBridge
+  NetworkBridge
+
+org.geysermc.hydraulic.compat.generator
+  ResourcePackGenerator
+  OptionalBehaviorGenerator
+  ReportGenerator
+  ValidationArtifactWriter
+
+org.geysermc.hydraulic.compat.adapter
+  ModAdapter
+  CapabilityAdapter
+  AdapterBinding
+
+org.geysermc.hydraulic.cache
+  ArtifactCache
+  ConversionKey
+  FingerprintService
+```
+
+The exact package names may move, but the architectural boundaries should not.
 
 ## Updated Phase Plan
 
@@ -870,130 +1360,116 @@ This should be backed by per-object reasons, support results, confidence, and su
 Priority: completed baseline
 
 Delivered:
-- `compat/` scaffolding in `shared/`
-- `ContentInventory`
-- `CompatibilityReport`
-- `CompatibilityRegistry`
-- `MappingResolver`
-- `MappingOwnership`
-- recursive deterministic metadata loading
-- metadata precedence handling
-- early compatibility reporting before pack conversion
-- tests for metadata precedence and resolver behavior
+- compatibility scaffolding in `shared/`
+- deterministic metadata loading
+- typed compatibility data
+- early compatibility reporting
+- first cache evidence in performance artifacts
+- first metadata-backed runtime seams for menu and block-entity handling
+- post-generation validation artifact emission
 
-This phase is complete enough to build on and should not be re-done.
+This baseline is real and should be preserved.
 
-## Phase 1: Compatibility Data Model
-Priority: completed baseline
+## Phase 1: Universal Index And Fingerprints
+Priority: highest
 
 Build:
-- `CompatibilityObject`
-- `CapabilityProfile`
-- `SupportResult`
-- `CompatibilityFinding`
-- `Confidence`
-- `Provenance`
-- `ModFingerprint`
+- `UniversalResourceIndex`
+- shared file and resource classification
+- mod dependency and resource dependency recording
+- persistent incremental fingerprints
+- replacement for full-tree `getModUUID()` hashing
 
-This phase is implemented and in active use by the analyzer and reporting pipeline.
+Exit criteria:
+- one authoritative discovery pass
+- no independent compatibility filesystem walk
+- no independent UUID tree hash walk during normal startup
 
-## Phase 2: Analyzer Engine
-Priority: implemented initial slice
-
-Build:
-- `RegistryAnalyzer`
-- `BlockAnalyzer`
-- `ModelAnalyzer`
-- `StateAnalyzer`
-- `ItemAnalyzer`
-- `ComponentAnalyzer`
-- `EntityAnalyzer`
-- `FluidAnalyzer`
-- `MenuAnalyzer`
-- `BlockEntityAnalyzer`
-
-This phase is partially complete. The analyzer set exists and produces per-domain support results, confidence, provenance, and findings, but deeper capability inference remains limited for several content types.
-
-## Phase 3: Automatic Translators
-Priority: critical
+## Phase 2: Artifact Cache And Lazy Loading
+Priority: highest
 
 Build:
-- `StateTranslator`
-- `ModelClassifier`
-- `GeometryResolver`
-- `ItemTranslator`
-- `FluidTranslator`
-- `ContainerTranslator`
+- `ArtifactCache`
+- `ConversionKey`
+- index cache
+- compatibility cache
+- model and texture caches
+- lazy resource loading
+- bounded LRU model resolution
 
-## Phase 4: Reporting
-Priority: implemented initial slice
+Exit criteria:
+- repeat startup can hit index and compatibility caches
+- unchanged mods skip expensive recomputation
+- entire modpack is not kept parsed in memory by default
 
-Produce detailed compatibility output before trying to make every behavior functional.
+## Phase 3: IR And Compiled Runtime Plan
+Priority: highest
 
-Deliverables:
-- multidimensional support results
-- reasons and suggested resolutions
-- confidence and provenance
-- per-mod and per-object scores
+Build:
+- `DiscoveryIr`
+- `CompatibilityIr`
+- `ResourceIr`
+- `BridgeIr`
+- `CompiledCompatibilityPlan`
+- `RuntimeDispatchTable`
+- compiled metadata and compiled patches
 
-This phase is partially complete. The compatibility report already carries multidimensional support results, findings, confidence, provenance, and scores, but downstream consumers and higher-level summaries are still incomplete.
+Exit criteria:
+- compatibility decisions are compiled out of hot paths
+- runtime becomes identifier-driven map lookup
 
-## Phase 5: Metadata V2
-Priority: implemented initial slice
-
-Metadata becomes a patch and override system rather than the main source of truth.
-
-Deliverables:
-- typed patch schemas
-- generated/manual separation
-- structured diagnostics
-- conflict reporting
-
-This phase is partially complete. Typed patch schemas, synthesized mappings, and validation are present, but ownership-specific directory structure and generated suggestion workflows are still incomplete.
-
-## Phase 6: Runtime Compatibility
+## Phase 4: Conversion Engine Optimization
 Priority: very high
 
 Build:
-- `InteractionBridge`
-- `ContainerBridge`
-- `BlockEntityBridge`
-- `FluidBridge`
-- `EntityBridge`
+- model dependency graph
+- texture dependency graph
+- parent-model resolution cache
+- compiled block-state tables
+- stable generated identifiers
+- content-addressed generated assets
+- incremental pack generation
+- memory-aware conversion scheduler
 
-Current verified runtime consumers:
-- block creative exposure and placement gating
-- block item texture fallback
-- non-block item registration and creative exposure gating
-- armor attachable generation gating
-- bow attachable generation gating
-- metadata-backed custom entity registration
-- compatibility-backed unsupported menu diagnostics at the real Geyser open-screen path
-- metadata-backed menu fallback translation for explicit `bedrock.menu.container_type` patch templates at the real Geyser open-screen path
-- compatibility-backed unsupported block-entity data diagnostics at the real Geyser empty-translator path
-- metadata-backed block-entity data translation for explicit `bedrock.block_entity.*` patch templates at the real Geyser empty-translator path
+Exit criteria:
+- conversion scales with required assets, not all assets
+- repeated runs produce stable identifiers and deterministic outputs
 
-This phase is still early. Hydraulic now has first real metadata-backed menu and block-entity runtime bridges for explicit templates, but generic interaction, container behavior, fluid, entity behavior, and broader block-entity bridges are still not implemented.
-
-Pack-generation validation now exists as a post-generation safety stage for converted Bedrock packs, but it is still structural validation rather than full gameplay or protocol validation.
-
-## Phase 7: Behavior Generation
+## Phase 5: Behavior Fact Extraction And Generic Bridges
 Priority: very high
 
 Build:
-- `BehaviorPackGenerator`
-- `BehaviorDefinition`
-- `BehaviorAdapter`
+- behavior fact extractor
+- generic machine model
+- generic container model
+- item transfer bridge
+- fluid transfer bridge
+- energy transfer bridge
+- broader block-entity bridge
+- fluid bridge
+- richer menu bridge
 
-## Phase 8: Generic Machine Compatibility
-Priority: very high
+Exit criteria:
+- common machine and container families work through generic bridges before mod-specific adapters
 
-Build a reusable machine layer before writing large numbers of tech-mod-specific adapters.
-
-## Phase 9: Mod Adapters
+## Phase 6: Knowledge And Pattern Classification
 Priority: high
 
-Only now should the project lean into dedicated adapters for ecosystems such as:
+Build:
+- `CompatibilityKnowledge`
+- pattern classifiers
+- machine archetype detection
+- container archetype detection
+- automatic adapter selection helpers
+- cost versus value ranking
+
+Exit criteria:
+- the engine learns reusable patterns rather than only accumulating mod names
+
+## Phase 7: Mod-Specific Adapters
+Priority: high
+
+Only after Phases 1 through 6 are real should the project invest heavily in dedicated adapters for ecosystems such as:
 
 - Create
 - Mekanism
@@ -1004,370 +1480,116 @@ Only now should the project lean into dedicated adapters for ecosystems such as:
 - Immersive Engineering
 - Farmer's Delight
 
-## Phase 10: Automated Mod Matrix
+## Phase 8: Distribution And Regression Matrix
 Priority: high
 
-Test real representative modpacks rather than only isolated toy examples.
+Build:
+- content-addressed pack artifacts
+- pack manifest generation
+- Geyser pack registration flow
+- optional remote hosting support
+- compatibility regression matrix
+- performance regression matrix
+- pack regression matrix
+
+Exit criteria:
+- Bedrock resource delivery is reproducible
+- compatibility breadth and performance regressions are measurable in CI
 
 ## Current-State Execution Roadmap
 
-Use the live Hydraulic repo as the control document for execution order.
+Use the live Hydraulic repo and its runtime artifacts as the control document for execution order.
 
-The project is no longer at pure scaffolding stage. The repo now already contains:
+### Locked execution order
 
-- cached block-state resolution in `BlockMapping`, plus anchored rule indexes that reduce first-hit conditional rule scans while preserving rule precedence
-- compact resolved block metadata exposed through `MappingResolver.ResolvedBlockState` for block consumers
-- cached per-state `ModelDefinition` resolution in `StateDefinition`, reducing repeated blockstate variant and multipart matching during block conversion
-- precompiled menu and block-entity patch templates in `MetadataIndex` and `MappingResolver` for runtime bridge lookups and analyzer checks
-- cheaper startup block and item ownership lookup in `PackManager`, avoiding per-block multimap scans and unused path retrieval when indexed membership is sufficient
-- per-mod resource indexing in `ModResourceIndex`
-- performance artifacts through `performance-report.json`, now including startup indexed blockstate and item-asset totals plus cumulative `StateDefinition` cache hit/miss evidence
-- post-generation validation artifacts through `pack-validation-report.json`, plus validator timing and issue counts inside per-mod conversion metrics
-- eager pack preparation before `GeyserDefineResourcePacksEvent`, so Hydraulic conversion evidence survives later Geyser HTTPS/bootstrap failures
-- a live `CapabilityAdapterRegistry`
-- first metadata-backed menu and block-entity runtime bridges
+1. replace duplicated discovery with a universal index
+2. replace full-tree pack UUID hashing with incremental persistent fingerprints
+3. add a first-class artifact cache and precise conversion keys
+4. move resource loading to lazy indexed access
+5. compile compatibility decisions into runtime plans and direct dispatch tables
+6. deepen the resource IR, model dependency graph, and texture dependency graph
+7. compile block-state and metadata-heavy paths into compact runtime structures
+8. widen generic bridges for menus, block entities, machines, fluids, and transfer systems
+9. add knowledge and classifier layers after generalized bridge seams exist
+10. add mod-specific adapters after the substrate is stable
+11. expand pack delivery and CI-scale compatibility matrices
 
-That means the next roadmap should finish and generalize partially landed systems rather than re-plan them from zero.
-
-### Execution order
-
-1. refresh the baseline before each batch and treat the live repo plus runtime artifacts as authoritative over older notes
-2. finish splitting flexible metadata loading from compact runtime metadata beyond the resolved block-state path, especially for patch-heavy and non-block consumers
-3. finish compact resolved block-state answer caching and any remaining block hot-path compaction around the now-indexed rule matcher and cached model resolution path
-4. complete startup indexing and eliminate remaining repeated probing by routing blockstate, item-definition, legacy-model, and model-provider lookups through indexes or prebuilt maps
-5. make conversion selective, cacheable, and evidence-driven using indexed startup data, compatibility inventory, and strict invalidation keys
-6. expand observability from the current performance artifact into a decision system with cache-hit, miss, and timing breakdowns plus snapshot-versus-history reporting
-7. generalize the current runtime-bridge seams after the performance substrate is cheaper and measurable, extending menu, block-entity, fluid, container, and richer behavior support
-8. add the first compatibility knowledge layer only after real generalized bridge seams exist
-9. re-rank long-term breadth work after the missing external Copilot-share content is available and the performance substrate changes are landed
+This order is intentional. Do not start writing dozens of adapters before the universal index, cache, and compiled runtime plan exist.
 
 ### Current execution anchors
-
+- `shared/src/main/java/org/geysermc/hydraulic/pack/PackManager.java`
+- `shared/src/main/java/org/geysermc/hydraulic/pack/ModResourceIndex.java`
+- `shared/src/main/java/org/geysermc/hydraulic/pack/PackUtil.java`
+- `shared/src/main/java/org/geysermc/hydraulic/pack/PerformanceReportTracker.java`
 - `shared/src/main/java/org/geysermc/hydraulic/metadata/BlockMapping.java`
 - `shared/src/main/java/org/geysermc/hydraulic/metadata/BlockStateRule.java`
 - `shared/src/main/java/org/geysermc/hydraulic/metadata/MetadataLoader.java`
 - `shared/src/main/java/org/geysermc/hydraulic/compat/MappingResolver.java`
-- `shared/src/main/java/org/geysermc/hydraulic/pack/PackManager.java`
-- `shared/src/main/java/org/geysermc/hydraulic/pack/ModResourceIndex.java`
-- `shared/src/main/java/org/geysermc/hydraulic/pack/PerformanceReportTracker.java`
 - `shared/src/main/java/org/geysermc/hydraulic/compat/adapter/CapabilityAdapterRegistry.java`
 - `shared/src/main/java/org/geysermc/hydraulic/compat/runtime/MenuPatchTranslatorFactory.java`
 - `shared/src/main/java/org/geysermc/hydraulic/compat/runtime/BlockEntityPatchTranslatorFactory.java`
 
-### Execution rules
-
+### Current execution rules
 - preserve compatibility semantics first, then optimize
-- prove each performance claim with focused measurements and runtime artifacts
-- keep metadata expressive at load time but compact at runtime
-- finish the partially landed performance substrate before widening broad runtime bridge scope
-- keep README and this architecture plan aligned with what was actually validated
-
-Current runtime validation note: the original local `GeyserPluginConfig` bootstrap failure is no longer the active blocker in this workspace state. The currently observed runtime blocker is external HTTPS access from Geyser and Mojang client bootstrap (`api.minecraftservices.com` and `client.discovery.minecraft-services.net`), which can still prevent late Bedrock startup even though Hydraulic initialization and eager pack preparation succeed.
-
-## External Tooling Deep Dive
-
-The linked Java-to-Bedrock and Forge/Fabric tooling is useful as pattern input, but it should change Hydraulic's implementation details more than its mission. The external projects vary sharply in maturity and scope, so Hydraulic should adopt concrete mechanisms, not marketing claims.
-
-### MinecraftJavatoBedrockPorter: staged IR and degradation policy
-
-Useful findings:
-
-- the repo is split into a Java-side analysis phase and a separate mapping and generation phase
-- the documented pipeline is:
-  - Java input
-  - analyzer
-  - Java IR
-  - mapping engine
-  - degradation policy
-  - Bedrock IR
-  - code generator
-  - validator
-  - report
-- the analyzer explicitly distinguishes extraction from translation, which is the correct boundary for Hydraulic as well
-- the project uses an explicit degradation vocabulary:
-  - `Approximate`
-  - `Simplify`
-  - `Script`
-  - `Stub`
-  - `Omit`
-- it exposes separate `analyze`, `port`, and `validate` surfaces instead of forcing everything through one opaque conversion command
-- it emits machine-readable and human-readable reporting formats rather than only producing output assets
-
-Important corrections:
-
-- its own README describes behavior detection, method translation, entity AI mapping, and script translation as partial or in-progress
-- loader detection is documented as heuristic-based
-- this is not evidence that direct Java logic translation is practical or reliable for Hydraulic
-
-Hydraulic implementation takeaway:
-
-- formalize a compatibility IR boundary between discovery and translation instead of letting analyzers write Bedrock-facing decisions directly
-- add an explicit degradation taxonomy to Hydraulic decisions and reports:
-  - `APPROXIMATE`
-  - `SIMPLIFY`
-  - `SCRIPT`
-  - `STUB`
-  - `OMIT`
-- keep `analyze`, `translate`, and `validate` as separable pipeline stages and artifacts
-- emit manual-action artifacts whenever behavior falls below automatic or adapted support
-- treat loader and registration-pattern detection as evidence with confidence, not as ground truth
-
-### MC-ModsConverter: tool registry, validation loop, and execution evidence
-
-Useful findings:
-
-- the repo uses a modular plugin registry where each conversion tool has:
-  - a name
-  - a description
-  - parameter schema
-  - execution handler
-- the registry records execution logs, success or failure, duration, and per-tool usage statistics
-- the conversion loop is explicitly:
-  - analyze
-  - run tools
-  - validate
-  - iterate
-- the validator is not just schema-only; it checks addon structure details such as:
-  - manifests
-  - texture formats
-  - block identifiers
-  - material instances
-  - recipes
-  - sounds
-  - scripts
-  - language declarations
-- the similarity scorer produces a weighted breakdown instead of a single raw number, which is useful as a secondary artifact
-
-Important corrections:
-
-- its similarity percentage is mostly asset-count based and can overstate real compatibility
-- a single percentage score is not a substitute for support results or runtime proof
-- its AI loop is useful as an optional offline assistant pattern, not as a core Hydraulic dependency
-
-Hydraulic implementation takeaway:
-
-- add a formal bridge and generator registry with explicit feature declarations and execution statistics
-- persist per-tool or per-bridge success, failure, and duration in artifacts alongside current performance reporting
-- introduce a post-generation validator artifact with structured errors and warnings, separate from analyzer findings
-- keep compatibility score as a secondary summary derived from richer evidence, never as the primary verdict
-- add a conversion feedback loop where validation results produce structured follow-up actions for metadata, bridge, or adapter work
-
-### PortKit: specialist pipeline, knowledge retrieval, and QA as offline architecture
-
-Useful findings:
-
-- the useful architectural shape is not the SaaS stack; it is the separation of concerns in the conversion engine
-- the documented conversion flow uses specialist workers for distinct domains such as:
-  - Java analysis
-  - textures
-  - models
-  - recipes
-  - sounds
-  - entities
-  - logic translation
-  - addon assembly
-- the system keeps a dedicated knowledge layer and retrieval pipeline instead of stuffing all knowledge into code paths
-- the architecture documents per-segment confidence and a QA layer that audits generated output before surfacing final results
-- it also treats batch conversion and conversion history as first-class artifacts rather than ad hoc one-off runs
-
-Important corrections:
-
-- docs and marketing claims overstate support credibility relative to the evidence available from the fetched files
-- Hydraulic should not adopt a remote AI service requirement, billing, SaaS infrastructure, or multi-service product architecture as a dependency of the core converter
-- any LLM-assisted logic should remain optional, offlineable, and subordinate to deterministic validation
-
-Hydraulic implementation takeaway:
-
-- keep analyzers and translators specialist and domain-scoped instead of growing a single compatibility blob
-- implement `CompatibilityKnowledge` as versioned, overlayable datasets rather than as prompt-only or hard-coded logic
-- add per-domain and per-object confidence evidence to generated outputs and reports
-- add an offline QA pass that attempts to falsify optimistic conversion outcomes before finalizing support results
-- treat modpack-scale batch conversion, artifact history, and regression comparison as real Phase 10 requirements
-
-### java2bedrock.sh: deterministic resource conversion mechanics
-
-Useful findings:
-
-- the script resolves parent model inheritance before conversion, walking parent chains until it finds usable `elements`, `textures`, and `display` data
-- it builds a deterministic intermediate `config.json` that records:
-  - source model path
-  - Java item and predicate data
-  - resolved texture information
-  - generated identifiers
-  - generated versus non-generated output mode
-- it derives stable short IDs from predicate inputs using a deterministic hash, which keeps output identifiers stable across runs
-- it generates texture atlases by computing texture dependency unions and deduplicating repeated textures across models
-- it supports fallback default assets and caller-provided fallback packs, with caller-provided assets taking precedence
-- it separates preview or debug output from final packaged output
-- it exports `geyser_mappings.json`, which is especially relevant because Hydraulic already lives in the Geyser ecosystem
-- it converts Java `display` transforms into Bedrock attachable and animation data
-- it validates pack shape early:
-  - input exists
-  - no enclosing root folder mistakes
-  - required files exist
-  - JSON is parseable
-
-Important corrections:
-
-- this tool is resource-pack-focused, not a full mod compatibility engine
-- it does not solve gameplay compatibility
-- it is a shell pipeline with WSL and dependency friction, not a production architecture for Hydraulic
-- the repository is AGPL-licensed, so implementation ideas may inform Hydraulic, but code should not be copied into Hydraulic unless that licensing impact is intentionally accepted
-
-Hydraulic implementation takeaway:
-
-- add a canonical resource-conversion IR for:
-  - resolved model inheritance
-  - texture dependency closure
-  - display transform data
-  - atlas membership
-  - deterministic generated identifiers
-- make generated identifiers stable across runs when the Java-side defining inputs are unchanged
-- add deterministic atlas planning and deduplication instead of resolving model textures ad hoc during conversion
-- emit a generated mapping artifact that ties Java inputs to Bedrock outputs for debugging, bridge lookup, and downstream reporting
-- separate preview or debug assets from shipping assets so validation and inspection do not contaminate final packs
-- support layered fallback assets with explicit precedence and provenance
-
-### minecraft-java2bedrock fork: minimal additional value
-
-Useful findings:
-
-- the fork keeps the same core shape and GitHub Actions issue-based conversion workflow
-
-Important corrections:
-
-- it appears to be effectively the same architecture with little or no meaningful new technical direction
-- it should not materially influence Hydraulic beyond what the upstream `java2bedrock.sh` already contributed
-
-Hydraulic implementation takeaway:
-
-- do not spend roadmap weight on this fork specifically
-- if GitHub-hosted batch conversion is ever desired, treat it as packaging or CI orchestration, not compatibility architecture
-
-### Porting-Lib and Porting-Lib-Dash: modular shim design
-
-Useful findings:
-
-- the library is split into narrow modules like registry, transfer, fluids, gui utilities, config, tags, model loaders, and chunk loading instead of one monolithic compatibility layer
-- related APIs are explicitly called out for capability replacement patterns, such as components instead of capabilities and accessories instead of Curios-style slots
-- the maintained upstream matters more than stale forks; the Dash fork appears materially behind upstream and should not be treated as the baseline reference
-
-Hydraulic implementation takeaway:
-
-- keep capability adapters narrow, feature-scoped, and swappable instead of growing a single generic adapter abstraction that knows everything
-- model machine, transfer, fluid, gui, and registry-style compatibility as separate bridge families with explicit requirements and bindings
-- prefer optional bridge modules and targeted adapter surfaces over one large runtime emulation layer
-
-### Kilt: runtime bridge lessons and non-goals
-
-Useful findings:
-
-- Kilt uses a staged runtime strategy: remap inputs, apply targeted fixers, then bridge APIs through explicit injects and workarounds
-- the codebase keeps compatibility work visible through dedicated `compat` and `workarounds` areas rather than burying it in unrelated systems
-- broad runtime compatibility requires many targeted fixups even when a large API surface is already bundled
-
-Important constraint:
-
-- Kilt describes itself as highly unstable and experimental, which reinforces how expensive full loader emulation is in practice
-
-Hydraulic implementation takeaway:
-
-- Hydraulic should borrow the shape of a remap and fixup pipeline for metadata patches, compatibility decisions, and targeted runtime bridge fixers
-- Hydraulic should not attempt to recreate full Forge or NeoForge API emulation inside the Bedrock compatibility layer
-- targeted workaround registries are appropriate; loader-wide reimplementation is not
-
-### Modpack Converter: modpack-level intake patterns
-
-Useful findings:
-
-- pack conversion is a distinct problem from mod conversion or runtime compatibility
-- the tool resolves pack manifests, downloads target-loader candidates, and emits a report split into converted, failed, and excluded entries
-- optional external metadata sources improve resolution quality without being required for the baseline pipeline
-
-Hydraulic implementation takeaway:
-
-- Phase 10 should treat modpack intake as its own artifact pipeline with explicit converted, blocked, skipped, and unsupported categories
-- Hydraulic's reports should separate content that converted cleanly from content that was intentionally excluded, unresolved, or requires a stronger adapter tier
-- optional external indexes can improve prioritization, but the core compatibility verdicts should remain reproducible without them
-
-### Decompilers: intake-only tooling
-
-Useful findings:
-
-- CFR and Fernflower are decompilers, not converters
-- Fernflower and ForgeFlower remain useful for readable source recovery and identifier cleanup options
-- CFR's regression-testing model is a good reminder to diff transformed output against expected artifacts instead of trusting one pass blindly
-
-Hydraulic implementation takeaway:
-
-- decompilation should be treated only as an optional analysis lane for closed-source mods when legally permitted
-- decompiled output is not authoritative architecture data and should never be treated as automatic proof of behavior parity
-- do not ingest recovered third-party code into Hydraulic; use it only to inform compatibility findings, metadata patches, and runtime bridge design where rights allow
-
-## External Findings To Implement
-
-These external projects suggest a concrete Hydraulic extension set:
-
-1. define a canonical compatibility IR and a canonical resource IR before widening bridge breadth
-2. make degradation explicit and first-class in compatibility decisions:
-   - `APPROXIMATE`
-   - `SIMPLIFY`
-   - `SCRIPT`
-   - `STUB`
-   - `OMIT`
-3. add a strict validator stage after generation with structured `errors`, `warnings`, and `manual_actions`
-4. persist execution evidence for analyzers, translators, bridges, generators, and validators:
-   - success or failure
-   - duration
-   - counts
-   - cache-hit and miss evidence
-5. make asset conversion deterministic through:
-   - parent-model resolution
-   - texture dependency closure
-   - atlas deduplication
-   - stable generated identifiers
-   - fallback asset precedence
-6. emit mapping and debug artifacts that connect Java inputs to Bedrock outputs and bridge requirements
-7. keep knowledge as overlayable datasets instead of code-only heuristics or AI-only prompts
-8. add an offline QA pass that challenges optimistic support results before final report emission
-9. add modpack-scale reporting, history, and regression comparison as artifact pipelines rather than one-off manual runs
+- use the live repo and runtime artifacts as truth over older prose
+- replace duplicated discovery before widening compatibility breadth
+- compile flexible metadata before using it in runtime paths
+- treat Geyser runtime and pack-delivery constraints as hard architectural inputs
+- keep README and this plan aligned with what was actually validated
 
 ## Recommended Immediate Next Slice
 
 The best next implementation slice from the current repo state is:
 
-1. define the first canonical IR slice for:
-   - menu archetypes
-   - block-entity patch templates
-   - interaction requirements
-   - resource-model inheritance
-   - texture dependency closure
-2. split flexible metadata loading from compact runtime metadata and compact resource-conversion metadata
-3. add deterministic stable generated identifiers and mapping artifacts for converted outputs
-4. add a post-generation validator artifact with structured `errors`, `warnings`, and `manual_actions`
-5. extend performance and compatibility reporting with per-stage execution statistics and validation evidence
-6. only after the IR and validator land, widen menu and block-entity seams into more generic container and interaction bridges
+1. introduce the first `UniversalResourceIndex` slice by absorbing the current `ModResourceIndex` responsibilities and the compatibility asset scan responsibilities into one authoritative index
+2. replace `PackUtil.getModUUID()` with persistent incremental fingerprints and a real `ConversionKey`
+3. add a first artifact cache layout for index, compatibility, conversion, and validation artifacts
+4. compile the first `CompiledCompatibilityPlan` slice for the currently validated seams:
+   - block placement and custom block registration
+   - item registration and exposure
+   - menu fallback translation
+   - block-entity patch translation
+   - entity registration decisions
+5. redesign model handling around a lightweight model path index plus lazy parser and bounded cache
+6. extend `performance-report.json` with stage-level cache hit and miss evidence for index, model resolution, texture resolution, and runtime dispatch
 
-This is the smallest next slice that lets both plans complete coherently: the architecture plan keeps its bridge-first long-term direction, while the current-state execution plan front-loads the substrate work needed to scale those bridges safely.
+This is the smallest next slice that fixes the current architecture at the root and still preserves momentum toward the skeleton-key goal.
 
 ## What Not To Do
 - Do not keep extending `BlockStateRule` with every future concern.
-- Do not equate asset presence with compatibility success.
-- Do not make menu or entity metadata look complete before runtime bridges exist.
-- Do not pivot into hand-authoring hundreds of mod-specific JSON files as the main strategy.
+- Do not leave multiple subsystems independently walking the same mod roots.
+- Do not keep full-tree hashing every mod on ordinary startup.
+- Do not keep the entire modpack parsed and resident by default.
+- Do not keep compatibility reasoning in hot runtime paths.
+- Do not equate asset presence with gameplay compatibility.
+- Do not let a weighted score hide missing critical behavior.
+- Do not make menu, entity, or fluid metadata look complete before runtime bridges exist.
+- Do not pivot into hand-authoring hundreds of per-mod JSON files as the main strategy.
 - Do not let generated metadata overwrite server-owner or user intent.
-- Do not let one failed asset or one unsupported mechanic abort the whole modpack conversion.
+- Do not let one failed asset or unsupported mechanic abort the whole modpack conversion.
 - Do not recreate Geyser's base knowledge when Hydraulic can consume it.
-- Do not describe Hydraulic as a direct Forge jar to Fabric jar or cross-loader source converter.
+- Do not describe Hydraulic as a direct Forge jar to Fabric jar converter.
 - Do not attempt full Forge or NeoForge API emulation inside Hydraulic's Bedrock compatibility layer.
-- Do not treat decompiled third-party code as a normal source input for Hydraulic implementation.
+- Do not make Bedrock behavior-pack delivery the foundational assumption for mod behavior.
+- Do not treat decompiled third-party code as a normal implementation input.
 
 ## Bottom Line
-The fork is pointed in the right direction and is further along than the earlier assessment implied.
 
-The architecture should no longer be described primarily as a future analyzer plus metadata expansion problem. The compatibility domains, capability model, support results, provenance, confidence, score, fingerprint, typed patch system, and current adapter bindings now exist in code. The correct next step is to convert those decisions into broader runtime bridges and wider capability-adapter coverage without regressing the current pack pipeline.
+The fork is pointed in the right direction, but the main missing piece is now execution architecture rather than conceptual vocabulary.
 
-The scaling strategy remains:
+The most important correction is not "add more metadata".
+It is:
+
+```text
+Universal Index
+  -> Compatibility IR
+  -> Compiled Compatibility Plan
+  -> Runtime Dispatch Table
+  -> Resource Pack + Hydraulic Runtime Bridges
+  -> Validation + Content-Addressed Cache
+```
+
+That architecture matches the live repository, matches Geyser's actual strengths and limits, and keeps the project on the only realistic scaling path:
 
 ```text
 automatic
@@ -1377,4 +1599,5 @@ automatic
   -> unsupported
 ```
 
-That is still the most realistic path to maximizing mod support without creating an unmaintainable pile of special-case code.
+The true skeleton-key goal is not to turn every Java mod into an independent Bedrock add-on.
+It is to let Bedrock clients participate in a Java mod ecosystem while the Java server remains authoritative and Hydraulic supplies the missing visual, semantic, and interaction bridge layers.
