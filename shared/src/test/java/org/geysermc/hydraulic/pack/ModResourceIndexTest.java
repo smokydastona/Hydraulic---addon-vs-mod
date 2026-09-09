@@ -1,6 +1,7 @@
 package org.geysermc.hydraulic.pack;
 
 import net.minecraft.resources.Identifier;
+import net.kyori.adventure.key.Key;
 import org.geysermc.hydraulic.platform.mod.ModInfo;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -29,6 +30,7 @@ class ModResourceIndexTest {
         Path blockstate = firstRoot.resolve("assets/examplemod/blockstates/machines/crusher.json");
         Path modernItem = secondRoot.resolve("assets/examplemod/items/tools/wrench.json");
         Path legacyItem = firstRoot.resolve("assets/examplemod/models/item/tools/hammer.json");
+        Path blockModel = firstRoot.resolve("assets/examplemod/models/block/machines/crusher.json");
         Path texture = firstRoot.resolve("assets/examplemod/textures/block/crusher.png");
         Path sound = secondRoot.resolve("assets/examplemod/sounds/machines/crusher.ogg");
         Path language = firstRoot.resolve("assets/examplemod/lang/en_us.json");
@@ -38,6 +40,7 @@ class ModResourceIndexTest {
         Files.createDirectories(blockstate.getParent());
         Files.createDirectories(modernItem.getParent());
         Files.createDirectories(legacyItem.getParent());
+        Files.createDirectories(blockModel.getParent());
         Files.createDirectories(texture.getParent());
         Files.createDirectories(sound.getParent());
         Files.createDirectories(language.getParent());
@@ -47,6 +50,7 @@ class ModResourceIndexTest {
         Files.writeString(blockstate, "{}");
         Files.writeString(modernItem, "{}");
         Files.writeString(legacyItem, "{}");
+        Files.writeString(blockModel, "{}");
         Files.writeString(texture, "png");
         Files.writeString(sound, "ogg");
         Files.writeString(language, "{}");
@@ -64,20 +68,22 @@ class ModResourceIndexTest {
         assertTrue(index.hasItemAsset(Identifier.fromNamespaceAndPath("examplemod", "tools/wrench")));
         assertTrue(index.hasItemAsset(Identifier.fromNamespaceAndPath("examplemod", "tools/hammer")));
         assertEquals(2, index.itemAssetCount());
+        assertEquals(2, index.modelCount());
         assertTrue(!index.hasItemAsset(Identifier.fromNamespaceAndPath("examplemod", "tools/missing")));
         assertEquals(modernItem, index.resolveItemAssetPath(Identifier.fromNamespaceAndPath("examplemod", "tools/wrench")));
         assertEquals(legacyItem, index.resolveItemAssetPath(Identifier.fromNamespaceAndPath("examplemod", "tools/hammer")));
+        assertEquals(blockModel, index.resolveModelPath(Key.key("examplemod", "block/machines/crusher")));
         assertNull(index.resolveItemAssetPath(Identifier.fromNamespaceAndPath("examplemod", "tools/missing")));
         assertEquals(Set.of("machines/crusher.json"), index.assetEntries("blockstates"));
         assertEquals(Set.of("tools/wrench.json"), index.assetEntries("item_models"));
-        assertEquals(Set.of("item/tools/hammer.json"), index.assetEntries("models"));
+        assertEquals(Set.of("item/tools/hammer.json", "block/machines/crusher.json"), index.assetEntries("models"));
         assertEquals(Set.of("block/crusher.png"), index.assetEntries("textures"));
         assertEquals(Set.of("machines/crusher.ogg"), index.assetEntries("sounds"));
         assertEquals(Set.of("en_us.json"), index.assetEntries("lang"));
         assertEquals(Set.of("examplemod:machines/crusher"), index.assetEntries("recipes"));
         assertEquals(Set.of("blocks/machines.json"), index.assetEntries("tags"));
         assertEquals(Set.of("blocks/crusher.json"), index.assetEntries("loot_tables"));
-        assertEquals(9, index.fingerprint().fileCount());
+        assertEquals(10, index.fingerprint().fileCount());
         assertTrue(index.fingerprint().totalSizeBytes() > 0);
         assertTrue(!index.fingerprint().digest().isEmpty());
     }
@@ -110,8 +116,10 @@ class ModResourceIndexTest {
         assertTrue(index.namespaces().isEmpty());
         assertEquals(0, index.blockStateCount());
         assertEquals(0, index.itemAssetCount());
+        assertEquals(0, index.modelCount());
         assertTrue(!index.hasItemAsset(Identifier.fromNamespaceAndPath("examplemod", "test_item")));
         assertNull(index.resolveItemAssetPath(Identifier.fromNamespaceAndPath("examplemod", "test_item")));
+        assertNull(index.resolveModelPath(Key.key("examplemod", "missing")));
         assertEquals(false, index.hasAssetFiles());
     }
 }

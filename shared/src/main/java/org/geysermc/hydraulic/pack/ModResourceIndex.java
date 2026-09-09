@@ -2,6 +2,7 @@ package org.geysermc.hydraulic.pack;
 
 import com.google.common.hash.Hasher;
 import com.google.common.hash.Hashing;
+import net.kyori.adventure.key.Key;
 import net.minecraft.resources.Identifier;
 import org.geysermc.hydraulic.platform.mod.ModInfo;
 import org.jetbrains.annotations.NotNull;
@@ -24,6 +25,7 @@ public final class ModResourceIndex {
     private final Map<Identifier, Path> blockStates;
     private final Map<Identifier, Path> itemDefinitions;
     private final Map<Identifier, Path> legacyItemModels;
+    private final Map<Identifier, Path> models;
     private final Map<String, Set<String>> assetEntries;
     private final ResourceFingerprint fingerprint;
     private final boolean hasAssetFiles;
@@ -33,6 +35,7 @@ public final class ModResourceIndex {
         @NotNull Map<Identifier, Path> blockStates,
         @NotNull Map<Identifier, Path> itemDefinitions,
         @NotNull Map<Identifier, Path> legacyItemModels,
+        @NotNull Map<Identifier, Path> models,
         @NotNull Map<String, Set<String>> assetEntries,
         @NotNull ResourceFingerprint fingerprint,
         boolean hasAssetFiles
@@ -41,6 +44,7 @@ public final class ModResourceIndex {
         this.blockStates = Map.copyOf(blockStates);
         this.itemDefinitions = Map.copyOf(itemDefinitions);
         this.legacyItemModels = Map.copyOf(legacyItemModels);
+        this.models = Map.copyOf(models);
         this.assetEntries = copyAssetEntries(assetEntries);
         this.fingerprint = fingerprint;
         this.hasAssetFiles = hasAssetFiles;
@@ -52,6 +56,7 @@ public final class ModResourceIndex {
         Map<Identifier, Path> blockStates = new LinkedHashMap<>();
         Map<Identifier, Path> itemDefinitions = new LinkedHashMap<>();
         Map<Identifier, Path> legacyItemModels = new LinkedHashMap<>();
+        Map<Identifier, Path> models = new LinkedHashMap<>();
         Map<String, Set<String>> assetEntries = new LinkedHashMap<>();
         Hasher fingerprintHasher = Hashing.sha256().newHasher();
         int indexedFileCount = 0;
@@ -71,7 +76,7 @@ public final class ModResourceIndex {
                         hasAssetFiles = true;
                     }
                     for (Path path : assetFiles) {
-                        indexAssetFile(path, assets, namespaces, blockStates, itemDefinitions, legacyItemModels, assetEntries);
+                        indexAssetFile(path, assets, namespaces, blockStates, itemDefinitions, legacyItemModels, models, assetEntries);
                         FileMetadata metadata = fileMetadata(path, assets, rootOrdinal, "assets");
                         fingerprintHasher.putString(metadata.stablePath(), java.nio.charset.StandardCharsets.UTF_8);
                         fingerprintHasher.putLong(metadata.size());
@@ -112,6 +117,7 @@ public final class ModResourceIndex {
             blockStates,
             itemDefinitions,
             legacyItemModels,
+            models,
             assetEntries,
             new ResourceFingerprint(FINGERPRINT_ALGORITHM, indexedFileCount, indexedTotalSizeBytes, latestModifiedEpochMillis, fingerprintHasher.hash().toString()),
             hasAssetFiles
@@ -143,6 +149,10 @@ public final class ModResourceIndex {
         return this.itemDefinitions.size() + this.legacyItemModels.size();
     }
 
+    public int modelCount() {
+        return this.models.size();
+    }
+
     @NotNull
     public ResourceFingerprint fingerprint() {
         return this.fingerprint;
@@ -151,6 +161,20 @@ public final class ModResourceIndex {
     @NotNull
     public Set<String> assetEntries(@NotNull String category) {
         return this.assetEntries.getOrDefault(category, Set.of());
+    }
+
+    @Nullable
+    public Path resolveModelPath(@NotNull Key modelKey) {
+        return this.models.get(Identifier.fromNamespaceAndPath(modelKey.namespace(), modelKey.value()));
+    }
+
+    @NotNull
+    public Map<Key, Path> modelPaths() {
+        Map<Key, Path> resolved = new LinkedHashMap<>();
+        for (Map.Entry<Identifier, Path> entry : this.models.entrySet()) {
+            resolved.put(Key.key(entry.getKey().getNamespace(), entry.getKey().getPath()), entry.getValue());
+        }
+        return Map.copyOf(resolved);
     }
 
     @Nullable
@@ -169,6 +193,7 @@ public final class ModResourceIndex {
         @NotNull Map<Identifier, Path> blockStates,
         @NotNull Map<Identifier, Path> itemDefinitions,
         @NotNull Map<Identifier, Path> legacyItemModels,
+        @NotNull Map<Identifier, Path> models,
         @NotNull Map<String, Set<String>> assetEntries
     ) {
         Path relative = assetsRoot.relativize(file);
@@ -200,6 +225,10 @@ public final class ModResourceIndex {
 
         if ("models".equals(firstSegment) && file.getFileName().toString().endsWith(".json")) {
             addRelativeAsset(assetEntries, "models", relative.subpath(2, relative.getNameCount()));
+            Identifier identifier = identifier(namespace, relative.subpath(2, relative.getNameCount()));
+            if (identifier != null) {
+                models.putIfAbsent(identifier, file);
+            }
         }
 
         if ("textures".equals(firstSegment) && isTextureAsset(file)) {

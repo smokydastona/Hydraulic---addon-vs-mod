@@ -209,6 +209,7 @@ The compatibility layer stays above the current Hydraulic conversion pipeline, b
 - The first universal-index seam is now live: `ModResourceIndex` indexes both asset and data inventory categories, and `CompatibilityManager` reuses that indexed data instead of doing its own second mod-root filesystem walk for content inventory generation.
 - Pack identity now also uses the shared indexed view: full-tree `PackUtil.getModUUID()` hashing has been replaced by a persisted `ConversionKey` derived from indexed mod resources plus loaded metadata state, so metadata-only changes now invalidate stale cached packs.
 - A first-class cache layout now exists under `config/hydraulic/cache` for index, compatibility, conversion, validation, and manifest artifacts. Compatibility inventory and report output can now be reused from cache when indexed mod fingerprints and metadata state are unchanged, while conversion and validation outputs are mirrored into the same artifact tree.
+- Model lookup is no longer built from an eager all-model startup flattening pass. `ModResourceIndex` now records generic model file paths, and `IndexedModelProvider` lazily deserializes mod and vanilla models on demand through a bounded cache with negative caching for missing entries.
 - Typed compatibility data already exists:
   - `CompatibilityObject`
   - `CapabilityProfile`
@@ -232,11 +233,12 @@ The compatibility layer stays above the current Hydraulic conversion pipeline, b
 - Runtime bridge seams now exist in production code, even if they remain narrow.
 - Validation artifacts now exist after pack generation.
 - Performance artifacts now include real cache evidence for some hot paths.
+- Live Fabric runtime validation now shows the model-provider startup slice is effectively reduced to indexed setup cost rather than eager model deserialization; the current run recorded `modelIndexBuildMillis = 6` while pack conversion and Geyser registration still completed.
 
 ### What is still too narrow
 - Discovery is still duplicated across multiple subsystems.
 - Fingerprinting and cache invalidation are still too coarse.
-- Resource loading is still too eager.
+- Resource-pack reading and broader resource resolution are still too eager even though model loading is now lazy and bounded.
 - Runtime dispatch still scales too much by scanning modules and mods instead of direct identifier lookup.
 - Compatibility analysis still reconstructs facts too often and still depends on repeated asset discovery.
 - Non-block compatibility remains shallower than the block path.
@@ -1393,6 +1395,7 @@ Current status:
 - The compatibility inventory walk has been removed from the normal startup path by reusing `ModResourceIndex` asset and data categories.
 - Full-tree pack UUID hashing has been removed from the normal startup path and replaced with persisted conversion keys derived from indexed resource fingerprints plus metadata state.
 - A first-class artifact cache layout now persists index, compatibility, conversion, and validation artifacts, and compatibility output can already be reused by cache key across repeat startup when the indexed mod/resource and metadata fingerprints match.
+- Model lookup now uses indexed file-path resolution plus lazy deserialization through a bounded `IndexedModelProvider`, so startup no longer eagerly builds a global parsed model map before conversion begins.
 - Phase 1 is still incomplete because the index itself is not yet rehydrated from cache and dependency tracking is not yet modeled beyond the current resource and metadata fingerprints.
 
 ## Phase 2: Artifact Cache And Lazy Loading
@@ -1419,7 +1422,7 @@ Current state:
 - first `CompiledCompatibilityPlan` projections now compile from the generated compatibility report into an in-memory `RuntimeDispatchTable`
 - current block, item, armor, bow, entity, menu, and block-entity runtime consumers now use direct identifier-driven plan lookup instead of re-reading flexible report and metadata structures on hot paths
 - item presentation compilation now avoids early component-binding hazards by using safe runtime probes and conservative fallbacks when item components are not yet bound
-- deeper resource IR, model lazy loading, and richer dispatch metrics are still pending
+- deeper resource IR, broader lazy resource loading, and richer dispatch metrics are still pending
 
 Build:
 - `DiscoveryIr`
@@ -1521,7 +1524,7 @@ Use the live Hydraulic repo and its runtime artifacts as the control document fo
 1. replace duplicated discovery with a universal index
 2. replace full-tree pack UUID hashing with incremental persistent fingerprints
 3. add a first-class artifact cache and precise conversion keys
-4. move resource loading to lazy indexed access
+4. move model loading to lazy indexed access, then widen that approach to the remaining resource categories
 5. compile compatibility decisions into runtime plans and direct dispatch tables
 6. deepen the resource IR, model dependency graph, and texture dependency graph
 7. compile block-state and metadata-heavy paths into compact runtime structures
@@ -1557,12 +1560,12 @@ This order is intentional. Do not start writing dozens of adapters before the un
 
 The best next implementation slice from the current repo state is:
 
-1. redesign model handling around a lightweight model path index plus lazy parser and bounded cache
-2. extend `performance-report.json` with stage-level cache hit and miss evidence for model resolution, texture resolution, and runtime dispatch
-3. promote the current cached index snapshot into true index rehydration with dependency-aware invalidation instead of persistence-only storage
+1. promote the current cached index snapshot into true index rehydration with dependency-aware invalidation instead of persistence-only storage
+2. extend `performance-report.json` with stage-level cache hit and miss evidence for the lazy model provider, texture resolution, and runtime dispatch
+3. widen lazy indexed access beyond models into broader texture and resource resolution paths that still eagerly deserialize pack data
 4. widen the compiled-plan surface from current registration and patch seams into richer block-state, menu, block-entity, and transfer-bridge runtime tables
 
-This is now the smallest next slice that preserves the newly compiled runtime surface while continuing the Phase 1 and Phase 3 substrate work toward the skeleton-key goal.
+This is now the smallest next slice that preserves the newly compiled runtime surface, builds on the shipped lazy model provider, and continues the Phase 1 and Phase 3 substrate work toward the skeleton-key goal.
 
 ## What Not To Do
 - Do not keep extending `BlockStateRule` with every future concern.

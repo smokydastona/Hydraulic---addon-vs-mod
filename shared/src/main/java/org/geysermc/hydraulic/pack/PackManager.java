@@ -5,7 +5,6 @@ import com.google.common.collect.Maps;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.MultimapBuilder;
 import com.mojang.logging.LogUtils;
-import net.kyori.adventure.key.Key;
 import net.minecraft.SharedConstants;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -41,7 +40,6 @@ import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import team.unnamed.creative.ResourcePack;
-import team.unnamed.creative.model.Model;
 import team.unnamed.creative.serialize.minecraft.MinecraftResourcePackReader;
 
 import java.io.IOException;
@@ -52,13 +50,9 @@ import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.ServiceLoader;
 import java.util.Set;
 import java.util.TreeMap;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
-import java.util.stream.Stream;
 
 /**
  * Manages packs within Hydraulic. Most of the pack conversion
@@ -144,20 +138,6 @@ public class PackManager {
         initializeCompatibilityRegistry(compatibilityCacheKey);
         long compatibilityInitializationMillis = nanosToMillis(System.nanoTime() - compatibilityStarted);
 
-        final Collection<ModInfo> mods = this.hydraulic.mods();
-        long resourcePackReadStarted = System.nanoTime();
-        final Map<String, List<ResourcePack>> modPacks = Maps.newHashMapWithExpectedSize(mods.size());
-        for (final ModInfo mod : mods) {
-            modPacks.put(
-                mod.id(),
-                mod.roots()
-                    .stream()
-                    .map(path -> MinecraftResourcePackReader.minecraft().read(NioDirectoryFileTreeReader.read(path)))
-                    .toList()
-            );
-        }
-                long resourcePackReadMillis = nanosToMillis(System.nanoTime() - resourcePackReadStarted);
-
         try {
             Files.createDirectories(this.getVanillaPath().getParent());
         } catch (IOException e) {
@@ -170,9 +150,23 @@ public class PackManager {
                 new PackLogListener(LOGGER)
         );
 
+        final Collection<ModInfo> mods = this.hydraulic.mods();
         long modelProviderStarted = System.nanoTime();
-        modelProvider = createModelProvider(mods, modPacks, this.getVanillaPath());
+        modelProvider = createModelProvider(this.modResourceIndexes, this.getVanillaPath());
         long modelIndexBuildMillis = nanosToMillis(System.nanoTime() - modelProviderStarted);
+
+        long resourcePackReadStarted = System.nanoTime();
+        final Map<String, List<ResourcePack>> modPacks = Maps.newHashMapWithExpectedSize(mods.size());
+        for (final ModInfo mod : mods) {
+            modPacks.put(
+                mod.id(),
+                mod.roots()
+                    .stream()
+                    .map(path -> MinecraftResourcePackReader.minecraft().read(NioDirectoryFileTreeReader.read(path)))
+                    .toList()
+            );
+        }
+        long resourcePackReadMillis = nanosToMillis(System.nanoTime() - resourcePackReadStarted);
 
         this.performanceTracker.recordStartup(new PerformanceReport.StartupMetrics(
             indexedResourcesMillis,
@@ -630,34 +624,20 @@ public class PackManager {
     /**
      * Creates a {@link ModelStitcher.Provider} that first searches mods, then the Vanilla pack.
      *
-     * @param mods The mods to search through.
-     * @param modPacks A {@link Map} from mod ID to a {@link List} of {@link ResourcePack}s contained within that mod.
-     *                 There may be multiple {@link ResourcePack}s in a mod if there are multiple resource roots for the
-     *                 mod.
+     * @param modResourceIndexes The indexed mod resource metadata to search through.
      * @return A {@link ModelStitcher.Provider} that searches through mods and the Vanilla pack.
      */
     private static ModelStitcher.Provider createModelProvider(
-        Collection<ModInfo> mods,
-        Map<String, List<ResourcePack>> modPacks,
+        Map<String, ModResourceIndex> modResourceIndexes,
         Path vanillaPath
     ) {
-        final List<ResourcePack> flattenedPacks = mods.stream()
-            .map(ModInfo::id)
-            .map(modPacks::get)
-            .flatMap(List::stream)
-            .toList();
-
-        ResourcePack vanillaResourcePack = MinecraftResourcePackReader.minecraft().readFromZipFile(vanillaPath);
-        Map<Key, Model> modelIndex = new LinkedHashMap<>();
-        for (ResourcePack pack : flattenedPacks) {
-            for (Model model : pack.models()) {
-                modelIndex.putIfAbsent(model.key(), model);
+        Map<net.kyori.adventure.key.Key, Path> indexedModels = new LinkedHashMap<>();
+        for (ModResourceIndex index : modResourceIndexes.values()) {
+            for (Map.Entry<net.kyori.adventure.key.Key, Path> entry : index.modelPaths().entrySet()) {
+                indexedModels.putIfAbsent(entry.getKey(), entry.getValue());
             }
         }
-        ConcurrentMap<Key, Optional<Model>> resolvedModels = new ConcurrentHashMap<>(Math.max(16, modelIndex.size()));
-        modelIndex.forEach((key, model) -> resolvedModels.put(key, Optional.of(model)));
-
-        return key -> resolvedModels.computeIfAbsent(key, ignored -> Optional.ofNullable(vanillaResourcePack.model(ignored))).orElse(null);
+        return new IndexedModelProvider(LOGGER, indexedModels, vanillaPath);
     }
 
     public boolean shouldIgnoreMod(ModInfo mod) {
