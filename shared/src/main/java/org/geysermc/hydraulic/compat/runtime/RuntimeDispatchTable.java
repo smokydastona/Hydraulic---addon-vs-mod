@@ -6,6 +6,7 @@ import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.BowItem;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.level.block.Block;
+import org.geysermc.mcprotocollib.protocol.data.game.inventory.ContainerType;
 import org.geysermc.hydraulic.compat.CompatibilityProfile;
 import org.geysermc.hydraulic.compat.CompatibilityRegistry;
 import org.geysermc.hydraulic.compat.CompatibilityReport;
@@ -299,7 +300,7 @@ public final class RuntimeDispatchTable {
     }
 
     @Nullable
-    private static String menuFallbackContainerType(
+    private static ContainerType menuFallbackContainerType(
         @NotNull CompatibilityObject object,
         @NotNull Identifier javaIdentifier,
         @NotNull MappingResolver mappingResolver

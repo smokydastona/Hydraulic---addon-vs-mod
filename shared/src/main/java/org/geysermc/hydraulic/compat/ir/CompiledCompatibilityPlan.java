@@ -1,5 +1,6 @@
 package org.geysermc.hydraulic.compat.ir;
 
+import org.geysermc.mcprotocollib.protocol.data.game.inventory.ContainerType;
 import org.geysermc.hydraulic.compat.CompatibilityStatus;
 import org.geysermc.hydraulic.compat.adapter.AdapterBinding;
 import org.geysermc.hydraulic.compat.adapter.AdapterFeature;
@@ -35,7 +36,7 @@ public record CompiledCompatibilityPlan(
     boolean supportsWearablePresentation,
     boolean supportsAttachablePresentation,
     boolean requiresMenuBridge,
-    @Nullable String menuFallbackContainerType,
+    @Nullable ContainerType menuFallbackContainerType,
     @NotNull List<String> menuRuntimeRequirements,
     @NotNull List<String> blockEntityRuntimeRequirements,
     @Nullable BlockEntityPatchTemplate blockEntityPatchTemplate,

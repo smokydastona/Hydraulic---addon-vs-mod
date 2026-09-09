@@ -1,6 +1,7 @@
 package org.geysermc.hydraulic.compat.runtime;
 
 import net.minecraft.resources.Identifier;
+import org.geysermc.mcprotocollib.protocol.data.game.inventory.ContainerType;
 import org.geysermc.hydraulic.compat.MappingOwnership;
 import org.geysermc.hydraulic.compat.mapping.ContentPatch;
 import org.junit.jupiter.api.Test;
@@ -27,7 +28,7 @@ class MenuPatchTemplateTest {
         )));
 
         assertNotNull(template);
-        assertEquals("GENERIC_9X3", template.fallbackContainerType());
+    assertEquals(ContainerType.GENERIC_9X3, template.fallbackContainerType());
     }
 
     @Test
@@ -54,7 +55,7 @@ class MenuPatchTemplateTest {
         ));
 
         assertNotNull(template);
-        assertEquals("GENERIC_9X3", template.fallbackContainerType());
+        assertEquals(ContainerType.GENERIC_9X3, template.fallbackContainerType());
     }
 
     @Test

@@ -6,6 +6,7 @@ import net.minecraft.resources.Identifier;
 import net.minecraft.server.Bootstrap;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
+import org.geysermc.mcprotocollib.protocol.data.game.inventory.ContainerType;
 import org.geysermc.hydraulic.compat.CompatibilityProfile;
 import org.geysermc.hydraulic.compat.CompatibilityRegistry;
 import org.geysermc.hydraulic.compat.CompatibilityReport;
@@ -144,7 +145,7 @@ class RuntimeDispatchTableTest {
         var menuPlan = registry.dispatchTable().menu(menu);
         assertNotNull(menuPlan);
         assertTrue(menuPlan.requiresMenuBridge());
-        assertEquals("GENERIC_9X3", menuPlan.menuFallbackContainerType());
+        assertEquals(ContainerType.GENERIC_9X3, menuPlan.menuFallbackContainerType());
 
         var blockEntityPlan = registry.dispatchTable().blockEntity(blockEntity);
         assertNotNull(blockEntityPlan);

@@ -1,6 +1,7 @@
 package org.geysermc.hydraulic.compat.runtime;
 
 import net.minecraft.resources.Identifier;
+import org.geysermc.mcprotocollib.protocol.data.game.inventory.ContainerType;
 import org.geysermc.hydraulic.compat.CompatibilityStatus;
 import org.geysermc.hydraulic.compat.MappingOwnership;
 import org.geysermc.hydraulic.compat.adapter.AdapterBinding;
@@ -52,7 +53,7 @@ class BridgeAdapterSupportTest {
             false,
             false,
             true,
-            "GENERIC_9X3",
+            ContainerType.GENERIC_9X3,
             List.of("menu_behavior_bridge"),
             List.of(),
             null,

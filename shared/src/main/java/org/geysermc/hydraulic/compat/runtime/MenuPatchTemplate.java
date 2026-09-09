@@ -1,5 +1,6 @@
 package org.geysermc.hydraulic.compat.runtime;
 
+import org.geysermc.mcprotocollib.protocol.data.game.inventory.ContainerType;
 import org.geysermc.hydraulic.compat.mapping.ContentPatch;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -39,9 +40,9 @@ public final class MenuPatchTemplate {
         "STONECUTTER"
     );
 
-    private final @NotNull String fallbackContainerType;
+    private final @NotNull ContainerType fallbackContainerType;
 
-    private MenuPatchTemplate(@NotNull String fallbackContainerType) {
+    private MenuPatchTemplate(@NotNull ContainerType fallbackContainerType) {
         this.fallbackContainerType = fallbackContainerType;
     }
 
@@ -60,7 +61,7 @@ public final class MenuPatchTemplate {
             }
         }
 
-        return fallbackContainerType != null ? new MenuPatchTemplate(fallbackContainerType) : null;
+        return fallbackContainerType != null ? new MenuPatchTemplate(ContainerType.valueOf(fallbackContainerType)) : null;
     }
 
     public static boolean supports(@NotNull List<ContentPatch> patches) {
@@ -86,7 +87,7 @@ public final class MenuPatchTemplate {
     }
 
     @NotNull
-    public String fallbackContainerType() {
+    public ContainerType fallbackContainerType() {
         return this.fallbackContainerType;
     }
 

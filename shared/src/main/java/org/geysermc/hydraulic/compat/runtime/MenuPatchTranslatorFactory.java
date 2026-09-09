@@ -51,6 +51,6 @@ public final class MenuPatchTranslatorFactory {
             return null;
         }
 
-        return InventoryTranslator.inventoryTranslator(ContainerType.valueOf(plan.menuFallbackContainerType()));
+        return InventoryTranslator.inventoryTranslator(plan.menuFallbackContainerType());
     }
 }
