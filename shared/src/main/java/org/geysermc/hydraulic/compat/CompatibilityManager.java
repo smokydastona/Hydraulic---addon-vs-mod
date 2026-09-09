@@ -22,6 +22,7 @@ import org.geysermc.hydraulic.compat.model.SupportResult;
 import org.geysermc.hydraulic.Constants;
 import org.geysermc.hydraulic.metadata.MetadataIndex;
 import org.geysermc.hydraulic.metadata.MetadataValidationIssue;
+import org.geysermc.hydraulic.pack.ModResourceIndex;
 import org.geysermc.hydraulic.platform.mod.ModInfo;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
@@ -39,7 +40,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Predicate;
-import java.util.stream.Stream;
 
 public final class CompatibilityManager {
     private static final List<CompatibilityAnalyzer> ANALYZERS = List.of(
@@ -66,10 +66,11 @@ public final class CompatibilityManager {
         @NotNull ListMultimap<String, ModInfo> namespacesToMods,
         @NotNull ListMultimap<String, Identifier> modsToBlocks,
         @NotNull ListMultimap<String, Identifier> modsToItems,
+        @NotNull Map<String, ModResourceIndex> modResourceIndexes,
         @NotNull MetadataIndex metadataIndex,
         @NotNull Predicate<ModInfo> ignored
     ) {
-        ContentInventory inventory = this.buildInventory(mods, namespacesToMods, modsToBlocks, modsToItems, metadataIndex, ignored);
+        ContentInventory inventory = this.buildInventory(mods, namespacesToMods, modsToBlocks, modsToItems, modResourceIndexes, metadataIndex, ignored);
         CompatibilityReport report = this.buildReport(inventory, metadataIndex);
         this.writeJson(this.dataPath.resolve("reports/content-inventory.json"), inventory);
         this.writeJson(this.dataPath.resolve("reports/compatibility-report.json"), report);
@@ -92,6 +93,7 @@ public final class CompatibilityManager {
         @NotNull ListMultimap<String, ModInfo> namespacesToMods,
         @NotNull ListMultimap<String, Identifier> modsToBlocks,
         @NotNull ListMultimap<String, Identifier> modsToItems,
+        @NotNull Map<String, ModResourceIndex> modResourceIndexes,
         @NotNull MetadataIndex metadataIndex,
         @NotNull Predicate<ModInfo> ignored
     ) {
@@ -113,7 +115,10 @@ public final class CompatibilityManager {
         this.incrementMenuRegistry(inventories, namespacesToMods);
 
         for (MutableInventory inventory : inventories.values()) {
-            this.scanModAssets(inventory);
+            ModResourceIndex resourceIndex = modResourceIndexes.get(inventory.mod.id());
+            if (resourceIndex != null) {
+                inventory.addIndexedAssets(resourceIndex);
+            }
             inventory.assetKeys.computeIfAbsent("block_assets", key -> new LinkedHashSet<>()).addAll(modsToBlocks.get(inventory.mod.id()).stream().map(Identifier::toString).toList());
             inventory.assetKeys.computeIfAbsent("item_assets", key -> new LinkedHashSet<>()).addAll(modsToItems.get(inventory.mod.id()).stream().map(Identifier::toString).toList());
         }
@@ -187,57 +192,6 @@ public final class CompatibilityManager {
         } catch (ReflectiveOperationException e) {
             this.logger.debug("Menu registry is unavailable on this runtime", e);
         }
-    }
-
-    private void scanModAssets(@NotNull MutableInventory inventory) {
-        for (Path root : inventory.mod.roots()) {
-            Path assetsRoot = root.resolve("assets");
-            if (Files.isDirectory(assetsRoot)) {
-                try (Stream<Path> namespaces = Files.list(assetsRoot)) {
-                    for (Path namespacePath : namespaces.filter(Files::isDirectory).toList()) {
-                        this.scanAssetNamespace(inventory, namespacePath);
-                    }
-                } catch (IOException e) {
-                    this.logger.warn("Failed to scan assets for mod {}", inventory.mod.id(), e);
-                }
-            }
-
-            Path dataRoot = root.resolve("data");
-            if (Files.isDirectory(dataRoot)) {
-                try (Stream<Path> namespaces = Files.list(dataRoot)) {
-                    for (Path namespacePath : namespaces.filter(Files::isDirectory).toList()) {
-                        this.scanDataNamespace(inventory, namespacePath);
-                    }
-                } catch (IOException e) {
-                    this.logger.warn("Failed to scan data for mod {}", inventory.mod.id(), e);
-                }
-            }
-        }
-    }
-
-    private void scanAssetNamespace(@NotNull MutableInventory inventory, @NotNull Path namespacePath) {
-        inventory.addAssets("blockstates", namespacePath.resolve("blockstates"), path -> path.toString().endsWith(".json"));
-        inventory.addAssets("item_models", namespacePath.resolve("items"), path -> path.toString().endsWith(".json"));
-        inventory.addAssets("models", namespacePath.resolve("models"), path -> path.toString().endsWith(".json"));
-        inventory.addAssets("textures", namespacePath.resolve("textures"), CompatibilityManager::isTextureAsset);
-        inventory.addAssets("sounds", namespacePath.resolve("sounds"), CompatibilityManager::isSoundAsset);
-        inventory.addAssets("lang", namespacePath.resolve("lang"), path -> path.toString().endsWith(".json"));
-    }
-
-    private void scanDataNamespace(@NotNull MutableInventory inventory, @NotNull Path namespacePath) {
-        inventory.addIdentifierAssets("recipes", namespacePath.resolve("recipes"), namespacePath.getFileName().toString(), path -> path.toString().endsWith(".json"));
-        inventory.addAssets("tags", namespacePath.resolve("tags"), path -> path.toString().endsWith(".json"));
-        inventory.addAssets("loot_tables", namespacePath.resolve("loot_tables"), path -> path.toString().endsWith(".json"));
-    }
-
-    private static boolean isTextureAsset(@NotNull Path path) {
-        String value = path.toString().toLowerCase();
-        return value.endsWith(".png") || value.endsWith(".tga");
-    }
-
-    private static boolean isSoundAsset(@NotNull Path path) {
-        String value = path.toString().toLowerCase();
-        return value.endsWith(".ogg") || value.endsWith(".wav") || value.endsWith(".fsb");
     }
 
     @NotNull
@@ -494,33 +448,23 @@ public final class CompatibilityManager {
             this.registryEntries.computeIfAbsent(category, ignored -> new LinkedHashSet<>()).add(identifier);
         }
 
-        private void addAssets(@NotNull String category, @NotNull Path root, @NotNull Predicate<Path> filter) {
-            if (!Files.isDirectory(root)) {
-                return;
-            }
-
-            try (Stream<Path> stream = Files.walk(root)) {
-                for (Path path : stream.filter(Files::isRegularFile).filter(filter).toList()) {
-                    this.assetKeys.computeIfAbsent(category, ignored -> new LinkedHashSet<>()).add(root.relativize(path).toString().replace('\\', '/'));
-                }
-            } catch (IOException e) {
-                logger.warn("Failed to scan asset root {} for mod {}", root, this.mod.id(), e);
-            }
+        private void addIndexedAssets(@NotNull ModResourceIndex resourceIndex) {
+            this.addIndexedAssets("blockstates", resourceIndex.assetEntries("blockstates"));
+            this.addIndexedAssets("item_models", resourceIndex.assetEntries("item_models"));
+            this.addIndexedAssets("models", resourceIndex.assetEntries("models"));
+            this.addIndexedAssets("textures", resourceIndex.assetEntries("textures"));
+            this.addIndexedAssets("sounds", resourceIndex.assetEntries("sounds"));
+            this.addIndexedAssets("lang", resourceIndex.assetEntries("lang"));
+            this.addIndexedAssets("recipes", resourceIndex.assetEntries("recipes"));
+            this.addIndexedAssets("tags", resourceIndex.assetEntries("tags"));
+            this.addIndexedAssets("loot_tables", resourceIndex.assetEntries("loot_tables"));
         }
 
-        private void addIdentifierAssets(@NotNull String category, @NotNull Path root, @NotNull String namespace, @NotNull Predicate<Path> filter) {
-            if (!Files.isDirectory(root)) {
+        private void addIndexedAssets(@NotNull String category, @NotNull Collection<String> values) {
+            if (values.isEmpty()) {
                 return;
             }
-
-            try (Stream<Path> stream = Files.walk(root)) {
-                for (Path path : stream.filter(Files::isRegularFile).filter(filter).toList()) {
-                    String relative = root.relativize(path).toString().replace('\\', '/');
-                    this.assetKeys.computeIfAbsent(category, ignored -> new LinkedHashSet<>()).add(namespace + ":" + relative.substring(0, relative.length() - ".json".length()));
-                }
-            } catch (IOException e) {
-                logger.warn("Failed to scan identifier asset root {} for mod {}", root, this.mod.id(), e);
-            }
+            this.assetKeys.computeIfAbsent(category, ignored -> new LinkedHashSet<>()).addAll(values);
         }
 
         private void addMetadata(@NotNull String category, @NotNull String identifier) {

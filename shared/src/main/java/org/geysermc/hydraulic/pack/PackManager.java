@@ -443,6 +443,7 @@ public class PackManager {
             this.namespacesToMods,
             this.modsToBlocks,
             this.modsToItems,
+            this.modResourceIndexes,
             this.metadataIndex,
             this::shouldIgnoreMod
         );

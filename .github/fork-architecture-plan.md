@@ -206,6 +206,7 @@ The compatibility layer stays above the current Hydraulic conversion pipeline, b
 - Pack orchestration still centers correctly in `PackManager`.
 - A real `compat` foundation already exists under `shared/`.
 - Deterministic metadata loading and precedence already exist.
+- The first universal-index seam is now live: `ModResourceIndex` indexes both asset and data inventory categories, and `CompatibilityManager` reuses that indexed data instead of doing its own second mod-root filesystem walk for content inventory generation.
 - Typed compatibility data already exists:
   - `CompatibilityObject`
   - `CapabilityProfile`
@@ -1386,6 +1387,10 @@ Exit criteria:
 - no independent compatibility filesystem walk
 - no independent UUID tree hash walk during normal startup
 
+Current status:
+- The compatibility inventory walk has been removed from the normal startup path by reusing `ModResourceIndex` asset and data categories.
+- Full Phase 1 is still incomplete because `PackUtil.getModUUID()` still performs an independent tree hash walk and the index has not yet been promoted into a persistent fingerprinted cache.
+
 ## Phase 2: Artifact Cache And Lazy Loading
 Priority: highest
 
@@ -1542,19 +1547,18 @@ This order is intentional. Do not start writing dozens of adapters before the un
 
 The best next implementation slice from the current repo state is:
 
-1. introduce the first `UniversalResourceIndex` slice by absorbing the current `ModResourceIndex` responsibilities and the compatibility asset scan responsibilities into one authoritative index
-2. replace `PackUtil.getModUUID()` with persistent incremental fingerprints and a real `ConversionKey`
-3. add a first artifact cache layout for index, compatibility, conversion, and validation artifacts
-4. compile the first `CompiledCompatibilityPlan` slice for the currently validated seams:
+1. finish Phase 1 by replacing `PackUtil.getModUUID()` with persistent incremental fingerprints derived from the indexed resource view and a real `ConversionKey`
+2. add a first artifact cache layout for index, compatibility, conversion, and validation artifacts
+3. compile the first `CompiledCompatibilityPlan` slice for the currently validated seams:
    - block placement and custom block registration
    - item registration and exposure
    - menu fallback translation
    - block-entity patch translation
    - entity registration decisions
-5. redesign model handling around a lightweight model path index plus lazy parser and bounded cache
-6. extend `performance-report.json` with stage-level cache hit and miss evidence for index, model resolution, texture resolution, and runtime dispatch
+4. redesign model handling around a lightweight model path index plus lazy parser and bounded cache
+5. extend `performance-report.json` with stage-level cache hit and miss evidence for index, model resolution, texture resolution, and runtime dispatch
 
-This is the smallest next slice that fixes the current architecture at the root and still preserves momentum toward the skeleton-key goal.
+This is now the smallest next slice that completes the Phase 1 root fix already started in the live code and preserves momentum toward the skeleton-key goal.
 
 ## What Not To Do
 - Do not keep extending `BlockStateRule` with every future concern.

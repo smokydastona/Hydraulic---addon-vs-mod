@@ -2,12 +2,17 @@ package org.geysermc.hydraulic.compat;
 
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
+import com.google.common.collect.MultimapBuilder;
+import net.minecraft.SharedConstants;
+import net.minecraft.server.Bootstrap;
 import org.geysermc.hydraulic.compat.adapter.AdapterFeature;
 import org.geysermc.hydraulic.compat.model.CompatibilityObject;
 import org.geysermc.hydraulic.compat.model.SupportLevel;
 import org.geysermc.hydraulic.Constants;
 import org.geysermc.hydraulic.metadata.MetadataLoader;
 import org.geysermc.hydraulic.metadata.MetadataIndex;
+import org.geysermc.hydraulic.pack.ModResourceIndex;
+import org.junit.jupiter.api.BeforeAll;
 import org.geysermc.hydraulic.platform.mod.ModInfo;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -25,6 +30,47 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class CompatibilityManagerTest {
+    @BeforeAll
+    static void bootstrapMinecraft() {
+        SharedConstants.tryDetectVersion();
+        Bootstrap.bootStrap();
+    }
+
+    @Test
+    void initializesInventoryFromSharedResourceIndex(@TempDir Path tempDir) throws IOException {
+        Path root = tempDir.resolve("example-root");
+        Path blockstate = root.resolve("assets/example/blockstates/machines/crusher.json");
+        Path texture = root.resolve("assets/example/textures/block/crusher.png");
+        Path recipe = root.resolve("data/example/recipes/machines/crusher.json");
+        Files.createDirectories(blockstate.getParent());
+        Files.createDirectories(texture.getParent());
+        Files.createDirectories(recipe.getParent());
+        Files.writeString(blockstate, "{}");
+        Files.writeString(texture, "png");
+        Files.writeString(recipe, "{}");
+
+        ModInfo mod = new ModInfo("examplemod", "example", "Example Mod", "1.0.0", null, List.of(root));
+        ModResourceIndex resourceIndex = ModResourceIndex.create(mod, LoggerFactory.getLogger("CompatibilityManagerTest"));
+        CompatibilityRegistry registry = new CompatibilityManager(LoggerFactory.getLogger("CompatibilityManagerTest"), tempDir).initialize(
+            List.of(mod),
+            MultimapBuilder.hashKeys().arrayListValues().build(),
+            MultimapBuilder.hashKeys().arrayListValues().build(),
+            MultimapBuilder.hashKeys().arrayListValues().build(),
+            Map.of(mod.id(), resourceIndex),
+            MetadataIndex.empty(),
+            ignored -> false
+        );
+
+        ContentInventory.ModContentInventory inventory = registry.inventory().mods().get(mod.id());
+        assertNotNull(inventory);
+        assertEquals(1, inventory.assetCounts().get("blockstates"));
+        assertEquals(1, inventory.assetCounts().get("textures"));
+        assertEquals(1, inventory.assetCounts().get("recipes"));
+        assertTrue(inventory.assetEntries().get("blockstates").contains("machines/crusher.json"));
+        assertTrue(inventory.assetEntries().get("textures").contains("block/crusher.png"));
+        assertTrue(inventory.assetEntries().get("recipes").contains("example:machines/crusher"));
+    }
+
     @Test
     void buildsCapabilityDrivenReport(@TempDir Path tempDir) {
         ContentInventory.ModContentInventory inventory = new ContentInventory.ModContentInventory(
