@@ -7,7 +7,7 @@ Hydraulic is a companion to Geyser which allows for Bedrock players to join modd
 
 Hydraulic is an open collaboration project by [CubeCraft Games](https://cubecraft.net).
 
-![Phlodgate Banner](https://github.com/smokydastona/Hydraulic-Phlodgate/blob/master/.github/Phlodgate_banner.jpeg)
+![Phlodgate Banner](https://raw.githubusercontent.com/smokydastona/Hydraulic-Phlodgate/master/.github/Phlodgate_LOGO.png)
 
 ## About Phlodgate (This Fork)
 The goal of Phlodgate is to make each individual modded Java Minecraft server as accessible as possible to Bedrock players without requiring the server owner to manually configure compatibility for every mod. On startup, Hydraulic will scan the installed mod environment and compare it with the previous scan. When the server is new or its mod configuration has changed, Hydraulic will check the shared adapter library for known mod-specific solutions, apply those adapters where available, and use its generalized compatibility adapter to handle everything else before generating or updating the required Bedrock pack(s). Hydraulic will then produce a detailed compatibility report that can be sent through a handshake agent to a shared processing system, potentially GitHub-based, where the results can be used to develop, improve, and distribute mod-specific adapters. When the server's scan is unchanged, previously validated results can be reused so the server can start with minimal additional processing. The long-term goal is a self-improving compatibility ecosystem where every server can operate independently while contributing knowledge that makes the next server more compatible.
