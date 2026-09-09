@@ -117,10 +117,28 @@ public final class BlockEntityPatchTranslatorFactory {
             if (index == path.size()) {
                 return current;
             }
-            if (!(current instanceof NbtMap map)) {
+            String segment = path.get(index);
+            if (current instanceof NbtMap map) {
+                return resolveJavaValue(map.get(segment), path, index + 1);
+            }
+            if (current instanceof java.util.List<?> list) {
+                Integer listIndex = parseListIndex(segment, list.size());
+                if (listIndex == null) {
+                    return null;
+                }
+                return resolveJavaValue(list.get(listIndex), path, index + 1);
+            }
+            return null;
+        }
+
+        @Nullable
+        private Integer parseListIndex(@NotNull String rawIndex, int size) {
+            try {
+                int parsed = Integer.parseInt(rawIndex);
+                return parsed >= 0 && parsed < size ? parsed : null;
+            } catch (NumberFormatException ignored) {
                 return null;
             }
-            return resolveJavaValue(map.get(path.get(index)), path, index + 1);
         }
     }
 }

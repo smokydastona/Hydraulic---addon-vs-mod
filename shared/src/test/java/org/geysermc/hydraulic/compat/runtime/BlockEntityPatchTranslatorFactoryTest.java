@@ -2,6 +2,8 @@ package org.geysermc.hydraulic.compat.runtime;
 
 import org.cloudburstmc.nbt.NbtMap;
 import org.cloudburstmc.nbt.NbtMapBuilder;
+import org.cloudburstmc.nbt.NbtList;
+import org.cloudburstmc.nbt.NbtType;
 import net.minecraft.resources.Identifier;
 import org.geysermc.hydraulic.compat.CompatibilityStatus;
 import org.geysermc.hydraulic.compat.MappingOwnership;
@@ -74,6 +76,62 @@ class BlockEntityPatchTranslatorFactoryTest {
         assertNull(BlockEntityPatchTranslatorFactory.create(plan(Map.of(
             "bedrock.block_entity.data.CustomName", "$java.CustomName"
         ), RuntimeBridgeKind.BLOCK_ENTITY_BEHAVIOR)));
+    }
+
+    @Test
+    void copiesIndexedJavaListValuesIntoBedrockTag() {
+        var translator = BlockEntityPatchTranslatorFactory.create(plan(Map.of(
+            "bedrock.block_entity.data.FirstLine", "$java.messages.0",
+            "bedrock.block_entity.data.SecondPageText", "$java.pages.1.text"
+        )));
+
+        assertNotNull(translator);
+
+        NbtMapBuilder javaTagBuilder = NbtMap.builder();
+        javaTagBuilder.put("messages", new NbtList<>(NbtType.STRING, List.of("alpha", "beta")));
+        javaTagBuilder.put("pages", new NbtList<>(NbtType.COMPOUND, List.of(
+            NbtMap.builder().putString("text", "page-0").build(),
+            NbtMap.builder().putString("text", "page-1").build()
+        )));
+        NbtMap javaTag = javaTagBuilder.build();
+        NbtMapBuilder bedrockTag = NbtMap.builder();
+
+        translator.translateTag(null, bedrockTag, javaTag, null);
+
+        NbtMap translated = bedrockTag.build();
+        assertEquals("alpha", translated.getString("FirstLine"));
+        assertEquals("page-1", translated.getString("SecondPageText"));
+    }
+
+    @Test
+    void ignoresInvalidJavaListIndexes() {
+        var translator = BlockEntityPatchTranslatorFactory.create(plan(Map.of(
+            "bedrock.block_entity.data.FirstLine", "$java.messages.4",
+            "bedrock.block_entity.data.SecondLine", "$java.messages.invalid"
+        )));
+
+        assertNotNull(translator);
+
+        NbtMapBuilder bedrockTag = NbtMap.builder();
+        bedrockTag.putString("FirstLine", "keep-me");
+        bedrockTag.putString("SecondLine", "keep-me-too");
+
+        translator.translateTag(
+            null,
+            bedrockTag,
+            javaTag("messages", new NbtList<>(NbtType.STRING, List.of("alpha", "beta"))),
+            null
+        );
+
+        NbtMap translated = bedrockTag.build();
+        assertEquals("keep-me", translated.getString("FirstLine"));
+        assertEquals("keep-me-too", translated.getString("SecondLine"));
+    }
+
+    private static NbtMap javaTag(String key, Object value) {
+        NbtMapBuilder builder = NbtMap.builder();
+        builder.put(key, value);
+        return builder.build();
     }
 
     private static CompiledCompatibilityPlan plan(Map<String, String> operations) {
