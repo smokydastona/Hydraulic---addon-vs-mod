@@ -3,6 +3,8 @@ package org.geysermc.hydraulic.compat.runtime;
 import org.cloudburstmc.math.vector.Vector3i;
 import org.cloudburstmc.nbt.NbtMap;
 import org.cloudburstmc.nbt.NbtMapBuilder;
+import org.cloudburstmc.nbt.NbtList;
+import org.cloudburstmc.nbt.NbtType;
 import net.minecraft.resources.Identifier;
 import org.geysermc.geyser.level.block.type.BlockState;
 import org.geysermc.geyser.session.GeyserSession;
@@ -12,6 +14,9 @@ import org.geysermc.hydraulic.compat.adapter.AdapterFeature;
 import org.geysermc.hydraulic.compat.ir.CompiledCompatibilityPlan;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+
+import java.util.ArrayList;
+import java.util.List;
 
 public final class BlockEntityPatchTranslatorFactory {
     private BlockEntityPatchTranslatorFactory() {
@@ -73,10 +78,64 @@ public final class BlockEntityPatchTranslatorFactory {
                 return;
             }
 
+            String nextSegment = mutation.path().get(index + 1);
+            if (isListIndex(nextSegment)) {
+                List<Object> list = mutableList(target.get(key));
+                if (!applyMutation(list, mutation, javaTag, index + 1)) {
+                    return;
+                }
+
+                NbtList<?> builtList = buildList(list);
+                if (builtList == null || builtList.isEmpty()) {
+                    target.remove(key);
+                    return;
+                }
+
+                target.put(key, builtList);
+                return;
+            }
+
             Object existing = target.get(key);
             NbtMapBuilder compound = existing instanceof NbtMap map ? NbtMapBuilder.from(map) : NbtMap.builder();
             applyMutation(compound, mutation, javaTag, index + 1);
             target.putCompound(key, compound.build());
+        }
+
+        private boolean applyMutation(@NotNull List<Object> target, @NotNull BlockEntityPatchTemplate.TagMutation mutation, @Nullable NbtMap javaTag, int index) {
+            Integer listIndex = parseListIndex(mutation.path().get(index));
+            if (listIndex == null || listIndex > target.size()) {
+                return false;
+            }
+
+            if (index == mutation.path().size() - 1) {
+                return setListValue(target, listIndex, mutation.value(), javaTag);
+            }
+
+            Object existing = listIndex < target.size() ? target.get(listIndex) : null;
+            String nextSegment = mutation.path().get(index + 1);
+            Object updated;
+            if (isListIndex(nextSegment)) {
+                List<Object> nestedList = mutableList(existing);
+                if (!applyMutation(nestedList, mutation, javaTag, index + 1)) {
+                    return false;
+                }
+
+                updated = buildList(nestedList);
+                if (updated == null) {
+                    return false;
+                }
+            } else {
+                NbtMapBuilder compound = existing instanceof NbtMap map ? NbtMapBuilder.from(map) : NbtMap.builder();
+                applyMutation(compound, mutation, javaTag, index + 1);
+                updated = compound.build();
+            }
+
+            if (listIndex == target.size()) {
+                target.add(updated);
+            } else {
+                target.set(listIndex, updated);
+            }
+            return true;
         }
 
         private void putValue(@NotNull NbtMapBuilder target, @NotNull String key, @NotNull BlockEntityPatchTemplate.TagValue value, @Nullable NbtMap javaTag) {
@@ -109,6 +168,126 @@ public final class BlockEntityPatchTranslatorFactory {
             target.put(key, sourceValue);
         }
 
+        private boolean setListValue(@NotNull List<Object> target, int listIndex, @NotNull BlockEntityPatchTemplate.TagValue value, @Nullable NbtMap javaTag) {
+            if (value.kind() == BlockEntityPatchTemplate.TagValue.Kind.NULL) {
+                if (listIndex >= target.size()) {
+                    return false;
+                }
+                target.remove(listIndex);
+                return true;
+            }
+
+            Object resolvedValue = switch (value.kind()) {
+                case BOOLEAN -> (byte) ((Boolean) value.value() ? 1 : 0);
+                case INTEGER, LONG, DOUBLE, STRING -> value.value();
+                case COPY_FROM_JAVA -> resolveListCopyValue(value, javaTag);
+                case NULL -> null;
+            };
+            if (resolvedValue == null) {
+                return false;
+            }
+
+            if (listIndex == target.size()) {
+                target.add(resolvedValue);
+            } else {
+                target.set(listIndex, resolvedValue);
+            }
+            return true;
+        }
+
+        @Nullable
+        private Object resolveListCopyValue(@NotNull BlockEntityPatchTemplate.TagValue value, @Nullable NbtMap javaTag) {
+            if (javaTag == null) {
+                return null;
+            }
+
+            Object sourceValue = resolveJavaValue(javaTag, value.javaSourcePath(), 0);
+            if (sourceValue instanceof Boolean booleanValue) {
+                return (byte) (booleanValue ? 1 : 0);
+            }
+            return sourceValue;
+        }
+
+        @NotNull
+        private List<Object> mutableList(@Nullable Object existing) {
+            if (existing instanceof List<?> list) {
+                return new ArrayList<>(list);
+            }
+            return new ArrayList<>();
+        }
+
+        @Nullable
+        private NbtList<?> buildList(@NotNull List<Object> values) {
+            if (values.isEmpty()) {
+                return NbtList.EMPTY;
+            }
+
+            NbtType<?> type = listType(values.getFirst());
+            if (type == null) {
+                return null;
+            }
+            for (Object value : values) {
+                if (!matchesListType(type, value)) {
+                    return null;
+                }
+            }
+            return buildTypedList(type, values);
+        }
+
+        @SuppressWarnings({"unchecked", "rawtypes"})
+        private NbtList<?> buildTypedList(@NotNull NbtType<?> type, @NotNull List<Object> values) {
+            return new NbtList((NbtType<Object>) type, values);
+        }
+
+        private boolean matchesListType(@NotNull NbtType<?> expected, @Nullable Object value) {
+            return value != null && expected.equals(listType(value));
+        }
+
+        @Nullable
+        private NbtType<?> listType(@Nullable Object value) {
+            if (value instanceof Byte) {
+                return NbtType.BYTE;
+            }
+            if (value instanceof Short) {
+                return NbtType.SHORT;
+            }
+            if (value instanceof Integer) {
+                return NbtType.INT;
+            }
+            if (value instanceof Long) {
+                return NbtType.LONG;
+            }
+            if (value instanceof Float) {
+                return NbtType.FLOAT;
+            }
+            if (value instanceof Double) {
+                return NbtType.DOUBLE;
+            }
+            if (value instanceof byte[]) {
+                return NbtType.BYTE_ARRAY;
+            }
+            if (value instanceof String) {
+                return NbtType.STRING;
+            }
+            if (value instanceof NbtList<?>) {
+                return NbtType.LIST;
+            }
+            if (value instanceof NbtMap) {
+                return NbtType.COMPOUND;
+            }
+            if (value instanceof int[]) {
+                return NbtType.INT_ARRAY;
+            }
+            if (value instanceof long[]) {
+                return NbtType.LONG_ARRAY;
+            }
+            return null;
+        }
+
+        private boolean isListIndex(@NotNull String segment) {
+            return parseListIndex(segment) != null;
+        }
+
         @Nullable
         private Object resolveJavaValue(@Nullable Object current, @Nullable java.util.List<String> path, int index) {
             if (current == null || path == null) {
@@ -133,9 +312,15 @@ public final class BlockEntityPatchTranslatorFactory {
 
         @Nullable
         private Integer parseListIndex(@NotNull String rawIndex, int size) {
+            Integer parsed = parseListIndex(rawIndex);
+            return parsed != null && parsed < size ? parsed : null;
+        }
+
+        @Nullable
+        private Integer parseListIndex(@NotNull String rawIndex) {
             try {
                 int parsed = Integer.parseInt(rawIndex);
-                return parsed >= 0 && parsed < size ? parsed : null;
+                return parsed >= 0 ? parsed : null;
             } catch (NumberFormatException ignored) {
                 return null;
             }

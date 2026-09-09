@@ -25,7 +25,8 @@ class BlockEntityPatchTemplateTest {
                 "bedrock.block_entity.data.CustomName", "Hydraulic Barrel",
                 "bedrock.block_entity.data.isMovable", "true",
                 "bedrock.block_entity.data.TransferCooldown", "8",
-                "bedrock.block_entity.data.front_text.page", "1"
+                "bedrock.block_entity.data.front_text.page", "1",
+                "bedrock.block_entity.data.Items.0.Count", "3"
             ),
             MappingOwnership.USER,
             "user/block-entities.json",
@@ -35,7 +36,7 @@ class BlockEntityPatchTemplateTest {
 
         assertNotNull(template);
         assertEquals("Barrel", template.bedrockIdentifier());
-        assertEquals(4, template.mutations().size());
+        assertEquals(5, template.mutations().size());
         Map<List<String>, BlockEntityPatchTemplate.TagValue.Kind> kindsByPath = new LinkedHashMap<>();
         for (BlockEntityPatchTemplate.TagMutation mutation : template.mutations()) {
             kindsByPath.put(mutation.path(), mutation.value().kind());
@@ -44,6 +45,7 @@ class BlockEntityPatchTemplateTest {
         assertEquals(BlockEntityPatchTemplate.TagValue.Kind.BOOLEAN, kindsByPath.get(List.of("isMovable")));
         assertEquals(BlockEntityPatchTemplate.TagValue.Kind.INTEGER, kindsByPath.get(List.of("TransferCooldown")));
         assertEquals(BlockEntityPatchTemplate.TagValue.Kind.INTEGER, kindsByPath.get(List.of("front_text", "page")));
+        assertEquals(BlockEntityPatchTemplate.TagValue.Kind.INTEGER, kindsByPath.get(List.of("Items", "0", "Count")));
     }
 
     @Test

@@ -128,6 +128,34 @@ class BlockEntityPatchTranslatorFactoryTest {
         assertEquals("keep-me-too", translated.getString("SecondLine"));
     }
 
+    @Test
+    void writesIndexedBedrockListPaths() {
+        Map<String, String> operations = new java.util.LinkedHashMap<>();
+        operations.put("bedrock.block_entity.data.Items.0.Name", "$java.messages.0");
+        operations.put("bedrock.block_entity.data.Items.0.Count", "3");
+        operations.put("bedrock.block_entity.data.Items.1.Name", "$java.messages.1");
+        operations.put("bedrock.block_entity.data.Items.1.Count", "7");
+        var translator = BlockEntityPatchTranslatorFactory.create(plan(operations));
+
+        assertNotNull(translator);
+
+        NbtMapBuilder javaTagBuilder = NbtMap.builder();
+        javaTagBuilder.put("messages", new NbtList<>(NbtType.STRING, List.of("alpha", "beta")));
+        NbtMapBuilder bedrockTag = NbtMap.builder();
+
+        translator.translateTag(null, bedrockTag, javaTagBuilder.build(), null);
+
+        NbtMap translated = bedrockTag.build();
+        Object itemsValue = translated.get("Items");
+        assertTrue(itemsValue instanceof NbtList<?>);
+        NbtList<?> items = (NbtList<?>) itemsValue;
+        assertEquals(2, items.size());
+        assertEquals("alpha", ((NbtMap) items.get(0)).getString("Name"));
+        assertEquals(3, ((NbtMap) items.get(0)).getInt("Count"));
+        assertEquals("beta", ((NbtMap) items.get(1)).getString("Name"));
+        assertEquals(7, ((NbtMap) items.get(1)).getInt("Count"));
+    }
+
     private static NbtMap javaTag(String key, Object value) {
         NbtMapBuilder builder = NbtMap.builder();
         builder.put(key, value);
