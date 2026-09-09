@@ -8,21 +8,27 @@ import java.util.Map;
 
 public record PerformanceReport(
     @Nullable StartupMetrics startup,
-    @Nullable PackConversionMetrics lastPackConversion
+    @Nullable PackConversionMetrics lastPackConversion,
+    @Nullable CacheMetrics modelResolutionCache
 ) {
     @NotNull
     public static PerformanceReport empty() {
-        return new PerformanceReport(null, null);
+        return new PerformanceReport(null, null, null);
     }
 
     @NotNull
     public PerformanceReport withStartup(@NotNull StartupMetrics startup) {
-        return new PerformanceReport(startup, this.lastPackConversion);
+        return new PerformanceReport(startup, this.lastPackConversion, this.modelResolutionCache);
     }
 
     @NotNull
     public PerformanceReport withPackConversion(@NotNull PackConversionMetrics packConversion) {
-        return new PerformanceReport(this.startup, packConversion);
+        return new PerformanceReport(this.startup, packConversion, this.modelResolutionCache);
+    }
+
+    @NotNull
+    public PerformanceReport withModelResolutionCache(@NotNull CacheMetrics cacheMetrics) {
+        return new PerformanceReport(this.startup, this.lastPackConversion, cacheMetrics);
     }
 
     public record StartupMetrics(
@@ -70,5 +76,14 @@ public record PerformanceReport(
         @NotNull String outcome,
         long millis
     ) {
+    }
+
+    public record CacheMetrics(
+        long hits,
+        long misses
+    ) {
+        public long requests() {
+            return this.hits + this.misses;
+        }
     }
 }

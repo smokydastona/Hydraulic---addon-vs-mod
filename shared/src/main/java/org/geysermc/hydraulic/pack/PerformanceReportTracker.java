@@ -29,6 +29,11 @@ final class PerformanceReportTracker {
         this.write();
     }
 
+    synchronized void recordModelResolutionCache(@NotNull PerformanceReport.CacheMetrics metrics) {
+        this.report = this.report.withModelResolutionCache(metrics);
+        this.write();
+    }
+
     @NotNull
     synchronized PerformanceReport snapshot() {
         return this.report;

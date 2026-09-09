@@ -15,6 +15,7 @@ import org.geysermc.event.Event;
 import org.geysermc.geyser.api.GeyserApi;
 import org.geysermc.hydraulic.Constants;
 import org.geysermc.hydraulic.HydraulicImpl;
+import org.geysermc.hydraulic.block.StateDefinition;
 import org.geysermc.hydraulic.compat.CompatibilityManager;
 import org.geysermc.hydraulic.compat.CompatibilityRegistry;
 import org.geysermc.hydraulic.compat.MappingResolver;
@@ -205,6 +206,8 @@ public class PackManager {
             }
         }
 
+        this.performanceTracker.recordModelResolutionCache(toPerformanceCacheMetrics(StateDefinition.cacheMetrics()));
+
         GeyserApi.api().eventBus().register(this.hydraulic, new PackListener(this.hydraulic, this));
     }
 
@@ -247,12 +250,14 @@ public class PackManager {
             }
         });
 
+        boolean created;
         try {
             for (final Path root : mod.roots()) {
                 converter.input(root, false).convert();
             }
         } catch (IOException ex) {
             LOGGER.error("Failed to convert mod {} to pack", mod.id(), ex);
+            this.performanceTracker.recordModelResolutionCache(toPerformanceCacheMetrics(StateDefinition.cacheMetrics()));
             return false;
         }
 
@@ -263,7 +268,9 @@ public class PackManager {
             LOGGER.error("Failed to export pack for mod {}", mod.id(), ex);
         }
 
-        return Files.exists(packPath);
+        created = Files.exists(packPath);
+        this.performanceTracker.recordModelResolutionCache(toPerformanceCacheMetrics(StateDefinition.cacheMetrics()));
+        return created;
     }
 
     private void callEvents(@NotNull Event event) {
@@ -429,6 +436,11 @@ public class PackManager {
 
     private static long nanosToMillis(long nanos) {
         return nanos / 1_000_000L;
+    }
+
+    @NotNull
+    private static PerformanceReport.CacheMetrics toPerformanceCacheMetrics(@NotNull StateDefinition.CacheMetrics cacheMetrics) {
+        return new PerformanceReport.CacheMetrics(cacheMetrics.hits(), cacheMetrics.misses());
     }
 
     private record LookupSummary(

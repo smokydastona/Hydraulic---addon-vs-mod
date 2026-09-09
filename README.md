@@ -195,7 +195,7 @@ On startup, this fork now writes three compatibility artifacts under Hydraulic's
 - confidence, provenance, and structured findings
 - metadata validation issues emitted during Metadata V2 loading
 
-`performance-report.json` records the measured startup and conversion costs for the current run, including resource indexing time, indexed blockstate and item-asset totals, metadata load time, compatibility initialization time, resource-pack/model indexing time, and the last pack-conversion batch with per-mod outcomes. This is the report to inspect when checking whether cache/indexing changes actually moved the cost profile.
+`performance-report.json` records the measured startup and conversion costs for the current run, including resource indexing time, indexed blockstate and item-asset totals, metadata load time, compatibility initialization time, resource-pack/model indexing time, cumulative `StateDefinition` model-resolution cache hits and misses, and the last pack-conversion batch with per-mod outcomes. This is the report to inspect when checking whether cache/indexing changes actually moved the cost profile.
 
 When Geyser receives a Java menu open for a container type it cannot translate, Hydraulic now emits a compatibility-backed runtime warning that explains the protocol boundary and lists any discovered menu objects still requiring the `container_bridge` runtime requirement.
 

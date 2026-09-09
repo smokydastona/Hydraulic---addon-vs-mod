@@ -24,6 +24,7 @@ class PerformanceReportTrackerTest {
         PerformanceReportTracker tracker = new PerformanceReportTracker(LoggerFactory.getLogger("PerformanceReportTrackerTest"), reportPath);
 
         tracker.recordStartup(new PerformanceReport.StartupMetrics(11, 12, 13, 14, 15, 16, 9, 7, 5, 44, 55, 4, 3, 2, 1, 6, 8, 10, 12, 14));
+        tracker.recordModelResolutionCache(new PerformanceReport.CacheMetrics(5, 2));
         tracker.recordPackConversion(new PerformanceReport.PackConversionMetrics(
             42,
             10,
@@ -44,6 +45,8 @@ class PerformanceReportTrackerTest {
         assertEquals(44, snapshot.startup().indexedBlockStates());
         assertEquals(55, snapshot.startup().indexedItemAssets());
         assertEquals(42, snapshot.lastPackConversion().totalMillis());
+        assertEquals(5, snapshot.modelResolutionCache().hits());
+        assertEquals(2, snapshot.modelResolutionCache().misses());
         assertEquals("converted", snapshot.lastPackConversion().perMod().get("examplemod").outcome());
 
         PerformanceReport written;
@@ -53,6 +56,7 @@ class PerformanceReportTrackerTest {
         assertNotNull(written);
         assertEquals(15, written.startup().modelIndexBuildMillis());
         assertEquals(44, written.startup().indexedBlockStates());
+        assertEquals(7, written.modelResolutionCache().requests());
         assertEquals(21, written.lastPackConversion().perMod().get("examplemod").millis());
     }
 }

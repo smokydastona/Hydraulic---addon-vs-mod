@@ -179,6 +179,7 @@ This separation is fundamental, not just a reporting refinement. A converted mod
 - `MappingResolver` already has state-aware block resolution and groups block states by resolved Bedrock identifier.
 - `MappingResolver` now also carries compact resolved block metadata for block-state overrides, geometry overrides, and material overrides so block runtime consumers no longer need to reopen flexible rule objects after resolution.
 - `MetadataIndex` now precompiles compact menu and block-entity patch templates so analyzers and runtime bridges stop reparsing raw patch operations on hot paths.
+- `StateDefinition` model-resolution caching now emits cumulative hit/miss evidence into `performance-report.json`, so the first block hot-path cache is measurable from runtime artifacts instead of only from code.
 - `BlockPackModule` already consumes resolved state-aware block definitions during custom block registration.
 - `ItemPackModule` already uses compatibility-aware block placement for block items, consults item compatibility objects for non-block custom item registration, suppresses creative exposure when item behavior is only approximated, and continues to translate modern item components through `ComponentConverter`.
 - `ArmorPackModule` now generates humanoid armor attachables from direct equipment-asset loading and gates them through compatibility decisions.
@@ -1014,7 +1015,7 @@ The project is no longer at pure scaffolding stage. The repo now already contain
 - precompiled menu and block-entity patch templates in `MetadataIndex` and `MappingResolver` for runtime bridge lookups and analyzer checks
 - cheaper startup block and item ownership lookup in `PackManager`, avoiding per-block multimap scans and unused path retrieval when indexed membership is sufficient
 - per-mod resource indexing in `ModResourceIndex`
-- performance artifacts through `performance-report.json`, now including startup indexed blockstate and item-asset totals in addition to timing snapshots
+- performance artifacts through `performance-report.json`, now including startup indexed blockstate and item-asset totals plus cumulative `StateDefinition` cache hit/miss evidence
 - a live `CapabilityAdapterRegistry`
 - first metadata-backed menu and block-entity runtime bridges
 
