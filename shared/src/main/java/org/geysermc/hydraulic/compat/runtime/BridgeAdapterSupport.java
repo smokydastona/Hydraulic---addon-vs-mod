@@ -9,10 +9,16 @@ final class BridgeAdapterSupport {
     }
 
     static boolean supportsMenuFallback(@Nullable CompiledCompatibilityPlan plan) {
-        return plan != null && plan.hasMenuFallback() && plan.supportsAdapterFeature(AdapterFeature.MENU_FALLBACK_TRANSLATION);
+        return plan != null
+            && plan.hasMenuFallback()
+            && plan.requiresRuntimeBridge(RuntimeBridgeKind.MENU_CONTAINER)
+            && plan.supportsAdapterFeature(AdapterFeature.MENU_FALLBACK_TRANSLATION);
     }
 
     static boolean supportsBlockEntityPatch(@Nullable CompiledCompatibilityPlan plan) {
-        return plan != null && plan.hasBlockEntityPatch() && plan.supportsAdapterFeature(AdapterFeature.BLOCK_ENTITY_PATCH_TRANSLATION);
+        return plan != null
+            && plan.hasBlockEntityPatch()
+            && plan.requiresRuntimeBridge(RuntimeBridgeKind.BLOCK_ENTITY_DATA)
+            && plan.supportsAdapterFeature(AdapterFeature.BLOCK_ENTITY_PATCH_TRANSLATION);
     }
 }

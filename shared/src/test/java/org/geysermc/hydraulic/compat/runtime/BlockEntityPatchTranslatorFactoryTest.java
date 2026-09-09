@@ -18,6 +18,7 @@ import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class BlockEntityPatchTranslatorFactoryTest {
@@ -68,7 +69,18 @@ class BlockEntityPatchTranslatorFactoryTest {
         assertEquals("Existing Name", bedrockTag.build().getString("CustomName"));
     }
 
+    @Test
+    void requiresBlockEntityDataBridgeKind() {
+        assertNull(BlockEntityPatchTranslatorFactory.create(plan(Map.of(
+            "bedrock.block_entity.data.CustomName", "$java.CustomName"
+        ), RuntimeBridgeKind.BLOCK_ENTITY_BEHAVIOR)));
+    }
+
     private static CompiledCompatibilityPlan plan(Map<String, String> operations) {
+        return plan(operations, RuntimeBridgeKind.BLOCK_ENTITY_DATA);
+    }
+
+    private static CompiledCompatibilityPlan plan(Map<String, String> operations, RuntimeBridgeKind runtimeBridgeKind) {
         return new CompiledCompatibilityPlan(
             "testmod",
             "block_entity",
@@ -79,8 +91,8 @@ class BlockEntityPatchTranslatorFactoryTest {
             75,
             new Confidence(0.8D, "test"),
             List.of(new AdapterBinding("block_entity.patch_translator", AdapterFeature.BLOCK_ENTITY_PATCH_TRANSLATION, "test")),
-            List.of("block_entity_behavior_bridge"),
-            List.of(RuntimeBridgeKind.BLOCK_ENTITY_BEHAVIOR),
+            List.of(runtimeBridgeKind.requirementId()),
+            List.of(runtimeBridgeKind),
             Map.of(),
             false,
             null,
@@ -93,7 +105,7 @@ class BlockEntityPatchTranslatorFactoryTest {
             false,
             null,
             List.of(),
-            List.of("block_entity_behavior_bridge"),
+            List.of(runtimeBridgeKind.requirementId()),
             BlockEntityPatchTemplate.resolve(List.of(new ContentPatch(
                 Identifier.fromNamespaceAndPath("example", "test_block_entity"),
                 "block_entity",

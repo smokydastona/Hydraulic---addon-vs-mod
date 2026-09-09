@@ -21,17 +21,27 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class BridgeAdapterSupportTest {
     @Test
     void menuFallbackRequiresExplicitAdapterBinding() {
-        assertTrue(BridgeAdapterSupport.supportsMenuFallback(menuPlan(true)));
-        assertFalse(BridgeAdapterSupport.supportsMenuFallback(menuPlan(false)));
+        assertTrue(BridgeAdapterSupport.supportsMenuFallback(menuPlan(true, RuntimeBridgeKind.MENU_CONTAINER)));
+        assertFalse(BridgeAdapterSupport.supportsMenuFallback(menuPlan(false, RuntimeBridgeKind.MENU_CONTAINER)));
+    }
+
+    @Test
+    void menuFallbackRequiresContainerBridgeKind() {
+        assertFalse(BridgeAdapterSupport.supportsMenuFallback(menuPlan(true, RuntimeBridgeKind.MENU_BEHAVIOR)));
     }
 
     @Test
     void blockEntityPatchRequiresExplicitAdapterBinding() {
-        assertTrue(BridgeAdapterSupport.supportsBlockEntityPatch(blockEntityPlan(true)));
-        assertFalse(BridgeAdapterSupport.supportsBlockEntityPatch(blockEntityPlan(false)));
+        assertTrue(BridgeAdapterSupport.supportsBlockEntityPatch(blockEntityPlan(true, RuntimeBridgeKind.BLOCK_ENTITY_DATA)));
+        assertFalse(BridgeAdapterSupport.supportsBlockEntityPatch(blockEntityPlan(false, RuntimeBridgeKind.BLOCK_ENTITY_DATA)));
     }
 
-    private static CompiledCompatibilityPlan menuPlan(boolean includeAdapter) {
+    @Test
+    void blockEntityPatchRequiresDataBridgeKind() {
+        assertFalse(BridgeAdapterSupport.supportsBlockEntityPatch(blockEntityPlan(true, RuntimeBridgeKind.BLOCK_ENTITY_BEHAVIOR)));
+    }
+
+    private static CompiledCompatibilityPlan menuPlan(boolean includeAdapter, RuntimeBridgeKind runtimeBridgeKind) {
         return new CompiledCompatibilityPlan(
             "testmod",
             "menu",
@@ -42,8 +52,8 @@ class BridgeAdapterSupportTest {
             75,
             new Confidence(0.8D, "test"),
             includeAdapter ? List.of(new AdapterBinding("menu.fallback_translator", AdapterFeature.MENU_FALLBACK_TRANSLATION, "test")) : List.of(),
-            List.of("menu_behavior_bridge"),
-            List.of(RuntimeBridgeKind.MENU_BEHAVIOR),
+            List.of(runtimeBridgeKind.requirementId()),
+            List.of(runtimeBridgeKind),
             Map.of(),
             false,
             null,
@@ -55,7 +65,7 @@ class BridgeAdapterSupportTest {
             false,
             true,
             ContainerType.GENERIC_9X3,
-            List.of("menu_behavior_bridge"),
+            List.of(runtimeBridgeKind.requirementId()),
             List.of(),
             null,
             false,
@@ -64,7 +74,7 @@ class BridgeAdapterSupportTest {
         );
     }
 
-    private static CompiledCompatibilityPlan blockEntityPlan(boolean includeAdapter) {
+    private static CompiledCompatibilityPlan blockEntityPlan(boolean includeAdapter, RuntimeBridgeKind runtimeBridgeKind) {
         return new CompiledCompatibilityPlan(
             "testmod",
             "block_entity",
@@ -75,8 +85,8 @@ class BridgeAdapterSupportTest {
             75,
             new Confidence(0.8D, "test"),
             includeAdapter ? List.of(new AdapterBinding("block_entity.patch_translator", AdapterFeature.BLOCK_ENTITY_PATCH_TRANSLATION, "test")) : List.of(),
-            List.of("block_entity_behavior_bridge"),
-            List.of(RuntimeBridgeKind.BLOCK_ENTITY_BEHAVIOR),
+            List.of(runtimeBridgeKind.requirementId()),
+            List.of(runtimeBridgeKind),
             Map.of(),
             false,
             null,
@@ -89,7 +99,7 @@ class BridgeAdapterSupportTest {
             false,
             null,
             List.of(),
-            List.of("block_entity_behavior_bridge"),
+            List.of(runtimeBridgeKind.requirementId()),
             BlockEntityPatchTemplate.resolve(List.of(new ContentPatch(
                 Identifier.fromNamespaceAndPath("example", "test_block_entity"),
                 "block_entity",
