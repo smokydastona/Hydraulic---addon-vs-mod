@@ -13,6 +13,7 @@ import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.equipment.Equippable;
 import org.geysermc.hydraulic.compat.CompatibilityRegistry;
+import org.geysermc.hydraulic.compat.ir.CompiledCompatibilityPlan;
 import org.geysermc.hydraulic.compat.model.CompatibilityObject;
 import org.geysermc.hydraulic.compat.runtime.CompatibilityDecisions;
 import org.geysermc.hydraulic.pack.PackModule;
@@ -62,8 +63,8 @@ public class ArmorPackModule extends PackModule<ArmorPackModule> {
         for (Item armorItem : armorItems) {
             Equippable equippable = armorItem.components().get(DataComponents.EQUIPPABLE);
             Identifier armorItemLocation = BuiltInRegistries.ITEM.getKey(armorItem);
-            CompatibilityObject compatibilityObject = compatibilityItemObject(context, armorItemLocation);
-            if (!CompatibilityDecisions.supportsWearableItemPresentation(compatibilityObject, armorItem)) {
+            CompiledCompatibilityPlan compatibilityPlan = compatibilityItemPlan(context, armorItemLocation);
+            if (compatibilityPlan != null && !compatibilityPlan.supportsWearablePresentation()) {
                 context.logger().info("Skipping armor attachable generation for {} because item presentation support is insufficient", armorItemLocation);
                 continue;
             }
@@ -167,8 +168,8 @@ public class ArmorPackModule extends PackModule<ArmorPackModule> {
     }
 
     @Nullable
-    private static CompatibilityObject compatibilityItemObject(@NotNull PackPostProcessContext<ArmorPackModule> context, @NotNull Identifier itemLocation) {
+    private static CompiledCompatibilityPlan compatibilityItemPlan(@NotNull PackPostProcessContext<ArmorPackModule> context, @NotNull Identifier itemLocation) {
         CompatibilityRegistry compatibilityRegistry = context.hydraulic().getPackManager().compatibilityRegistry();
-        return compatibilityRegistry.report().object(context.mod().id(), itemLocation.toString(), "item");
+        return compatibilityRegistry.dispatchTable().item(itemLocation);
     }
 }

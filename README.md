@@ -192,6 +192,8 @@ Pack invalidation is now also driven by a persisted conversion key under Hydraul
 
 Hydraulic now also persists a first-class cache layout under `config/hydraulic/cache` for index, compatibility, conversion, validation, and manifest artifacts. On repeat startup, the compatibility layer can reuse cached `content-inventory.json` and `compatibility-report.json` when the indexed mod fingerprints and metadata fingerprint are unchanged, while conversion and validation artifacts are mirrored into the same cache tree for inspection and future reuse work.
 
+The current compatibility report is now also compiled into a first in-memory runtime dispatch surface during startup. The first `CompiledCompatibilityPlan` slice covers block creative and placement decisions, item registration and creative exposure, armor and bow attachable presentation, metadata-backed custom entity registration, menu fallback translators, and block-entity patch translators. Current runtime bridges now hit direct identifier-driven lookups instead of re-scanning compatibility profiles or metadata templates on each use.
+
 `compatibility-report.json` records per-object analyzer output, including:
 - support levels: `NATIVE`, `AUTOMATIC`, `ADAPTED`, `APPROXIMATED`, `VISUAL_ONLY`, `UNSUPPORTED`
 - the five compatibility domains: content, presentation, state/data, interaction, behavior

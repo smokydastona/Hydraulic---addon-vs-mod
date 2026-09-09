@@ -1,13 +1,17 @@
 package org.geysermc.hydraulic.compat;
 
 import org.geysermc.hydraulic.metadata.MetadataIndex;
+import org.geysermc.hydraulic.compat.ir.CompiledCompatibilityPlan;
+import org.geysermc.hydraulic.compat.runtime.RuntimeDispatchTable;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 public final class CompatibilityRegistry {
     private final MetadataIndex metadataIndex;
     private final MappingResolver mappingResolver;
     private final ContentInventory inventory;
     private final CompatibilityReport report;
+    private final RuntimeDispatchTable dispatchTable;
 
     public CompatibilityRegistry(
         @NotNull MetadataIndex metadataIndex,
@@ -19,6 +23,7 @@ public final class CompatibilityRegistry {
         this.mappingResolver = mappingResolver;
         this.inventory = inventory;
         this.report = report;
+        this.dispatchTable = RuntimeDispatchTable.compile(report, mappingResolver);
     }
 
     @NotNull
@@ -45,6 +50,16 @@ public final class CompatibilityRegistry {
     @NotNull
     public CompatibilityReport report() {
         return this.report;
+    }
+
+    @NotNull
+    public RuntimeDispatchTable dispatchTable() {
+        return this.dispatchTable;
+    }
+
+    @Nullable
+    public CompiledCompatibilityPlan plan(@NotNull String contentType, @NotNull String javaIdentifier) {
+        return this.dispatchTable.plan(contentType, javaIdentifier);
     }
 
     @NotNull

@@ -4,13 +4,9 @@ import com.google.auto.service.AutoService;
 import net.minecraft.resources.Identifier;
 import org.geysermc.geyser.api.entity.custom.CustomEntityDefinition;
 import org.geysermc.geyser.api.event.lifecycle.GeyserDefineEntitiesEvent;
-import org.geysermc.hydraulic.compat.CompatibilityProfile;
 import org.geysermc.hydraulic.compat.CompatibilityRegistry;
-import org.geysermc.hydraulic.compat.MappingResolver;
-import org.geysermc.hydraulic.compat.model.CompatibilityObject;
+import org.geysermc.hydraulic.compat.ir.CompiledCompatibilityPlan;
 import org.geysermc.hydraulic.compat.model.SupportLevel;
-import org.geysermc.hydraulic.compat.model.SupportResult;
-import org.geysermc.hydraulic.compat.runtime.CompatibilityDecisions;
 import org.geysermc.hydraulic.pack.PackModule;
 import org.geysermc.hydraulic.pack.context.PackEventContext;
 import org.jetbrains.annotations.NotNull;
@@ -25,40 +21,30 @@ public final class EntityPackModule extends PackModule<EntityPackModule> {
 
     private void onDefineEntities(@NotNull PackEventContext<GeyserDefineEntitiesEvent, EntityPackModule> context) {
         CompatibilityRegistry compatibilityRegistry = context.hydraulic().getPackManager().compatibilityRegistry();
-        CompatibilityProfile profile = compatibilityRegistry.report().profile(context.mod().id());
-        if (profile == null) {
-            return;
-        }
-
         GeyserDefineEntitiesEvent event = context.event();
         int registered = 0;
-        for (CompatibilityObject object : profile.objects()) {
-            if (!object.contentType().equals("entity")) {
-                continue;
-            }
-            if (!CompatibilityDecisions.allowsCustomEntityRegistration(object)) {
-                context.logger().info("Skipping custom entity registration for {} because {}", object.javaIdentifier(), CompatibilityDecisions.entityRegistrationReason(object));
+        for (CompiledCompatibilityPlan plan : compatibilityRegistry.dispatchTable().entityPlans(context.mod().id())) {
+            if (!plan.allowsCustomRegistration()) {
+                context.logger().info("Skipping custom entity registration for {} because {}", plan.javaIdentifier(), plan.customRegistrationReason());
                 continue;
             }
 
-            Identifier javaIdentifier = Identifier.parse(object.javaIdentifier());
-            MappingResolver.ResolvedIdentifier resolved = compatibilityRegistry.mappingResolver().resolveEntityIdentifier(javaIdentifier);
-            if (containsDefinition(event, resolved.identifier().toString())) {
+            if (plan.resolvedIdentifier() == null || containsDefinition(event, plan.resolvedIdentifier())) {
                 continue;
             }
 
-            event.register(CustomEntityDefinition.of(resolved.identifier().toString()));
+            event.register(CustomEntityDefinition.of(plan.resolvedIdentifier()));
             registered++;
-            SupportResult behavior = object.supportResults().get("behavior");
-            String behaviorTag = object.inventoryFacts().get("behavior_tag");
-            if (behavior != null && behavior.level() != SupportLevel.NATIVE && behavior.level() != SupportLevel.AUTOMATIC && behavior.level() != SupportLevel.ADAPTED) {
+            SupportLevel behaviorLevel = plan.behaviorLevel();
+            String behaviorTag = plan.behaviorTag();
+            if (behaviorLevel != null && behaviorLevel != SupportLevel.NATIVE && behaviorLevel != SupportLevel.AUTOMATIC && behaviorLevel != SupportLevel.ADAPTED) {
                 if (behaviorTag == null || behaviorTag.isBlank()) {
-                    context.logger().info("Registered metadata-backed custom entity definition for {} as {} while behavior support remains {}", object.javaIdentifier(), resolved.identifier(), behavior.level());
+                    context.logger().info("Registered metadata-backed custom entity definition for {} as {} while behavior support remains {}", plan.javaIdentifier(), plan.resolvedIdentifier(), behaviorLevel);
                 } else {
-                    context.logger().info("Registered metadata-backed custom entity definition for {} as {} while behavior support remains {} (tag: {})", object.javaIdentifier(), resolved.identifier(), behavior.level(), behaviorTag);
+                    context.logger().info("Registered metadata-backed custom entity definition for {} as {} while behavior support remains {} (tag: {})", plan.javaIdentifier(), plan.resolvedIdentifier(), behaviorLevel, behaviorTag);
                 }
             } else {
-                context.logger().info("Registered custom entity definition for {} as {}", object.javaIdentifier(), resolved.identifier());
+                context.logger().info("Registered custom entity definition for {} as {}", plan.javaIdentifier(), plan.resolvedIdentifier());
             }
         }
 

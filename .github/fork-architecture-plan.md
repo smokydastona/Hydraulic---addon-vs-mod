@@ -1415,6 +1415,12 @@ Exit criteria:
 ## Phase 3: IR And Compiled Runtime Plan
 Priority: highest
 
+Current state:
+- first `CompiledCompatibilityPlan` projections now compile from the generated compatibility report into an in-memory `RuntimeDispatchTable`
+- current block, item, armor, bow, entity, menu, and block-entity runtime consumers now use direct identifier-driven plan lookup instead of re-reading flexible report and metadata structures on hot paths
+- item presentation compilation now avoids early component-binding hazards by using safe runtime probes and conservative fallbacks when item components are not yet bound
+- deeper resource IR, model lazy loading, and richer dispatch metrics are still pending
+
 Build:
 - `DiscoveryIr`
 - `CompatibilityIr`
@@ -1551,17 +1557,12 @@ This order is intentional. Do not start writing dozens of adapters before the un
 
 The best next implementation slice from the current repo state is:
 
-1. compile the first `CompiledCompatibilityPlan` slice for the currently validated seams:
-   - block placement and custom block registration
-   - item registration and exposure
-   - menu fallback translation
-   - block-entity patch translation
-   - entity registration decisions
-2. redesign model handling around a lightweight model path index plus lazy parser and bounded cache
-3. extend `performance-report.json` with stage-level cache hit and miss evidence for model resolution, texture resolution, and runtime dispatch
-4. promote the current cached index snapshot into true index rehydration with dependency-aware invalidation instead of persistence-only storage
+1. redesign model handling around a lightweight model path index plus lazy parser and bounded cache
+2. extend `performance-report.json` with stage-level cache hit and miss evidence for model resolution, texture resolution, and runtime dispatch
+3. promote the current cached index snapshot into true index rehydration with dependency-aware invalidation instead of persistence-only storage
+4. widen the compiled-plan surface from current registration and patch seams into richer block-state, menu, block-entity, and transfer-bridge runtime tables
 
-This is now the smallest next slice that completes the Phase 1 root fix already started in the live code and preserves momentum toward the skeleton-key goal.
+This is now the smallest next slice that preserves the newly compiled runtime surface while continuing the Phase 1 and Phase 3 substrate work toward the skeleton-key goal.
 
 ## What Not To Do
 - Do not keep extending `BlockStateRule` with every future concern.

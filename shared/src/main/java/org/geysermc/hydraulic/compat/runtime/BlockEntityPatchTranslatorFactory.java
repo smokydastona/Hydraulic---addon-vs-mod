@@ -1,9 +1,9 @@
 package org.geysermc.hydraulic.compat.runtime;
 
-import net.minecraft.resources.Identifier;
 import org.cloudburstmc.math.vector.Vector3i;
 import org.cloudburstmc.nbt.NbtMap;
 import org.cloudburstmc.nbt.NbtMapBuilder;
+import net.minecraft.resources.Identifier;
 import org.geysermc.geyser.level.block.type.BlockState;
 import org.geysermc.geyser.session.GeyserSession;
 import org.geysermc.geyser.translator.level.block.entity.BlockEntityTranslator;
@@ -26,11 +26,11 @@ public final class BlockEntityPatchTranslatorFactory {
             return null;
         }
 
-        BlockEntityPatchTemplate template = compatibilityRegistry.mappingResolver().blockEntityPatchTemplate(Identifier.parse(javaIdentifier));
-        if (template == null) {
+        var plan = compatibilityRegistry.dispatchTable().blockEntity(Identifier.parse(javaIdentifier));
+        if (plan == null || !plan.hasBlockEntityPatch()) {
             return null;
         }
-        return new MetadataBackedBlockEntityTranslator(template);
+        return new MetadataBackedBlockEntityTranslator(plan.blockEntityPatchTemplate());
     }
 
     private static final class MetadataBackedBlockEntityTranslator extends BlockEntityTranslator {

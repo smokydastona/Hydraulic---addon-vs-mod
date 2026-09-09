@@ -1,0 +1,155 @@
+package org.geysermc.hydraulic.compat.runtime;
+
+import net.minecraft.SharedConstants;
+import net.minecraft.resources.Identifier;
+import net.minecraft.server.Bootstrap;
+import org.geysermc.hydraulic.compat.CompatibilityProfile;
+import org.geysermc.hydraulic.compat.CompatibilityRegistry;
+import org.geysermc.hydraulic.compat.CompatibilityReport;
+import org.geysermc.hydraulic.compat.CompatibilityStatus;
+import org.geysermc.hydraulic.compat.ContentInventory;
+import org.geysermc.hydraulic.compat.MappingOwnership;
+import org.geysermc.hydraulic.compat.MappingResolver;
+import org.geysermc.hydraulic.compat.adapter.AdapterBinding;
+import org.geysermc.hydraulic.compat.adapter.AdapterFeature;
+import org.geysermc.hydraulic.compat.capability.CapabilityProfile;
+import org.geysermc.hydraulic.compat.mapping.ContentPatch;
+import org.geysermc.hydraulic.compat.model.CompatibilityObject;
+import org.geysermc.hydraulic.compat.model.Confidence;
+import org.geysermc.hydraulic.compat.model.ModFingerprint;
+import org.geysermc.hydraulic.compat.model.Provenance;
+import org.geysermc.hydraulic.compat.model.SupportLevel;
+import org.geysermc.hydraulic.compat.model.SupportResult;
+import org.geysermc.hydraulic.metadata.IdentifierMapping;
+import org.geysermc.hydraulic.metadata.MetadataIndex;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+
+import java.util.List;
+import java.util.Map;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+class RuntimeDispatchTableTest {
+    @BeforeAll
+    static void bootstrapMinecraft() {
+        SharedConstants.tryDetectVersion();
+        Bootstrap.bootStrap();
+    }
+
+    @Test
+    void compilesDirectRuntimePlansForCurrentBridgeSeams() {
+        Identifier bow = Identifier.fromNamespaceAndPath("minecraft", "bow");
+        Identifier entity = Identifier.fromNamespaceAndPath("example", "test_entity");
+        Identifier menu = Identifier.fromNamespaceAndPath("example", "test_menu");
+        Identifier blockEntity = Identifier.fromNamespaceAndPath("example", "test_block_entity");
+
+        MetadataIndex metadataIndex = new MetadataIndex(
+            Map.of(),
+            Map.of(),
+            Map.of(),
+            Map.of(entity, new IdentifierMapping(entity, Identifier.fromNamespaceAndPath("example", "bedrock_entity"), MappingOwnership.USER, "entity.json", 1000, 0)),
+            Map.of(menu, new IdentifierMapping(menu, Identifier.fromNamespaceAndPath("example", "bedrock_menu"), MappingOwnership.USER, "menu.json", 1000, 0)),
+            Map.of(
+                menu, List.of(new ContentPatch(menu, "menu", Map.of("bedrock.menu.container_type", "generic_9x3"), MappingOwnership.USER, "menu.patch.json", 1000, 0)),
+                blockEntity, List.of(new ContentPatch(blockEntity, "block_entity", Map.of("bedrock.block_entity.id", "BedrockChest", "bedrock.block_entity.data.CustomName", "demo"), MappingOwnership.USER, "block_entity.patch.json", 1000, 0))
+            ),
+            List.of(),
+            new MetadataIndex.Summary(2, 0, 0, 0, 1, 1, 2, 0, 0, Map.of("user", 2))
+        );
+
+        CompatibilityRegistry registry = new CompatibilityRegistry(
+            metadataIndex,
+            new MappingResolver(metadataIndex),
+            ContentInventory.empty(),
+            new CompatibilityReport(
+                "2026-09-08T00:00:00Z",
+                metadataIndex.summary(),
+                List.of(),
+                Map.of(
+                    "testmod",
+                    new CompatibilityProfile(
+                        "testmod",
+                        fingerprint(),
+                        SupportLevel.ADAPTED,
+                        CompatibilityStatus.COMPLETE,
+                        90,
+                        Map.of(),
+                        Map.of(),
+                        List.of(
+                            object("item", bow.toString(), Map.of("behavior_tag", "chargeable_bow"), supportResults(SupportLevel.ADAPTED, SupportLevel.ADAPTED, SupportLevel.AUTOMATIC)),
+                            object("entity", entity.toString(), Map.of("behavior_tag", "visual_only_runtime"), supportResults(SupportLevel.ADAPTED, SupportLevel.ADAPTED, SupportLevel.APPROXIMATED)),
+                            object("menu", menu.toString(), Map.of(), supportResults(SupportLevel.AUTOMATIC, SupportLevel.AUTOMATIC, SupportLevel.AUTOMATIC)),
+                            object("block_entity", blockEntity.toString(), Map.of(), supportResults(SupportLevel.AUTOMATIC, SupportLevel.AUTOMATIC, SupportLevel.AUTOMATIC))
+                        ),
+                        List.of(),
+                        List.of()
+                    )
+                )
+            )
+        );
+
+        var bowPlan = registry.dispatchTable().item(bow);
+        assertNotNull(bowPlan);
+        assertTrue(bowPlan.supportsAttachablePresentation());
+        assertTrue(bowPlan.allowsCustomRegistration());
+
+        var entityPlan = registry.dispatchTable().entity(entity);
+        assertNotNull(entityPlan);
+        assertEquals("example:bedrock_entity", entityPlan.resolvedIdentifier());
+        assertTrue(entityPlan.allowsCustomRegistration());
+        assertEquals(SupportLevel.APPROXIMATED, entityPlan.behaviorLevel());
+
+        var menuPlan = registry.dispatchTable().menu(menu);
+        assertNotNull(menuPlan);
+        assertEquals("GENERIC_9X3", menuPlan.menuFallbackContainerType());
+
+        var blockEntityPlan = registry.dispatchTable().blockEntity(blockEntity);
+        assertNotNull(blockEntityPlan);
+        assertNotNull(blockEntityPlan.blockEntityPatchTemplate());
+        assertEquals("BedrockChest", blockEntityPlan.blockEntityPatchTemplate().bedrockIdentifier());
+
+        assertNull(registry.dispatchTable().plan("item", "example:missing"));
+        assertEquals(1, registry.dispatchTable().entityPlans("testmod").size());
+    }
+
+    private static CompatibilityObject object(
+        String contentType,
+        String javaIdentifier,
+        Map<String, String> inventoryFacts,
+        Map<String, SupportResult> supportResults
+    ) {
+        return new CompatibilityObject(
+            javaIdentifier,
+            contentType,
+            "testmod",
+            inventoryFacts,
+            new CapabilityProfile(javaIdentifier, List.of(), List.of()),
+            List.of(new AdapterBinding("adapter", AdapterFeature.CUSTOM_ITEM_REGISTRATION, "reason")),
+            List.of("runtime.requirement"),
+            supportResults,
+            SupportLevel.ADAPTED,
+            CompatibilityStatus.COMPLETE,
+            90,
+            new Confidence(0.95, "high"),
+            List.of(new Provenance("analyzer", "generated", "synthetic", false)),
+            List.of()
+        );
+    }
+
+    private static Map<String, SupportResult> supportResults(SupportLevel content, SupportLevel presentation, SupportLevel behavior) {
+        return Map.of(
+            "content", new SupportResult("content", content, CompatibilityStatus.COMPLETE, 100, List.of("present"), List.of(), List.of()),
+            "presentation", new SupportResult("presentation", presentation, CompatibilityStatus.COMPLETE, 100, List.of("present"), List.of(), List.of()),
+            "behavior", new SupportResult("behavior", behavior, CompatibilityStatus.COMPLETE, 100, List.of("present"), List.of(), List.of()),
+            "interaction", new SupportResult("interaction", SupportLevel.AUTOMATIC, CompatibilityStatus.COMPLETE, 100, List.of("placement"), List.of(), List.of())
+        );
+    }
+
+    private static ModFingerprint fingerprint() {
+        return new ModFingerprint("testmod", "testmod", "1.0.0", "fabric", "26.2", 0, 0, 0, 0, 0, 0, 0, false, false, false, false, false, false, false, false);
+    }
+}

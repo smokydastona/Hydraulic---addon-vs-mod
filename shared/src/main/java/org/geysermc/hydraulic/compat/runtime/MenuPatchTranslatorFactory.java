@@ -24,11 +24,11 @@ public final class MenuPatchTranslatorFactory {
             return null;
         }
 
-        MenuPatchTemplate template = compatibilityRegistry.mappingResolver().menuPatchTemplate(Identifier.parse(javaIdentifier));
-        if (template == null) {
+        var plan = compatibilityRegistry.dispatchTable().menu(Identifier.parse(javaIdentifier));
+        if (plan == null || !plan.hasMenuFallback()) {
             return null;
         }
 
-        return InventoryTranslator.inventoryTranslator(ContainerType.valueOf(template.fallbackContainerType()));
+        return InventoryTranslator.inventoryTranslator(ContainerType.valueOf(plan.menuFallbackContainerType()));
     }
 }

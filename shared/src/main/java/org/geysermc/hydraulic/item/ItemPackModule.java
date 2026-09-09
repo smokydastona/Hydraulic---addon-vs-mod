@@ -16,6 +16,7 @@ import org.geysermc.geyser.api.item.custom.v2.component.geyser.GeyserChargeable;
 import org.geysermc.geyser.api.item.custom.v2.component.geyser.GeyserItemDataComponents;
 import org.geysermc.hydraulic.compat.CompatibilityRegistry;
 import org.geysermc.hydraulic.compat.MappingResolver;
+import org.geysermc.hydraulic.compat.ir.CompiledCompatibilityPlan;
 import org.geysermc.hydraulic.compat.model.CompatibilityObject;
 import org.geysermc.hydraulic.compat.runtime.CompatibilityDecisions;
 import org.geysermc.hydraulic.pack.PackLogListener;
@@ -157,10 +158,10 @@ public class ItemPackModule extends TexturePackModule<ItemPackModule> {
         DefaultedRegistry<Item> registry = BuiltInRegistries.ITEM;
         for (Item item : items) {
             Identifier itemLocation = registry.getKey(item);
-            CompatibilityObject itemObject = this.compatibilityItemObject(context, itemLocation);
+            CompiledCompatibilityPlan itemPlan = this.compatibilityItemPlan(context, itemLocation);
 
             try {
-                if (!CompatibilityDecisions.allowsCustomItemRegistration(itemObject, item)) {
+                if (itemPlan != null && !itemPlan.allowsCustomRegistration()) {
                     context.logger().info("Skipping custom item registration for {} because compatibility analysis does not support content/presentation", itemLocation);
                     continue;
                 }
@@ -195,17 +196,17 @@ public class ItemPackModule extends TexturePackModule<ItemPackModule> {
                     customItemOptions.displayHandheld(true);
                 }
 
-                CompatibilityObject blockObject = item instanceof BlockItem blockItem ? this.compatibilityBlockObject(context, blockItem) : null;
+                CompiledCompatibilityPlan blockPlan = item instanceof BlockItem blockItem ? this.compatibilityBlockPlan(context, blockItem) : null;
 
                 // Set the creative mappings
                 if (item instanceof BlockItem blockItemForCreative) {
-                    if (CompatibilityDecisions.allowsBlockCreativeExposure(blockObject, blockItemForCreative.getBlock())) {
+                    if (blockPlan == null || blockPlan.allowsCreativeExposure()) {
                         CreativeMappings.setup(item, customItemOptions);
                     }
-                } else if (CompatibilityDecisions.allowsItemCreativeExposure(itemObject, item)) {
+                } else if (itemPlan == null || itemPlan.allowsCreativeExposure()) {
                     CreativeMappings.setup(item, customItemOptions);
                 } else {
-                    context.logger().info("Skipping creative exposure for {} because {}", itemLocation, CompatibilityDecisions.itemCreativeExposureReason(itemObject, item));
+                    context.logger().info("Skipping creative exposure for {} because {}", itemLocation, itemPlan.creativeExposureReason());
                 }
 
                 // Set all bedrock components using what java components we have
@@ -251,7 +252,7 @@ public class ItemPackModule extends TexturePackModule<ItemPackModule> {
                         .mappingResolver()
                         .resolveBlockState(javaBlockIdentifier, block.defaultBlockState());
 
-                    if (CompatibilityDecisions.shouldApplyBlockPlacementBridge(blockObject, block)) {
+                    if (blockPlan == null || blockPlan.supportsBlockPlacement()) {
                         customItemDefinition.component(
                                 GeyserItemDataComponents.BLOCK_PLACER,
                             GeyserBlockPlacer.of(HydraulicKey.of(resolvedPlacement.identifier()), !is2d)
@@ -260,7 +261,7 @@ public class ItemPackModule extends TexturePackModule<ItemPackModule> {
                         context.logger().info("Skipping block placement bridge for {} because compatibility analysis does not support placement", itemLocation);
                     }
 
-                    if (CompatibilityDecisions.allowsBlockCreativeExposure(blockObject, block)) {
+                    if (blockPlan == null || blockPlan.allowsCreativeExposure()) {
                         CreativeMappings.setupBlock(block, customItemOptions);
                     }
                 }
@@ -324,7 +325,21 @@ public class ItemPackModule extends TexturePackModule<ItemPackModule> {
     }
 
     private boolean shouldUseBlockItemTextureBridge(@NotNull PackEventContext<GeyserDefineCustomItemsEvent, ItemPackModule> context, @NotNull BlockItem blockItem) {
-        return CompatibilityDecisions.supportsBlockItemTextureFallback(this.compatibilityBlockObject(context, blockItem));
+        CompiledCompatibilityPlan blockPlan = this.compatibilityBlockPlan(context, blockItem);
+        return blockPlan == null || blockPlan.supportsBlockItemTextureFallback();
+    }
+
+    @Nullable
+    private CompiledCompatibilityPlan compatibilityItemPlan(@NotNull PackContext<ItemPackModule> context, @NotNull Identifier itemLocation) {
+        CompatibilityRegistry compatibilityRegistry = context.hydraulic().getPackManager().compatibilityRegistry();
+        return compatibilityRegistry.dispatchTable().item(itemLocation);
+    }
+
+    @Nullable
+    private CompiledCompatibilityPlan compatibilityBlockPlan(@NotNull PackContext<ItemPackModule> context, @NotNull BlockItem blockItem) {
+        CompatibilityRegistry compatibilityRegistry = context.hydraulic().getPackManager().compatibilityRegistry();
+        Identifier blockLocation = BuiltInRegistries.BLOCK.getKey(blockItem.getBlock());
+        return compatibilityRegistry.dispatchTable().block(blockLocation);
     }
 
     @Nullable

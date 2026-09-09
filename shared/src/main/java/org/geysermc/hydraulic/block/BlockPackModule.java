@@ -38,6 +38,7 @@ import org.geysermc.hydraulic.Constants;
 import org.geysermc.hydraulic.HydraulicImpl;
 import org.geysermc.hydraulic.compat.CompatibilityRegistry;
 import org.geysermc.hydraulic.compat.MappingResolver;
+import org.geysermc.hydraulic.compat.ir.CompiledCompatibilityPlan;
 import org.geysermc.hydraulic.compat.model.CompatibilityObject;
 import org.geysermc.hydraulic.compat.runtime.CompatibilityDecisions;
 import org.geysermc.hydraulic.item.CreativeMappings;
@@ -201,7 +202,7 @@ public class BlockPackModule extends PackModule<BlockPackModule> {
         DefaultedRegistry<Block> registry = BuiltInRegistries.BLOCK;
         for (Block block : blocks) {
             Identifier blockLocation = registry.getKey(block);
-            CompatibilityObject blockObject = compatibilityBlockObject(context, blockLocation);
+            CompiledCompatibilityPlan blockPlan = compatibilityBlockPlan(context, blockLocation);
             MappingResolver mappingResolver = context.hydraulic().getPackManager().mappingResolver();
             BlockMapping blockMapping = mappingResolver.blockMapping(blockLocation);
             Map<String, StatePropertyDefinition> stateDefinitions = stateDefinitions(context, blockLocation, block.getStateDefinition().getProperties(), blockMapping);
@@ -216,9 +217,9 @@ public class BlockPackModule extends PackModule<BlockPackModule> {
                 CustomBlockData.Builder builder = NonVanillaCustomBlockData.builder()
                         .name(customBlockIdentifier.getPath())
                         .namespace(customBlockIdentifier.getNamespace())
-                        .includedInCreativeInventory(CompatibilityDecisions.allowsBlockCreativeExposure(blockObject));
+                    .includedInCreativeInventory(blockPlan == null || blockPlan.allowsCreativeExposure());
 
-                String creativeSuppressionReason = CompatibilityDecisions.creativeExposureReason(blockObject);
+                String creativeSuppressionReason = blockPlan != null ? blockPlan.creativeExposureReason() : null;
                 if (creativeSuppressionReason != null) {
                     context.logger().info("Registering block {} as runtime-only for Bedrock because {}", blockLocation, creativeSuppressionReason);
                 }
@@ -840,9 +841,9 @@ public class BlockPackModule extends PackModule<BlockPackModule> {
     }
 
     @Nullable
-    private static CompatibilityObject compatibilityBlockObject(@NotNull PackContext<?> context, @NotNull Identifier blockLocation) {
+    private static CompiledCompatibilityPlan compatibilityBlockPlan(@NotNull PackContext<?> context, @NotNull Identifier blockLocation) {
         CompatibilityRegistry compatibilityRegistry = context.hydraulic().getPackManager().compatibilityRegistry();
-        return compatibilityRegistry.report().object(context.mod().id(), blockLocation.toString(), "block");
+        return compatibilityRegistry.dispatchTable().block(blockLocation);
     }
 
     private boolean isUnitCube(Key parent) {
