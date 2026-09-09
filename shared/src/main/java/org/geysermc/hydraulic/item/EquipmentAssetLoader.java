@@ -22,8 +22,9 @@ import java.util.EnumMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.function.Consumer;
 
-final class EquipmentAssetLoader {
+public final class EquipmentAssetLoader {
     private EquipmentAssetLoader() {
     }
 
@@ -69,6 +70,19 @@ final class EquipmentAssetLoader {
         } catch (IOException | RuntimeException exception) {
             logger.warn("Failed to read equipment asset {} from {}", assetId, path, exception);
             return null;
+        }
+    }
+
+    public static void collectTextureDependencies(@NotNull ModInfo mod, @NotNull Identifier assetId, @NotNull Logger logger, @NotNull Consumer<Key> sink) {
+        EquipmentAsset equipment = load(mod, assetId, logger);
+        if (equipment == null) {
+            return;
+        }
+
+        for (List<Key> textures : equipment.layers.values()) {
+            for (Key texture : textures) {
+                sink.accept(texture);
+            }
         }
     }
 

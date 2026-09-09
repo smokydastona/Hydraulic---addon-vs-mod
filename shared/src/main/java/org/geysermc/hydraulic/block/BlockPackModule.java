@@ -172,6 +172,10 @@ public class BlockPackModule extends TexturePackModule<BlockPackModule> {
             Key key = texture.key();
             String value = key.value();
 
+            if (!context.hydraulic().getPackManager().shouldIncludeTexture(context.mod().id(), key)) {
+                continue;
+            }
+
             if (value.startsWith("block/")) {
                 String cleanPath = value.replace("block/", "").replace(".png", "");
 

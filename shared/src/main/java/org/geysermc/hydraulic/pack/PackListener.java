@@ -151,6 +151,10 @@ public class PackListener {
                 registeredFromCache,
                 0,
                 0,
+                0,
+                0,
+                0,
+                0,
                 Map.of()
             );
             this.manager.recordPackConversionMetrics(metrics);
@@ -171,6 +175,10 @@ public class PackListener {
 
         AtomicInteger convertedPacks = new AtomicInteger();
         AtomicInteger failedPacks = new AtomicInteger();
+        AtomicInteger discoveredTextures = new AtomicInteger();
+        AtomicInteger selectedTextures = new AtomicInteger();
+        AtomicInteger omittedTextures = new AtomicInteger();
+        AtomicInteger textureDependencySources = new AtomicInteger();
         ConcurrentMap<String, PerformanceReport.ModConversionMetrics> perModMetrics = new ConcurrentHashMap<>();
         ConcurrentMap<String, Path> convertedPackPaths = new ConcurrentHashMap<>();
 
@@ -184,14 +192,23 @@ public class PackListener {
                     ConversionKey conversionKey = this.manager.conversionKey(mod);
                     PackManager.PackCreationResult result = this.manager.createPack(mod, entry.getValue().getRight());
                     long modMillis = System.currentTimeMillis() - modStart;
+                    TextureDependencyGraph.SelectionMetrics textureSelection = result.textureSelection();
                     PerformanceReport.ModConversionMetrics metrics = new PerformanceReport.ModConversionMetrics(
                         result.success() ? "converted" : "failed",
                         modMillis,
                         result.validation().durationMillis(),
                         result.validation().errorCount(),
                         result.validation().warningCount(),
-                        result.validation().manualActionCount()
+                        result.validation().manualActionCount(),
+                        textureSelection.discoveredTextures(),
+                        textureSelection.selectedTextures(),
+                        textureSelection.omittedTextures(),
+                        textureSelection.dependencySources()
                     );
+                    discoveredTextures.addAndGet(textureSelection.discoveredTextures());
+                    selectedTextures.addAndGet(textureSelection.selectedTextures());
+                    omittedTextures.addAndGet(textureSelection.omittedTextures());
+                    textureDependencySources.addAndGet(textureSelection.dependencySources());
                     if (result.success()) {
                         ModStorage storage = this.hydraulic.modStorage(mod);
                         storage.conversionKey(conversionKey);
@@ -211,7 +228,7 @@ public class PackListener {
                     }
                 } catch (Throwable t) {
                     failedPacks.incrementAndGet();
-                    perModMetrics.put(entry.getKey(), new PerformanceReport.ModConversionMetrics("failed", System.currentTimeMillis() - modStart, 0, 1, 0, 1));
+                    perModMetrics.put(entry.getKey(), new PerformanceReport.ModConversionMetrics("failed", System.currentTimeMillis() - modStart, 0, 1, 0, 1, 0, 0, 0, 0));
                     LOGGER.error("Failed to convert pack for mod {}", entry.getKey(), t);
                 }
             }, THREAD_POOL));
@@ -233,6 +250,10 @@ public class PackListener {
             registeredFromCache,
             convertedPacks.get(),
             failedPacks.get(),
+            discoveredTextures.get(),
+            selectedTextures.get(),
+            omittedTextures.get(),
+            textureDependencySources.get(),
             new LinkedHashMap<>(perModMetrics)
         );
         this.manager.recordPackConversionMetrics(metrics);

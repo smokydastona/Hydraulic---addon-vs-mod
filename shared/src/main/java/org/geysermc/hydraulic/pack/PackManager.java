@@ -8,8 +8,10 @@ import com.mojang.logging.LogUtils;
 import net.minecraft.SharedConstants;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.Item;
+import net.minecraft.world.item.equipment.Equippable;
 import org.geysermc.event.Event;
 import org.geysermc.geyser.api.GeyserApi;
 import org.geysermc.hydraulic.cache.ArtifactCache;
@@ -23,6 +25,7 @@ import org.geysermc.hydraulic.compat.CompatibilityReport;
 import org.geysermc.hydraulic.compat.MappingResolver;
 import org.geysermc.hydraulic.metadata.MetadataIndex;
 import org.geysermc.hydraulic.metadata.MetadataLoader;
+import org.geysermc.hydraulic.item.EquipmentAssetLoader;
 import org.geysermc.hydraulic.pack.context.PackEventContext;
 import org.geysermc.hydraulic.pack.context.PackPostProcessContext;
 import org.geysermc.hydraulic.pack.context.PackPreProcessContext;
@@ -50,6 +53,8 @@ import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.ServiceLoader;
 import java.util.Set;
 import java.util.TreeMap;
@@ -103,6 +108,7 @@ public class PackManager {
     private long conversionCacheMisses;
     private long validationCacheHits;
     private long validationCacheMisses;
+    private final ConcurrentMap<String, TextureDependencyGraph> activeTextureDependencies = new ConcurrentHashMap<>();
 
     private List<ConverterPipeline<?, ?>> packConverters;
     private ModelStitcher.Provider modelProvider;
@@ -191,13 +197,7 @@ public class PackManager {
         this.recordArtifactCacheMetrics();
 
         this.packConverters = new ArrayList<>(AssetConverters.converters(hydraulic.isDev()));
-        this.packConverters.remove(AssetConverters.MODEL);
         this.packConverters.remove(AssetConverters.MANIFEST);
-        this.packConverters.add(AssetConverters.create(
-                new CustomModelConverter(modelProvider),
-                AssetConverters.MODEL,
-                AssetConverters.MODEL
-        ));
 
         for (PackModule<?> module : ServiceLoader.load(PackModule.class)) {
             this.modules.add(module);
@@ -254,83 +254,98 @@ public class PackManager {
     PackCreationResult createPack(@NotNull ModInfo mod, @NotNull Path packPath) {
         ConversionKey conversionKey = this.conversionKey(mod);
         List<ConverterPipeline<?, ?>> pipelines = new ArrayList<>(packConverters);
+        TextureDependencyGraph textureDependencies = new TextureDependencyGraph();
+        seedEquipmentTextureDependencies(mod, textureDependencies);
+        replacePipeline(
+            pipelines,
+            AssetConverters.MODEL,
+            AssetConverters.create(new CustomModelConverter(modelProvider, textureDependencies), AssetConverters.MODEL, AssetConverters.MODEL)
+        );
+        replacePipeline(
+            pipelines,
+            AssetConverters.TEXTURE,
+            AssetConverters.create(new SelectiveTextureExtractor(textureDependencies), org.geysermc.pack.converter.type.texture.TextureConverter.INSTANCE)
+        );
         pipelines.add(AssetConverters.create(new MetadataPackModule(mod, conversionKey)));
+        this.activeTextureDependencies.put(mod.id(), textureDependencies);
+        try {
+            PackConverter converter = new PackConverter()
+                    .packName(mod.name())
+                    .logListener(new PackLogListener(LoggerFactory.getLogger(LOGGER.getName() + "/" + mod.id())))
+                    .converters(pipelines)
+                    .output(packPath)
+                    .vanillaPackPath(vanillaPath)
+                    .vanillaPackVersion(SharedConstants.getCurrentVersion().id())
+                    .textureSubdirectory(mod.namespace())
+                    .packageHandler(new PackPackager());
 
-        PackConverter converter = new PackConverter()
-                .packName(mod.name())
-                .logListener(new PackLogListener(LoggerFactory.getLogger(LOGGER.getName() + "/" + mod.id())))
-                .converters(pipelines)
-                .output(packPath)
-                .vanillaPackPath(vanillaPath)
-                .vanillaPackVersion(SharedConstants.getCurrentVersion().id())
-                .textureSubdirectory(mod.namespace())
-                .packageHandler(new PackPackager());
+            converter.postProcessor((javaPack, bedrockPack) -> {
+                for (PackModule<?> module : this.modules) {
+                    PackPostProcessContext context = new PackPostProcessContext(this.hydraulic, mod, module, converter, javaPack, bedrockPack, packPath, modelProvider);
+                    if (!module.test(context)) {
+                        continue;
+                    }
 
-        converter.postProcessor((javaPack, bedrockPack) -> {
-            for (PackModule<?> module : this.modules) {
-                PackPostProcessContext context = new PackPostProcessContext(this.hydraulic, mod, module, converter, javaPack, bedrockPack, packPath, modelProvider);
-                if (!module.test(context)) {
-                    continue;
+                    module.postProcess0(context);
                 }
+            });
 
-                module.postProcess0(context);
+            try {
+                for (final Path root : mod.roots()) {
+                    converter.input(root, false).convert();
+                }
+            } catch (IOException ex) {
+                LOGGER.error("Failed to convert mod {} to pack", mod.id(), ex);
+                PackValidationReport.ModValidation validation = this.packValidator.conversionFailed(
+                    packPath,
+                    "pack.conversion.failed",
+                    "Pack conversion failed before export completed.",
+                    "Inspect the conversion logs for this mod and resolve the reported asset or conversion errors."
+                );
+                this.packValidationTracker.record(mod.id(), validation);
+                this.performanceTracker.recordModelResolutionCache(toPerformanceCacheMetrics(StateDefinition.cacheMetrics()));
+                this.recordModelProviderMetrics();
+                this.recordTextureResolutionMetrics();
+                return new PackCreationResult(false, validation, textureDependencies.lastSelectionMetrics());
             }
-        });
 
-        boolean created;
-        try {
-            for (final Path root : mod.roots()) {
-                converter.input(root, false).convert();
+            // Now export the pack
+            try {
+                converter.pack();
+            } catch (IOException ex) {
+                LOGGER.error("Failed to export pack for mod {}", mod.id(), ex);
+                PackValidationReport.ModValidation validation = this.packValidator.conversionFailed(
+                    packPath,
+                    "pack.export.failed",
+                    "Pack export failed before the generated archive could be finalized.",
+                    "Inspect the packaging logs and ensure the generated pack path is writable and not locked."
+                );
+                this.packValidationTracker.record(mod.id(), validation);
+                this.performanceTracker.recordModelResolutionCache(toPerformanceCacheMetrics(StateDefinition.cacheMetrics()));
+                this.recordModelProviderMetrics();
+                this.recordTextureResolutionMetrics();
+                return new PackCreationResult(false, validation, textureDependencies.lastSelectionMetrics());
             }
-        } catch (IOException ex) {
-            LOGGER.error("Failed to convert mod {} to pack", mod.id(), ex);
-            PackValidationReport.ModValidation validation = this.packValidator.conversionFailed(
-                packPath,
-                "pack.conversion.failed",
-                "Pack conversion failed before export completed.",
-                "Inspect the conversion logs for this mod and resolve the reported asset or conversion errors."
-            );
+
+            boolean created = Files.exists(packPath);
+            PackValidationReport.ModValidation validation = this.packValidator.validate(packPath);
             this.packValidationTracker.record(mod.id(), validation);
+            if (!validation.valid()) {
+                LOGGER.warn(
+                    "Generated pack for mod {} failed validation (errors={}, warnings={}, manualActions={})",
+                    mod.id(),
+                    validation.errorCount(),
+                    validation.warningCount(),
+                    validation.manualActionCount()
+                );
+            }
             this.performanceTracker.recordModelResolutionCache(toPerformanceCacheMetrics(StateDefinition.cacheMetrics()));
             this.recordModelProviderMetrics();
             this.recordTextureResolutionMetrics();
-            return new PackCreationResult(false, validation);
+            return new PackCreationResult(created && validation.valid(), validation, textureDependencies.lastSelectionMetrics());
+        } finally {
+            this.activeTextureDependencies.remove(mod.id());
         }
-
-        // Now export the pack
-        try {
-            converter.pack();
-        } catch (IOException ex) {
-            LOGGER.error("Failed to export pack for mod {}", mod.id(), ex);
-            PackValidationReport.ModValidation validation = this.packValidator.conversionFailed(
-                packPath,
-                "pack.export.failed",
-                "Pack export failed before the generated archive could be finalized.",
-                "Inspect the packaging logs and ensure the generated pack path is writable and not locked."
-            );
-            this.packValidationTracker.record(mod.id(), validation);
-            this.performanceTracker.recordModelResolutionCache(toPerformanceCacheMetrics(StateDefinition.cacheMetrics()));
-            this.recordModelProviderMetrics();
-            this.recordTextureResolutionMetrics();
-            return new PackCreationResult(false, validation);
-        }
-
-        created = Files.exists(packPath);
-        PackValidationReport.ModValidation validation = this.packValidator.validate(packPath);
-        this.packValidationTracker.record(mod.id(), validation);
-        if (!validation.valid()) {
-            LOGGER.warn(
-                "Generated pack for mod {} failed validation (errors={}, warnings={}, manualActions={})",
-                mod.id(),
-                validation.errorCount(),
-                validation.warningCount(),
-                validation.manualActionCount()
-            );
-        }
-        this.performanceTracker.recordModelResolutionCache(toPerformanceCacheMetrics(StateDefinition.cacheMetrics()));
-        this.recordModelProviderMetrics();
-        this.recordTextureResolutionMetrics();
-        return new PackCreationResult(created && validation.valid(), validation);
     }
 
     private void callEvents(@NotNull Event event) {
@@ -600,6 +615,11 @@ public class PackManager {
         return this.artifactCache;
     }
 
+    public boolean shouldIncludeTexture(@NotNull String modId, @NotNull net.kyori.adventure.key.Key textureKey) {
+        TextureDependencyGraph dependencies = this.activeTextureDependencies.get(modId);
+        return dependencies == null || dependencies.shouldInclude(textureKey);
+    }
+
     @NotNull
     TextureResolutionCache textureResolutionCache() {
         return this.textureResolutionCache;
@@ -638,7 +658,41 @@ public class PackManager {
         return nanos / 1_000_000L;
     }
 
-    record PackCreationResult(boolean success, @NotNull PackValidationReport.ModValidation validation) {
+    record PackCreationResult(boolean success, @NotNull PackValidationReport.ModValidation validation, @NotNull TextureDependencyGraph.SelectionMetrics textureSelection) {
+    }
+
+    private void seedEquipmentTextureDependencies(@NotNull ModInfo mod, @NotNull TextureDependencyGraph textureDependencies) {
+        for (Identifier itemId : this.modsToItems.get(mod.id())) {
+            Item item = BuiltInRegistries.ITEM.getValue(itemId);
+            if (item == null || !item.components().has(DataComponents.EQUIPPABLE)) {
+                continue;
+            }
+
+            Equippable equippable = item.components().get(DataComponents.EQUIPPABLE);
+            if (equippable == null || equippable.assetId().isEmpty()) {
+                continue;
+            }
+
+            Identifier assetId = equippable.assetId().map(ResourceKey::identifier).orElse(null);
+            if (assetId == null) {
+                continue;
+            }
+
+            EquipmentAssetLoader.collectTextureDependencies(mod, assetId, LOGGER, textureKey -> textureDependencies.recordEquipmentTexture(assetId.toString(), textureKey));
+        }
+    }
+
+    private static void replacePipeline(
+        @NotNull List<ConverterPipeline<?, ?>> pipelines,
+        @NotNull ConverterPipeline<?, ?> existing,
+        @NotNull ConverterPipeline<?, ?> replacement
+    ) {
+        int index = pipelines.indexOf(existing);
+        if (index >= 0) {
+            pipelines.set(index, replacement);
+            return;
+        }
+        pipelines.add(replacement);
     }
 
     @NotNull

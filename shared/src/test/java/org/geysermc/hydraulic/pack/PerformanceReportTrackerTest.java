@@ -50,7 +50,11 @@ class PerformanceReportTrackerTest {
             5,
             6,
             7,
-            Map.of("examplemod", new PerformanceReport.ModConversionMetrics("converted", 21, 9, 1, 2, 3))
+            30,
+            20,
+            10,
+            4,
+            Map.of("examplemod", new PerformanceReport.ModConversionMetrics("converted", 21, 9, 1, 2, 3, 8, 6, 2, 1))
         ));
 
         PerformanceReport snapshot = tracker.snapshot();
@@ -60,6 +64,8 @@ class PerformanceReportTrackerTest {
         assertEquals(44, snapshot.startup().indexedBlockStates());
         assertEquals(55, snapshot.startup().indexedItemAssets());
         assertEquals(42, snapshot.lastPackConversion().totalMillis());
+        assertEquals(30, snapshot.lastPackConversion().discoveredTextures());
+        assertEquals(20, snapshot.lastPackConversion().selectedTextures());
         assertEquals(5, snapshot.modelResolutionCache().hits());
         assertEquals(2, snapshot.modelResolutionCache().misses());
         assertEquals(12, snapshot.modelProviderCache().hits());
@@ -69,6 +75,7 @@ class PerformanceReportTrackerTest {
         assertEquals(1, snapshot.artifactCache().compatibility().misses());
         assertEquals(7, snapshot.runtimeDispatch().items().hits());
         assertEquals(9, snapshot.lastPackConversion().perMod().get("examplemod").validationMillis());
+        assertEquals(8, snapshot.lastPackConversion().perMod().get("examplemod").discoveredTextures());
         assertEquals("converted", snapshot.lastPackConversion().perMod().get("examplemod").outcome());
 
         PerformanceReport written;
@@ -83,6 +90,8 @@ class PerformanceReportTrackerTest {
         assertEquals(99, written.modelProviderCache().indexedModels());
         assertEquals(25, written.textureResolutionCache().requests());
         assertEquals(11, written.textureResolutionCache().size());
+        assertEquals(10, written.lastPackConversion().omittedTextures());
+        assertEquals(1, written.lastPackConversion().perMod().get("examplemod").textureDependencySources());
         assertEquals(5, written.artifactCache().validation().misses());
         assertEquals(13, written.runtimeDispatch().menus().requests());
         assertEquals(3, written.lastPackConversion().perMod().get("examplemod").validationManualActions());

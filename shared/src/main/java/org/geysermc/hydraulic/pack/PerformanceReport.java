@@ -89,6 +89,10 @@ public record PerformanceReport(
         int cachedPacksRegistered,
         int convertedPacks,
         int failedPacks,
+        int discoveredTextures,
+        int selectedTextures,
+        int omittedTextures,
+        int textureDependencySources,
         @NotNull Map<String, ModConversionMetrics> perMod
     ) {
         public PackConversionMetrics {
@@ -102,7 +106,11 @@ public record PerformanceReport(
         long validationMillis,
         int validationErrors,
         int validationWarnings,
-        int validationManualActions
+        int validationManualActions,
+        int discoveredTextures,
+        int selectedTextures,
+        int omittedTextures,
+        int textureDependencySources
     ) {
     }
 
