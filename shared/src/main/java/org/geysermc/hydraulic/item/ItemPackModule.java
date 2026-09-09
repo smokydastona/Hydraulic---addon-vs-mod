@@ -192,7 +192,6 @@ public class ItemPackModule extends TexturePackModule<ItemPackModule> {
     }
 
     private void postProcess(@NotNull PackPostProcessContext<ItemPackModule> context) {
-        ResourcePack assets = context.javaResourcePack();
         BedrockResourcePack bedrockPack = context.bedrockResourcePack();
 
         List<Item> items = context.registryValues(BuiltInRegistries.ITEM);
@@ -203,7 +202,7 @@ public class ItemPackModule extends TexturePackModule<ItemPackModule> {
         for (Item item : items) {
             Identifier itemLocation = BuiltInRegistries.ITEM.getKey(item);
 
-            ItemTextureBinding binding = this.resolveTextureBinding(context, assets, item, itemLocation, packLogListener);
+            ItemTextureBinding binding = this.resolveTextureBinding(context, item, itemLocation, packLogListener);
             if (binding == null) {
                 continue;
             }
@@ -364,12 +363,11 @@ public class ItemPackModule extends TexturePackModule<ItemPackModule> {
     @Nullable
     private ItemTextureBinding resolveTextureBinding(
         @NotNull PackPostProcessContext<ItemPackModule> context,
-        @NotNull ResourcePack assets,
         @NotNull Item item,
         @NotNull Identifier itemLocation,
         @NotNull PackLogListener packLogListener
     ) {
-        Model baseModel = assets.model(Key.key(itemLocation.getNamespace(), "item/" + itemLocation.getPath()));
+        Model baseModel = context.modelProvider().model(Key.key(itemLocation.getNamespace(), "item/" + itemLocation.getPath()));
         if (baseModel != null) {
             Model model = new ModelStitcher(context.modelProvider(), baseModel, packLogListener).stitch();
             Key textureKey = primaryTexture(model);
@@ -395,7 +393,7 @@ public class ItemPackModule extends TexturePackModule<ItemPackModule> {
         }
 
         Identifier blockLocation = BuiltInRegistries.BLOCK.getKey(blockItem.getBlock());
-        Model blockModel = assets.model(Key.key(blockLocation.getNamespace(), "block/" + blockLocation.getPath()));
+        Model blockModel = context.modelProvider().model(Key.key(blockLocation.getNamespace(), "block/" + blockLocation.getPath()));
         if (blockModel == null) {
             context.logger().warn("Item {} has no item model and block model {} is missing, skipping", itemLocation, blockLocation);
             return null;

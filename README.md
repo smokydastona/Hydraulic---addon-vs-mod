@@ -17,6 +17,7 @@ Right now this fork adds:
 - item, recipe, entity, and menu identifier mapping metadata on the same compatibility/report foundation
 - Metadata V2 patch loading for blocks, items, recipes, entities, and menus
 - lazy on-demand model loading from indexed model paths with a bounded cache instead of eager global model deserialization at startup
+- indexed model-provider lookups in item and bow post-processing too, so runtime texture binding and bow override resolution no longer depend on parsed-pack model lookup
 - shared cached texture-output resolution for model- and block-texture paths, with live hit and miss metrics in the performance report
 - a first metadata-backed menu fallback bridge that can route unsupported Java menu opens into an explicitly declared Bedrock `ContainerType`
 - capability-driven adapter dispatch for the live menu and block-entity bridge seams, so runtime translator creation now follows analyzer-produced adapter bindings
@@ -215,6 +216,8 @@ Block material caching is now also demand-driven. Instead of stitching every par
 Block preprocessing no longer parses the full `ResourcePack` blockstate asset set up front. `ModResourceIndex` now resolves blockstate file paths directly for the registered blocks owned by the current mod, and Hydraulic deserializes only those indexed blockstates that the block registration path can actually consume.
 
 Item preprocessing no longer depends on a full parsed `ResourcePack` item-definition walk either. Hydraulic now resolves indexed item asset paths per registered item, deserializes modern `assets/.../items/*.json` definitions only when present, and falls back to the existing lazy model-provider path for legacy `models/item/*.json` assets.
+
+Item and bow post-processing now use that same indexed model-provider path for their runtime texture binding work. Item icon resolution, block-item model fallback texture resolution, and bow pulling-override model resolution now all query `context.modelProvider()` instead of asking the parsed Java `ResourcePack` for models directly. On the current validated Fabric runtime, that still converted both packs, generated the bow attachable for `hydraulic_test_mod:barrel_bow`, registered 16 custom items, kept both generated packs valid, and recorded `modelProviderCache.hits = 194` with `misses = 26`.
 
 The current compatibility report is now also compiled into a first in-memory runtime dispatch surface during startup. The first `CompiledCompatibilityPlan` slice covers block creative and placement decisions, item registration and creative exposure, armor and bow attachable presentation, metadata-backed custom entity registration, menu fallback translators, block-entity patch translators, the candidate indexes used by unsupported menu and block-entity runtime diagnostics, and precompiled state-aware block definition groupings plus per-state runtime metadata for block registration and block-item placement. The remaining block-item texture fallback decision path now also consumes compiled block plans instead of reading raw compatibility objects back out of the report during conversion. Current runtime bridges and warning paths now hit direct identifier-driven lookups or precompiled candidate lists instead of re-scanning compatibility profiles or metadata templates on each use.
 

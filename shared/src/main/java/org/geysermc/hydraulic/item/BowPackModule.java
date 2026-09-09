@@ -73,7 +73,6 @@ public class BowPackModule extends TexturePackModule<BowPackModule> {
     }
 
     private void postProcess(@NotNull PackPostProcessContext<BowPackModule> context) {
-        ResourcePack assets = context.javaResourcePack();
         BedrockResourcePack bedrockPack = context.bedrockResourcePack();
 
         List<BowItem> bowItems = context.registryValues(BuiltInRegistries.ITEM).stream()
@@ -97,7 +96,7 @@ public class BowPackModule extends TexturePackModule<BowPackModule> {
                 }
             };
 
-            Model model = assets.model(Key.key(bowLocation.getNamespace(), "item/" + bowLocation.getPath()));
+            Model model = context.modelProvider().model(Key.key(bowLocation.getNamespace(), "item/" + bowLocation.getPath()));
             if (model == null) {
                 context.logger().warn("Bow {} has no model, skipping", bowLocation);
                 continue;
@@ -115,7 +114,7 @@ public class BowPackModule extends TexturePackModule<BowPackModule> {
             textures.put("default", defaultOutputLoc);
 
             for (ItemOverride override : model.overrides()) {
-                Model pullingModel = assets.model(override.model());
+                Model pullingModel = context.modelProvider().model(override.model());
                 if (pullingModel == null) {
                     context.logger().warn("Bow pulling model {} has no model, skipping", override.model());
                     continue;
