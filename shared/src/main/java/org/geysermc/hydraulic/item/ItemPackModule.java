@@ -56,6 +56,7 @@ public class ItemPackModule extends TexturePackModule<ItemPackModule> {
     private final Set<Identifier> itemsWith2dIcon = new LinkedHashSet<>();
     private final Set<Identifier> handheldItems = new LinkedHashSet<>();
     private final Map<String, String> itemBuiltinTexture = new HashMap<>();
+    private final Map<Identifier, ResolvedItemTextureBinding> resolvedTextureBindings = new LinkedHashMap<>();
 
     public ItemPackModule() {
         this.listenOn(GeyserDefineCustomItemsEvent.class, this::onDefineCustomItems);
@@ -97,33 +98,30 @@ public class ItemPackModule extends TexturePackModule<ItemPackModule> {
     }
 
     private void preProcess(@NotNull PackPreProcessContext<ItemPackModule> context) {
+        this.itemsWith2dIcon.clear();
+        this.handheldItems.clear();
+        this.itemBuiltinTexture.clear();
+        this.resolvedTextureBindings.clear();
+
         ModResourceIndex resourceIndex = context.hydraulic().getPackManager().modResourceIndex(context.mod().id());
         List<Item> items = context.registryValues(BuiltInRegistries.ITEM);
+        ModelStitcher.Provider modelProvider = context.modelProvider();
         PackLogListener packLogListener = new PackLogListener(context.logger());
         for (Item item : items) {
             Identifier itemLocation = BuiltInRegistries.ITEM.getKey(item);
 
             classifyIndexedItem(context, resourceIndex, itemLocation);
 
-            Model baseModel = context.modelProvider().model(Key.key(itemLocation.getNamespace(), "item/" + itemLocation.getPath()));
-            if (baseModel == null) {
+            ResolvedItemTextureBinding resolvedTextureBinding = this.resolveTextureBinding(context, modelProvider, item, itemLocation, packLogListener);
+            if (resolvedTextureBinding == null) {
                 continue;
             }
 
-            Model model = new ModelStitcher(context.modelProvider(), baseModel, packLogListener).stitch();
-            if (model == null) {
-                continue;
-            }
-
-            List<ModelTexture> layers = model.textures().layers();
-            if (layers == null || layers.isEmpty()) {
-                continue;
-            }
-
-            Key layer0 = layers.getFirst().key();
-
-            if (layer0 != null && layer0.namespace().equals(Key.MINECRAFT_NAMESPACE)) {
-                itemBuiltinTexture.put(itemLocation.toString(), PackUtil.getTextureName(layer0.toString()));
+            this.resolvedTextureBindings.put(itemLocation, resolvedTextureBinding);
+            if (!resolvedTextureBinding.derivedFromBlockModel()
+                && resolvedTextureBinding.directLayerTexture()
+                && resolvedTextureBinding.textureKey().namespace().equals(Key.MINECRAFT_NAMESPACE)) {
+                this.itemBuiltinTexture.put(itemLocation.toString(), PackUtil.getTextureName(resolvedTextureBinding.textureKey().toString()));
             }
         }
     }
@@ -221,6 +219,7 @@ public class ItemPackModule extends TexturePackModule<ItemPackModule> {
         BedrockResourcePack bedrockPack = context.bedrockResourcePack();
 
         List<Item> items = context.registryValues(BuiltInRegistries.ITEM);
+        ModelStitcher.Provider modelProvider = context.modelProvider();
 
         context.logger().info("Items to convert: {} in mod {}", items.size(), context.mod().id());
 
@@ -228,10 +227,19 @@ public class ItemPackModule extends TexturePackModule<ItemPackModule> {
         for (Item item : items) {
             Identifier itemLocation = BuiltInRegistries.ITEM.getKey(item);
 
-            ItemTextureBinding binding = this.resolveTextureBinding(context, item, itemLocation, packLogListener);
-            if (binding == null) {
+            ResolvedItemTextureBinding resolvedTextureBinding = this.resolvedTextureBindings.get(itemLocation);
+            if (resolvedTextureBinding == null) {
+                resolvedTextureBinding = this.resolveTextureBinding(context, modelProvider, item, itemLocation, packLogListener);
+            }
+            if (resolvedTextureBinding == null) {
                 continue;
             }
+
+            ItemTextureBinding binding = new ItemTextureBinding(
+                resolvedTextureBinding.sourceIdentifier(),
+                getOutputFromModel(context, resolvedTextureBinding.textureKey()),
+                resolvedTextureBinding.derivedFromBlockModel()
+            );
 
             if (binding.derivedFromBlockModel()) {
                 context.logger().info("Using compatibility-backed block item texture fallback for {} via {}", itemLocation, binding.sourceIdentifier());
@@ -387,20 +395,23 @@ public class ItemPackModule extends TexturePackModule<ItemPackModule> {
     }
 
     @Nullable
-    private ItemTextureBinding resolveTextureBinding(
-        @NotNull PackPostProcessContext<ItemPackModule> context,
+    private ResolvedItemTextureBinding resolveTextureBinding(
+        @NotNull PackContext<ItemPackModule> context,
+        @NotNull ModelStitcher.Provider modelProvider,
         @NotNull Item item,
         @NotNull Identifier itemLocation,
         @NotNull PackLogListener packLogListener
     ) {
-        Model baseModel = context.modelProvider().model(Key.key(itemLocation.getNamespace(), "item/" + itemLocation.getPath()));
-        if (baseModel != null) {
-            Model model = new ModelStitcher(context.modelProvider(), baseModel, packLogListener).stitch();
-            Key textureKey = primaryTexture(model);
-            if (textureKey != null) {
-                return new ItemTextureBinding(itemLocation.toString(), getOutputFromModel(context, textureKey), false);
-            }
+        boolean allowBlockItemTextureFallback = !(item instanceof BlockItem blockItem)
+            || Optional.ofNullable(this.compatibilityBlockPlan(context, blockItem)).map(CompiledCompatibilityPlan::supportsBlockItemTextureFallback).orElse(true);
 
+        ResolvedItemTextureBinding resolvedBinding = resolveTextureBindingCandidate(modelProvider, packLogListener, item, itemLocation, allowBlockItemTextureFallback);
+        if (resolvedBinding != null) {
+            return resolvedBinding;
+        }
+
+        Model baseModel = modelProvider.model(Key.key(itemLocation.getNamespace(), "item/" + itemLocation.getPath()));
+        if (baseModel != null) {
             if (!(item instanceof BlockItem)) {
                 context.logger().warn("Item {} has no layer0 texture, skipping", itemLocation);
                 return null;
@@ -412,26 +423,74 @@ public class ItemPackModule extends TexturePackModule<ItemPackModule> {
             return null;
         }
 
-        CompiledCompatibilityPlan blockPlan = this.compatibilityBlockPlan(context, blockItem);
-        if (blockPlan != null && !blockPlan.supportsBlockItemTextureFallback()) {
+        if (!allowBlockItemTextureFallback) {
             context.logger().warn("Item {} has no item model and no compatibility-backed block fallback, skipping", itemLocation);
             return null;
         }
 
         Identifier blockLocation = BuiltInRegistries.BLOCK.getKey(blockItem.getBlock());
-        Model blockModel = context.modelProvider().model(Key.key(blockLocation.getNamespace(), "block/" + blockLocation.getPath()));
+        Model blockModel = modelProvider.model(Key.key(blockLocation.getNamespace(), "block/" + blockLocation.getPath()));
         if (blockModel == null) {
             context.logger().warn("Item {} has no item model and block model {} is missing, skipping", itemLocation, blockLocation);
             return null;
         }
 
-        Model stitchedBlockModel = new ModelStitcher(context.modelProvider(), blockModel, packLogListener).stitch();
-        Key textureKey = primaryTexture(stitchedBlockModel);
-        if (textureKey == null) {
+        ResolvedItemTextureBinding blockBinding = resolveModelTextureBinding(modelProvider, blockModel, blockLocation.toString(), true, packLogListener);
+        if (blockBinding == null) {
             context.logger().warn("Item {} block model {} has no resolvable texture, skipping", itemLocation, blockLocation);
             return null;
         }
-        return new ItemTextureBinding(blockLocation.toString(), getOutputFromModel(context, textureKey), true);
+
+        return blockBinding;
+    }
+
+    static @Nullable ResolvedItemTextureBinding resolveTextureBindingCandidate(
+        @NotNull ModelStitcher.Provider modelProvider,
+        @NotNull PackLogListener packLogListener,
+        @NotNull Item item,
+        @NotNull Identifier itemLocation,
+        boolean allowBlockItemTextureFallback
+    ) {
+        Model baseModel = modelProvider.model(Key.key(itemLocation.getNamespace(), "item/" + itemLocation.getPath()));
+        if (baseModel != null) {
+            ResolvedItemTextureBinding itemBinding = resolveModelTextureBinding(modelProvider, baseModel, itemLocation.toString(), false, packLogListener);
+            if (itemBinding != null) {
+                return itemBinding;
+            }
+        }
+
+        if (!(item instanceof BlockItem blockItem) || !allowBlockItemTextureFallback) {
+            return null;
+        }
+
+        Identifier blockLocation = BuiltInRegistries.BLOCK.getKey(blockItem.getBlock());
+        Model blockModel = modelProvider.model(Key.key(blockLocation.getNamespace(), "block/" + blockLocation.getPath()));
+        if (blockModel == null) {
+            return null;
+        }
+
+        return resolveModelTextureBinding(modelProvider, blockModel, blockLocation.toString(), true, packLogListener);
+    }
+
+    static @Nullable ResolvedItemTextureBinding resolveModelTextureBinding(
+        @NotNull ModelStitcher.Provider modelProvider,
+        @NotNull Model baseModel,
+        @NotNull String sourceIdentifier,
+        boolean derivedFromBlockModel,
+        @NotNull PackLogListener packLogListener
+    ) {
+        Model stitchedModel = new ModelStitcher(modelProvider, baseModel, packLogListener).stitch();
+        Key textureKey = primaryTexture(stitchedModel);
+        if (textureKey == null) {
+            return null;
+        }
+
+        List<ModelTexture> layers = stitchedModel.textures().layers();
+        boolean directLayerTexture = layers != null
+            && !layers.isEmpty()
+            && layers.getFirst().key() != null
+            && layers.getFirst().key().equals(textureKey);
+        return new ResolvedItemTextureBinding(sourceIdentifier, textureKey, derivedFromBlockModel, directLayerTexture);
     }
 
     private boolean shouldUseBlockItemTextureBridge(@NotNull PackEventContext<GeyserDefineCustomItemsEvent, ItemPackModule> context, @NotNull BlockItem blockItem) {
@@ -504,5 +563,13 @@ public class ItemPackModule extends TexturePackModule<ItemPackModule> {
     }
 
     private record ItemTextureBinding(@NotNull String sourceIdentifier, @NotNull String outputLocation, boolean derivedFromBlockModel) {
+    }
+
+    record ResolvedItemTextureBinding(
+        @NotNull String sourceIdentifier,
+        @NotNull Key textureKey,
+        boolean derivedFromBlockModel,
+        boolean directLayerTexture
+    ) {
     }
 }

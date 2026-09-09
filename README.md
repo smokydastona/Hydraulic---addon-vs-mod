@@ -10,7 +10,7 @@ Hydraulic is an open collaboration project by [CubeCraft Games](https://cubecraf
 ## About This Fork
 This fork keeps the normal Hydraulic pack pipeline, but now adds a broader compatibility-analysis and metadata-patch layer on top of it.
 
-The goal is no longer just "JSON override a block." The fork now records typed compatibility evidence for discovered mod content, separates compatibility into content, presentation, state/data, interaction, and behavior domains, and lets metadata patches progressively refine the result.
+The fork now records typed compatibility evidence for discovered mod content, separates compatibility into content, presentation, state/data, interaction, and behavior domains, and lets metadata patches progressively refine the result.
 
 Right now this fork adds:
 - metadata-based block matching by Java block ID and optional Java state filters
@@ -220,6 +220,8 @@ Item preprocessing no longer depends on a full parsed `ResourcePack` item-defini
 That indexed modern item path now also degrades unsupported third-party item model schemas cleanly instead of surfacing them as preprocessing errors. On the current validated Fabric runtime with `citadelfabric-26.2-1.2.0.jar`, unsupported `citadel:custom_item_model` definitions are downgraded to explicit `ItemPackModule` warnings and legacy model fallback while pack conversion, server startup, and Geyser startup still complete.
 
 Item and bow post-processing now use that same indexed model-provider path for their runtime texture binding work. Item icon resolution, block-item model fallback texture resolution, and bow pulling-override model resolution now all query `context.modelProvider()` instead of asking the parsed Java `ResourcePack` for models directly. On the current validated Fabric runtime, that still converted both packs, generated the bow attachable for `hydraulic_test_mod:barrel_bow`, registered 16 custom items, kept both generated packs valid, and recorded `modelProviderCache.hits = 194` with `misses = 26`.
+
+The item pipeline now also reuses resolved item texture bindings across preprocess and postprocess instead of re-stitching the same item and block fallback models a second time during texture emission. That keeps current item classification behavior intact while pushing one more repeated provider-lookup seam out of the conversion hot path.
 
 The current compatibility report is now also compiled into a first in-memory runtime dispatch surface during startup. The first `CompiledCompatibilityPlan` slice covers block creative and placement decisions, item registration and creative exposure, armor and bow attachable presentation, metadata-backed custom entity registration, menu fallback translators, block-entity patch translators, first-class fluid plan lookup, the candidate indexes used by unsupported menu and block-entity runtime diagnostics, and precompiled state-aware block definition groupings plus per-state runtime metadata for block registration and block-item placement. The remaining block-item texture fallback decision path now also consumes compiled block plans instead of reading raw compatibility objects back out of the report during conversion. Current runtime bridges and warning paths now hit direct identifier-driven lookups or precompiled candidate lists instead of re-scanning compatibility profiles or metadata templates on each use.
 

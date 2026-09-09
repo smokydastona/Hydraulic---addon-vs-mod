@@ -15,6 +15,7 @@ The target is:
 
 - one discovery pass over mod and resource roots
 - one authoritative index shared by compatibility, conversion, validation, and caching
+- a versioned Bedrock addon corpus and knowledge pipeline that feeds compatibility evidence without leaking into hot runtime paths
 - typed compatibility data and compiled runtime plans
 - automatic resource generation for the visual layer
 - Hydraulic runtime bridges for interaction and behavior where assets are insufficient
@@ -200,6 +201,78 @@ The compatibility layer stays above the current Hydraulic conversion pipeline, b
 - Bound memory, not just thread count.
 - Prove optimization claims with artifacts and measurements.
 
+## Bedrock Addon Corpus Strategy
+
+The Bedrock addon corpus is part of the long-term compatibility substrate, but it is not a replacement for the universal index, metadata override layer, or compiled runtime plan.
+
+Its role is to maximize the pool of free, inspectable Bedrock addons Hydraulic can study, classify, rank, and reuse as compatibility evidence.
+
+### Source policy
+- Treat GitHub as the first-class source for inspectable Bedrock addons, scripts, GameTest projects, Script API projects, and reusable implementation patterns.
+- Treat CurseForge as a discovery and metadata source only unless a project links to an inspectable source repository with clear reuse terms.
+- Do not treat "free to download" as permission to incorporate code or assets.
+- Prefer evidence that can be inspected, versioned, diffed, and traced back to a stable repository or published source archive.
+
+### Corpus contract
+
+The corpus should normalize each addon into a typed record that can later feed compatibility analysis, reporting, ranking, and adapter planning.
+
+Minimum shape:
+
+```text
+AddonCorpusEntry
+  -> identity
+  -> source
+  -> license and admissibility
+  -> versions
+  -> behavior pack facts
+  -> resource pack facts
+  -> script and GameTest facts
+  -> blocks, items, entities, recipes
+  -> storage, machine, transfer, fluid, energy facts
+  -> UI and networking facts
+  -> dependencies
+  -> confidence
+  -> provenance
+  -> evidence pointers
+```
+
+The corpus should capture what an addon appears to do, how that conclusion was derived, and whether the evidence is strong enough to inform planning.
+
+### Storage and execution boundary
+
+The corpus must remain separate from the runtime metadata patch layer.
+
+Suggested layout:
+
+```text
+config/hydraulic/
+  corpus/
+    sources/
+    curated/
+    generated/
+  cache/
+    bedrock-addon-index/
+```
+
+- `config/hydraulic/corpus` is the stable, user-visible home for curated snapshots, source manifests, and generated knowledge artifacts.
+- `config/hydraulic/cache/bedrock-addon-index` is the compiled lookup surface Hydraulic can rehydrate quickly at startup.
+- External harvesting should publish versioned snapshots for Hydraulic to consume offline.
+- Hydraulic startup must not depend on live crawling, remote availability, or background scraping.
+
+### Hydraulic integration rules
+- Keep corpus ingestion in a dedicated shared subsystem rather than forcing external addon data into the existing metadata schema.
+- Treat corpus facts as advisory evidence by default.
+- Let metadata remain the explicit override layer when server owners need to assert or correct behavior.
+- Enrich reports and compatibility objects before letting corpus-backed facts influence compiled runtime plans.
+- Never allow bridge factories or hot runtime dispatch paths to consult the raw corpus directly.
+- Compile only stable, typed, validated corpus-backed decisions into the runtime dispatch table.
+
+### Evidence extraction priorities
+- Start with deterministic extraction from manifests, pack structure, Script API usage, GameTest usage, custom components, UI files, recipes, and declared content.
+- Keep heuristic classification explicit, scored, and reversible.
+- Rank common reusable patterns such as storage, machines, transfer, fluids, energy, automation, UI, and networking before investing in mod-specific adapters.
+
 ## Current State Summary
 
 ### What is already implemented
@@ -220,6 +293,7 @@ The compatibility layer stays above the current Hydraulic conversion pipeline, b
 - Item preprocessing no longer walks the full parsed item-definition asset set for a mod. Hydraulic now resolves indexed item asset paths per registered item, deserializes modern item definitions only when they exist, and falls back to lazy model-provider classification for legacy item-model assets.
 - That indexed modern item-definition path now also treats unsupported third-party schemas as a degradation case instead of a preprocessing failure. On the validated Citadel Fabric runtime, unsupported `citadel:custom_item_model` definitions now downgrade to targeted `ItemPackModule` warnings plus legacy model fallback, with pack conversion and server startup still succeeding.
 - Item and bow post-processing no longer resolve runtime texture-binding models through the parsed Java `ResourcePack`. Those post-process paths now resolve base item models, block fallback models, and bow override models through the shared indexed `ModelStitcher.Provider` as well, removing another remaining dependency on eager parsed-pack model lookup during conversion.
+- Item texture emission now also reuses per-item resolved texture bindings computed during preprocess, so the post-process texture stage no longer needs to restitch the same item models and block fallback models just to recover the same output texture keys.
 - Pack invalidation is no longer limited to a mod's own indexed fingerprint plus metadata. `ModResourceIndex` now records external namespaces referenced by model and equipment assets, and `ConversionKey` now folds the transitive fingerprints of dependent indexed mods into the persisted cache identity.
 - Typed compatibility data already exists:
   - `CompatibilityObject`
@@ -274,6 +348,7 @@ The compatibility layer stays above the current Hydraulic conversion pipeline, b
 - Live Fabric runtime validation now also confirms the next indexed block-pipeline step is live: pack conversion and custom block registration still complete after replacing the eager parsed-blockstate asset walk with indexed per-block blockstate loading, and both generated packs remain `valid = true` in `pack-validation-report.json`.
 - Live Fabric runtime validation now also confirms the adjacent item-pipeline reduction is live: pack conversion still completes, `hydraulic_test_mod` still registers 16 custom items, and the compatibility-backed block-item fallback path still triggers after replacing the eager parsed item-definition walk with indexed per-item loading.
 - Live Fabric runtime validation now also confirms the remaining item and bow post-process model lookups can ride the shared indexed model provider: a fresh `:fabric:runServer` still converted both packs, generated the bow attachable for `hydraulic_test_mod:barrel_bow`, registered 16 custom items, kept both packs `valid = true`, and recorded `modelProviderCache.hits = 194` with `misses = 26` in `performance-report.json`.
+- Live Fabric runtime validation now also confirms the adjacent item texture-binding reuse slice is live: with the Citadel fixture still present, `:fabric:runServer` converted all three packs, preserved the warning-only unsupported-schema fallback, kept the compatibility-backed `golden_barrel` block-item fallback path, and still registered 21 custom items through Geyser after moving repeated item texture binding work into preprocess.
 - Live Fabric runtime validation with `citadelfabric-26.2-1.2.0.jar` now also confirms unsupported indexed modern item schemas degrade cleanly: the old preprocessor exception path is gone, false deserialize error logs are suppressed, three Citadel item definitions fall back through warning-only handling, and conversion plus Geyser startup still complete.
 - Live Fabric runtime validation now also confirms the dependency-aware invalidation slice is live on the real storage path: Hydraulic rewrote per-mod `conversion-key.json` files with `HYDRAULIC_CONVERSION_KEY_V3`, persisted `dependencyFingerprint` and `dependentModCount`, and safely forced reconversion after the cache identity expanded to explicit resource-edge hashing.
 
@@ -894,6 +969,8 @@ config/hydraulic/metadata/
 ### Design rule
 Metadata is a patch layer over automatic analysis, not the primary mapping source.
 
+External Bedrock addon corpus snapshots must not become the primary contents of `metadata/`; they are a separate evidence source that may inform compatibility analysis and later compile into runtime plans.
+
 Example direction:
 
 ```json
@@ -1192,6 +1269,9 @@ Suggested outputs:
 
 - `compatibility-summary.json`
 - `compatibility-report.json`
+- `corpus-summary.json`
+- `corpus-admissibility-report.json`
+- `adapter-opportunity-report.json`
 - deep-audit inventory and dependency artifacts only when explicitly requested
 
 ### Validator role
@@ -1359,6 +1439,17 @@ org.geysermc.hydraulic.compat.knowledge
   KnowledgeEntry
   KnowledgeSource
   PatternClassifier
+
+org.geysermc.hydraulic.compat.corpus
+  AddonCorpus
+  AddonCorpusEntry
+  AddonCorpusSource
+  AddonCapabilityProfile
+  CorpusEvidence
+  CorpusIdentity
+  CorpusLoader
+  CorpusMatcher
+  CorpusIndex
 
 org.geysermc.hydraulic.compat.mapping
   ContentPatch
@@ -1530,6 +1621,9 @@ Exit criteria:
 Priority: high
 
 Build:
+- Bedrock addon corpus schema and admissibility model
+- offline GitHub-first corpus pipeline plus CurseForge discovery metadata ingestion
+- corpus snapshot loader, matcher, and compiled corpus index
 - `CompatibilityKnowledge`
 - pattern classifiers
 - machine archetype detection
@@ -1539,6 +1633,10 @@ Build:
 
 Exit criteria:
 - the engine learns reusable patterns rather than only accumulating mod names
+- corpus snapshots can be loaded offline, matched deterministically, and used to enrich compatibility reporting without direct runtime lookups
+
+Phase note:
+- corpus contract, source-policy, and harvesting work can begin earlier, but Hydraulic consumption belongs here after the typed bridge and compiled-plan seams are stable enough to accept external evidence safely
 
 ## Phase 7: Mod-Specific Adapters
 Priority: high
@@ -1584,11 +1682,14 @@ Use the live Hydraulic repo and its runtime artifacts as the control document fo
 6. deepen the resource IR, model dependency graph, and texture dependency graph
 7. compile block-state and metadata-heavy paths into compact runtime structures
 8. widen generic bridges for menus, block entities, machines, fluids, and transfer systems; block-entity patch translation now also carries explicit Java-tag copies, and runtime bridge requirements now compile into typed categories, but richer behavior bridges are still missing
-9. add knowledge and classifier layers after generalized bridge seams exist
-10. add mod-specific adapters after the substrate is stable
-11. expand pack delivery and CI-scale compatibility matrices
+9. publish and ingest versioned Bedrock addon corpus snapshots as offline evidence; keep GitHub as the primary inspectable source, keep CurseForge as discovery metadata unless linked source exists, and keep raw corpus access out of hot runtime paths
+10. add knowledge and classifier layers after generalized bridge seams exist
+11. add mod-specific adapters after the substrate is stable
+12. expand pack delivery and CI-scale compatibility matrices
 
 This order is intentional. Do not start writing dozens of adapters before the universal index, cache, and compiled runtime plan exist.
+
+The Bedrock addon corpus can begin earlier as an external schema and harvesting effort, but it must not short-circuit the execution order above by becoming a direct runtime dependency.
 
 ### Current execution anchors
 - `shared/src/main/java/org/geysermc/hydraulic/pack/PackManager.java`
@@ -1608,6 +1709,9 @@ This order is intentional. Do not start writing dozens of adapters before the un
 - use the live repo and runtime artifacts as truth over older prose
 - replace duplicated discovery before widening compatibility breadth
 - compile flexible metadata before using it in runtime paths
+- treat the Bedrock addon corpus as offline evidence, not as a live runtime dependency
+- keep GitHub first-class for inspectable sources and treat CurseForge as discovery metadata unless a source repo is present
+- never treat downloadable or free addon pages as proof of reuse rights
 - treat Geyser runtime and pack-delivery constraints as hard architectural inputs
 - keep README and this plan aligned with what was actually validated
 
@@ -1619,6 +1723,7 @@ The best next implementation slice from the current repo state is:
 2. consume the new typed runtime bridge categories in additional bridge factories and dispatch tables so transfer-heavy, fluid, and richer interaction paths stop depending on ad hoc requirement-string interpretation
 3. turn current analyzer/runtime requirement output for transfer-heavy and fluid behavior into actual bridge adapters instead of reporting-only findings
 4. keep narrowing cache invalidation and runtime lookup surfaces only where fresh runtime evidence shows remaining broad scans or coarse dependencies
+5. in parallel, lock the Bedrock addon corpus contract, source admissibility rules, storage roots, and report outputs without wiring raw corpus data into runtime behavior yet
 
 The indexed model-conversion slice, the first broader texture-read slice, the first dependency-aware invalidation slice, the first explicit resource-edge invalidation slice, the first diagnostic precompilation slice, the first compiled block-state registration slice, the first structural texture-coverage validation slice, the first live Java-tag block-entity patch copy slice, the first list-aware Java-tag block-entity traversal slice, the first explicit analyzer-registry slice, the typed menu-fallback compile slice, and the typed runtime-bridge category slice are now all shipped. The next smallest slice is consuming those typed bridge categories in real transfer-heavy and deeper behavior paths, because the cache, validation, and indexed-discovery substrate is now strong enough that the remaining hot-path flexibility sits more in those richer runtime decisions than in the already-compiled menu, block-entity, block-state, dependency-invalidation, pack-validation, analyzer-routing, and typed bridge-classification seams.
 
@@ -1634,6 +1739,8 @@ The indexed model-conversion slice, the first broader texture-read slice, the fi
 - Do not pivot into hand-authoring hundreds of per-mod JSON files as the main strategy.
 - Do not let generated metadata overwrite server-owner or user intent.
 - Do not let one failed asset or unsupported mechanic abort the whole modpack conversion.
+- Do not make Hydraulic startup depend on crawling GitHub, CurseForge, or any other remote addon source.
+- Do not treat free download pages as proof that code or assets may be incorporated or redistributed.
 - Do not recreate Geyser's base knowledge when Hydraulic can consume it.
 - Do not describe Hydraulic as a direct Forge jar to Fabric jar converter.
 - Do not attempt full Forge or NeoForge API emulation inside Hydraulic's Bedrock compatibility layer.
@@ -1668,3 +1775,5 @@ automatic
 
 The true skeleton-key goal is not to turn every Java mod into an independent Bedrock add-on.
 It is to let Bedrock clients participate in a Java mod ecosystem while the Java server remains authoritative and Hydraulic supplies the missing visual, semantic, and interaction bridge layers.
+
+The Bedrock addon corpus supports that goal by supplying reusable evidence, capability patterns, licensing-aware source intelligence, and adapter-prioritization data without replacing Hydraulic's Java-side authority or its compiled runtime bridge architecture.
