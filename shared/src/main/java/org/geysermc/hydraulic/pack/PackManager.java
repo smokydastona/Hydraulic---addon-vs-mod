@@ -83,6 +83,7 @@ public class PackManager {
     private final PerformanceReportTracker performanceTracker;
     private final PackValidationTracker packValidationTracker;
     private final ArtifactCache artifactCache;
+    private final TextureResolutionCache textureResolutionCache = new TextureResolutionCache();
     private final PackValidator packValidator = new PackValidator();
     private final List<PackModule<?>> modules = new ArrayList<>();
 
@@ -186,6 +187,7 @@ public class PackManager {
             this.metadataIndex.summary().validationIssueCount()
         ));
         this.recordModelProviderMetrics();
+        this.recordTextureResolutionMetrics();
         this.recordArtifactCacheMetrics();
 
         this.packConverters = new ArrayList<>(AssetConverters.converters(hydraulic.isDev()));
@@ -291,6 +293,7 @@ public class PackManager {
             this.packValidationTracker.record(mod.id(), validation);
             this.performanceTracker.recordModelResolutionCache(toPerformanceCacheMetrics(StateDefinition.cacheMetrics()));
             this.recordModelProviderMetrics();
+            this.recordTextureResolutionMetrics();
             return new PackCreationResult(false, validation);
         }
 
@@ -308,6 +311,7 @@ public class PackManager {
             this.packValidationTracker.record(mod.id(), validation);
             this.performanceTracker.recordModelResolutionCache(toPerformanceCacheMetrics(StateDefinition.cacheMetrics()));
             this.recordModelProviderMetrics();
+            this.recordTextureResolutionMetrics();
             return new PackCreationResult(false, validation);
         }
 
@@ -325,6 +329,7 @@ public class PackManager {
         }
         this.performanceTracker.recordModelResolutionCache(toPerformanceCacheMetrics(StateDefinition.cacheMetrics()));
         this.recordModelProviderMetrics();
+        this.recordTextureResolutionMetrics();
         return new PackCreationResult(created && validation.valid(), validation);
     }
 
@@ -574,6 +579,16 @@ public class PackManager {
         }
     }
 
+    public void recordTextureResolutionMetrics() {
+        TextureResolutionCache.CacheMetrics metrics = this.textureResolutionCache.metrics();
+        this.performanceTracker.recordTextureResolutionCache(new PerformanceReport.TextureResolutionMetrics(
+            metrics.hits(),
+            metrics.misses(),
+            metrics.evictions(),
+            metrics.size()
+        ));
+    }
+
     void recordConversionCacheUsage(long hits, long misses) {
         this.conversionCacheHits += hits;
         this.conversionCacheMisses += misses;
@@ -583,6 +598,11 @@ public class PackManager {
     @NotNull
     ArtifactCache artifactCache() {
         return this.artifactCache;
+    }
+
+    @NotNull
+    TextureResolutionCache textureResolutionCache() {
+        return this.textureResolutionCache;
     }
 
     private void recordArtifactCacheMetrics() {

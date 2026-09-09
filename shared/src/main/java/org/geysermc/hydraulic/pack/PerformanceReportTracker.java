@@ -38,6 +38,11 @@ final class PerformanceReportTracker {
         this.report = this.report.withModelProviderCache(metrics);
         this.write();
     }
+    
+    synchronized void recordTextureResolutionCache(@NotNull PerformanceReport.TextureResolutionMetrics textureResolutionCache) {
+        this.report = this.report.withTextureResolutionCache(textureResolutionCache);
+        this.write();
+    }
 
     synchronized void recordArtifactCache(@NotNull PerformanceReport.ArtifactCacheMetrics metrics) {
         this.report = this.report.withArtifactCache(metrics);

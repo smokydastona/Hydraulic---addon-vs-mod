@@ -211,6 +211,7 @@ The compatibility layer stays above the current Hydraulic conversion pipeline, b
 - A first-class cache layout now exists under `config/hydraulic/cache` for index, compatibility, conversion, validation, and manifest artifacts. Compatibility inventory and report output can now be reused from cache when indexed mod fingerprints and metadata state are unchanged, while conversion and validation outputs are mirrored into the same artifact tree.
 - Model lookup is no longer built from an eager all-model startup flattening pass. `ModResourceIndex` now records generic model file paths, and `IndexedModelProvider` lazily deserializes mod and vanilla models on demand through a bounded cache with negative caching for missing entries.
 - The cached index snapshot now rehydrates live `ModResourceIndex` instances on repeat startup when mod roots, indexed files, and indexed directories are unchanged, so the index cache is now a real execution shortcut rather than metrics-only persistence.
+- Texture output resolution for item, bow, and block conversion no longer recomputes identical Bedrock texture paths at every call site. A shared bounded `TextureResolutionCache` now sits behind `TexturePackModule` and records hit, miss, eviction, and size evidence in `performance-report.json`.
 - Typed compatibility data already exists:
   - `CompatibilityObject`
   - `CapabilityProfile`
@@ -237,11 +238,13 @@ The compatibility layer stays above the current Hydraulic conversion pipeline, b
 - Live Fabric runtime validation now shows the model-provider startup slice is effectively reduced to indexed setup cost rather than eager model deserialization; the current run recorded `modelIndexBuildMillis = 6` while pack conversion and Geyser registration still completed.
 - The runtime artifact now also records lazy model-provider hit, miss, eviction, size, and indexed-model counts, so bounded on-demand model behavior is measurable instead of inferred.
 - Live Fabric runtime validation now also shows real index rehydration on unchanged startup; the current dev run reported `artifactCache.index.hits = 2` and `misses = 2`, which matches partial reuse for filesystem-backed mod roots while dev-time virtual roots safely fall back to rebuild.
+- Live Fabric runtime validation now also shows shared texture-resolution cache reuse during conversion; the current dev run reported `textureResolutionCache.hits = 5`, `misses = 15`, and `evictions = 0`, proving repeated item, bow, and block texture-output resolution is now observable and already benefits from central reuse.
 
 ### What is still too narrow
 - Discovery is still duplicated across multiple subsystems.
 - Fingerprinting and cache invalidation are still too coarse.
 - Resource-pack reading and broader resource resolution are still too eager even though model loading is now lazy and bounded.
+- Texture-path reuse is now centralized and measured, but actual texture conversion still walks all discovered textures because the texture dependency graph and selective conversion layers are not built yet.
 - Runtime dispatch still scales too much by scanning modules and mods instead of direct identifier lookup.
 - Compatibility analysis still reconstructs facts too often and still depends on repeated asset discovery.
 - Non-block compatibility remains shallower than the block path.
@@ -1400,6 +1403,7 @@ Current status:
 - A first-class artifact cache layout now persists index, compatibility, conversion, and validation artifacts, and compatibility output can already be reused by cache key across repeat startup when the indexed mod/resource and metadata fingerprints match.
 - Model lookup now uses indexed file-path resolution plus lazy deserialization through a bounded `IndexedModelProvider`, so startup no longer eagerly builds a global parsed model map before conversion begins.
 - The index itself can now be rehydrated from cache on unchanged startup by validating stored mod roots, indexed files, and indexed directories instead of rewalking the resource tree.
+- Shared texture-output resolution now uses a bounded cache in the conversion path, and the performance artifact records its hit/miss/eviction evidence alongside the model-provider cache.
 - Phase 1 is still incomplete because dependency tracking is not yet modeled beyond the current resource and metadata fingerprints, and broader universal-index boundaries have not yet been split out from `ModResourceIndex`.
 
 ## Phase 2: Artifact Cache And Lazy Loading
@@ -1528,7 +1532,7 @@ Use the live Hydraulic repo and its runtime artifacts as the control document fo
 1. replace duplicated discovery with a universal index
 2. replace full-tree pack UUID hashing with incremental persistent fingerprints
 3. add a first-class artifact cache and precise conversion keys
-4. move model loading to lazy indexed access, then widen that approach to the remaining resource categories
+4. move model loading to lazy indexed access, then widen that approach to the remaining resource categories; the first shared texture-resolution cache slice is now shipped, but texture conversion itself is still eager
 5. compile compatibility decisions into runtime plans and direct dispatch tables
 6. deepen the resource IR, model dependency graph, and texture dependency graph
 7. compile block-state and metadata-heavy paths into compact runtime structures
@@ -1564,12 +1568,12 @@ This order is intentional. Do not start writing dozens of adapters before the un
 
 The best next implementation slice from the current repo state is:
 
-1. promote the current cached index snapshot into true index rehydration with dependency-aware invalidation instead of persistence-only storage
-2. extend `performance-report.json` with stage-level cache hit and miss evidence for texture resolution and adjacent lazy resource paths beyond the current model provider and runtime dispatch surfaces
-3. widen lazy indexed access beyond models into broader texture and resource resolution paths that still eagerly deserialize pack data
+1. widen the current texture-resolution slice from cached output-path reuse into a real texture dependency graph so conversion only transforms textures that compiled models and attachables actually require
+2. push lazy indexed access past model paths into broader texture and adjacent resource reads that still eagerly deserialize pack data
+3. make cache invalidation dependency-aware rather than only root/file/directory fingerprint-aware
 4. widen the compiled-plan surface from current registration and patch seams into richer block-state, menu, block-entity, and transfer-bridge runtime tables
 
-This is now the smallest next slice that builds on shipped index rehydration and lazy model loading while continuing the Phase 1 and Phase 3 substrate work toward the skeleton-key goal.
+This is now the smallest next slice that builds on shipped index rehydration, lazy model loading, and measured texture-path reuse while continuing the Phase 1 and Phase 3 substrate work toward the skeleton-key goal.
 
 ## What Not To Do
 - Do not keep extending `BlockStateRule` with every future concern.

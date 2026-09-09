@@ -46,6 +46,7 @@ import org.geysermc.hydraulic.metadata.BlockMapping;
 import org.geysermc.hydraulic.metadata.BlockStateRule;
 import org.geysermc.hydraulic.pack.PackLogListener;
 import org.geysermc.hydraulic.pack.PackModule;
+import org.geysermc.hydraulic.pack.TexturePackModule;
 import org.geysermc.hydraulic.pack.context.PackContext;
 import org.geysermc.hydraulic.pack.context.PackEventContext;
 import org.geysermc.hydraulic.pack.context.PackPostProcessContext;
@@ -82,7 +83,7 @@ import java.util.function.BiFunction;
 
 @SuppressWarnings("rawtypes")
 @AutoService(PackModule.class)
-public class BlockPackModule extends PackModule<BlockPackModule> {
+public class BlockPackModule extends TexturePackModule<BlockPackModule> {
     private static final String STATE_CONDITION = "query.block_property('%s') == %s";
 
     private final Map<String, StateDefinition> blockStates = new HashMap<>();
@@ -174,7 +175,7 @@ public class BlockPackModule extends PackModule<BlockPackModule> {
             if (value.startsWith("block/")) {
                 String cleanPath = value.replace("block/", "").replace(".png", "");
 
-                String outputLoc = String.format(Constants.BEDROCK_TEXTURE_LOCATION, "blocks/" + context.mod().id() + "/" + cleanPath).replace(".png", "");
+                String outputLoc = getOutputFromBlockTexture(context, key).replace(".png", "");
                 String id = key.namespace() + ":" + cleanPath;
                 bedrockPack.addBlockTexture(id, outputLoc);
 
