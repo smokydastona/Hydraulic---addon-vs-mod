@@ -40,15 +40,7 @@ val mergedConfigurateInterfaceMappings = layout.projectDirectory.file("src/main/
 
 tasks.processResources {
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
-}
-
-val syncConfigurateInterfaceMappings = tasks.register<Sync>("syncConfigurateInterfaceMappings") {
     from(mergedConfigurateInterfaceMappings)
-    into(layout.buildDirectory.dir("classes/java/main/org/spongepowered/configurate/interfaces"))
-}
-
-tasks.classes {
-    dependsOn(syncConfigurateInterfaceMappings)
 }
 
 tasks.jar {
