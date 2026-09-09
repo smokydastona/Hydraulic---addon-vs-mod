@@ -4,6 +4,7 @@ import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.level.material.Fluid;
+import net.minecraft.world.level.material.FlowingFluid;
 import org.geysermc.hydraulic.compat.ContentInventory;
 import org.geysermc.hydraulic.compat.capability.Capability;
 import org.geysermc.hydraulic.compat.capability.CapabilityDomain;
@@ -19,6 +20,7 @@ import org.geysermc.hydraulic.compat.model.SupportResult;
 import org.geysermc.hydraulic.metadata.MetadataIndex;
 import org.jetbrains.annotations.NotNull;
 
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -32,8 +34,9 @@ public final class FluidAnalyzer implements CompatibilityAnalyzer {
     @Override
     public @NotNull CompatibilityObject analyze(@NotNull ContentInventory.ContentDescriptor descriptor, @NotNull ContentInventory.ModContentInventory inventory, @NotNull MetadataIndex metadataIndex) {
         Identifier identifier = Identifier.parse(descriptor.javaIdentifier());
-        List<ContentPatch> patches = metadataIndex.contentPatches(identifier);
         Fluid fluid = BuiltInRegistries.FLUID.getValue(identifier);
+        Identifier sourceFluid = sourceFluid(fluid);
+        List<ContentPatch> patches = patches(identifier, sourceFluid, metadataIndex);
         Identifier bucketItem = bucketItem(fluid);
         String bucketTexture = patches.stream()
             .map(patch -> patch.operation("visual.bucket_texture"))
@@ -74,6 +77,9 @@ public final class FluidAnalyzer implements CompatibilityAnalyzer {
         if (bucketTexture != null) {
             inventoryFacts.put("bucket_texture", bucketTexture);
         }
+        if (sourceFluid != null && !sourceFluid.equals(identifier)) {
+            inventoryFacts.put("source_fluid", sourceFluid.toString());
+        }
 
         return AnalyzerSupport.object(
             descriptor.javaIdentifier(),
@@ -100,5 +106,39 @@ public final class FluidAnalyzer implements CompatibilityAnalyzer {
 
         Identifier bucketIdentifier = BuiltInRegistries.ITEM.getKey(bucket);
         return bucketIdentifier != null && !BuiltInRegistries.ITEM.getDefaultKey().equals(bucketIdentifier) ? bucketIdentifier : null;
+    }
+
+    private static Identifier sourceFluid(Fluid fluid) {
+        if (!(fluid instanceof FlowingFluid flowingFluid)) {
+            return null;
+        }
+
+        Fluid source = flowingFluid.getSource();
+        if (source == null || source == fluid) {
+            return null;
+        }
+
+        Identifier sourceIdentifier = BuiltInRegistries.FLUID.getKey(source);
+        return sourceIdentifier != null && !BuiltInRegistries.FLUID.getDefaultKey().equals(sourceIdentifier) ? sourceIdentifier : null;
+    }
+
+    private static List<ContentPatch> patches(Identifier identifier, Identifier sourceFluid, MetadataIndex metadataIndex) {
+        if (sourceFluid == null || sourceFluid.equals(identifier)) {
+            return metadataIndex.contentPatches(identifier);
+        }
+
+        List<ContentPatch> localPatches = metadataIndex.contentPatches(identifier);
+        List<ContentPatch> sourcePatches = metadataIndex.contentPatches(sourceFluid);
+        if (localPatches.isEmpty()) {
+            return sourcePatches;
+        }
+        if (sourcePatches.isEmpty()) {
+            return localPatches;
+        }
+
+        List<ContentPatch> merged = new ArrayList<>(localPatches.size() + sourcePatches.size());
+        merged.addAll(localPatches);
+        merged.addAll(sourcePatches);
+        return List.copyOf(merged);
     }
 }
