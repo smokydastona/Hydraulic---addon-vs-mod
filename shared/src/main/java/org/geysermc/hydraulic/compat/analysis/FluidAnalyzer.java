@@ -44,23 +44,27 @@ public final class FluidAnalyzer implements CompatibilityAnalyzer {
             .findFirst()
             .orElse(null);
         boolean bucketBridgeAvailable = bucketItem != null && bucketTexture != null;
+        boolean transferDeclared = patches.stream().anyMatch(patch -> patch.hasOperationPrefix("transfer."));
 
         Capability registered = AnalyzerSupport.capability(CapabilityDomain.CONTENT, "registered", "Fluid exists in the Java registry.");
         Capability presentation = AnalyzerSupport.capability(CapabilityDomain.PRESENTATION, "fluid_presentation", "Fluid has explicit presentation patch data.");
         Capability interaction = AnalyzerSupport.capability(CapabilityDomain.INTERACTION, "fluid_interaction", "Fluid interactions are implemented on Bedrock.");
         Capability behavior = AnalyzerSupport.capability(CapabilityDomain.BEHAVIOR, "runtime_behavior", "Fluid runtime behavior is represented on Bedrock.");
+        Capability fluidTransfer = AnalyzerSupport.capability(CapabilityDomain.BEHAVIOR, "fluid_transfer", "Fluid transfer capabilities are available for this fluid.");
 
         List<CapabilityRequirement> requirements = List.of(
             AnalyzerSupport.required(registered),
             AnalyzerSupport.required(presentation),
             AnalyzerSupport.required(interaction),
-            AnalyzerSupport.required(behavior)
+            AnalyzerSupport.required(behavior),
+            AnalyzerSupport.optional(fluidTransfer)
         );
         List<CapabilityResult> results = List.of(
             AnalyzerSupport.result(registered, descriptor.registered(), "Registry lookup from BuiltInRegistries.FLUID."),
             AnalyzerSupport.result(presentation, bucketBridgeAvailable, bucketBridgeAvailable ? "Metadata patch declares a bucket icon fallback that reuses the existing bucket item registration path." : "Fluid presentation bridge fields are not implemented for this fluid yet."),
             AnalyzerSupport.result(interaction, false, "Fluid bridges are not implemented yet."),
-            AnalyzerSupport.result(behavior, false, "Fluid behavior generation is not implemented yet.")
+            AnalyzerSupport.result(behavior, false, "Fluid behavior generation is not implemented yet."),
+            AnalyzerSupport.result(fluidTransfer, !transferDeclared, transferDeclared ? "Metadata declares fluid transfer semantics that require a runtime bridge." : "No fluid transfer semantics were declared for this fluid.")
         );
 
         CapabilityProfile profile = new CapabilityProfile(descriptor.javaIdentifier(), requirements, results);
@@ -69,6 +73,7 @@ public final class FluidAnalyzer implements CompatibilityAnalyzer {
         supportResults.put("presentation", AnalyzerSupport.support("presentation", bucketBridgeAvailable ? SupportLevel.ADAPTED : SupportLevel.UNSUPPORTED, List.of(results.get(1)), List.of(bucketBridgeAvailable ? "Fluid presentation can currently reuse an explicit metadata-backed bucket icon fallback." : "Fluid presentation awaits a translator or an explicit bucket bridge field.")));
         supportResults.put("interaction", AnalyzerSupport.support("interaction", SupportLevel.UNSUPPORTED, List.of(results.get(2)), List.of("No runtime fluid compatibility layer exists today.")));
         supportResults.put("behavior", AnalyzerSupport.support("behavior", SupportLevel.UNSUPPORTED, List.of(results.get(3)), List.of("Fluid behavior generation is not implemented.")));
+        supportResults.put("transfer", AnalyzerSupport.support("transfer", transferDeclared ? SupportLevel.UNSUPPORTED : SupportLevel.NATIVE, List.of(results.get(4)), List.of(transferDeclared ? "Fluid transfer semantics require a runtime bridge." : "No fluid transfer bridge is required.")));
 
         Map<String, String> inventoryFacts = AnalyzerSupport.inventoryFacts(descriptor.registered(), descriptor.assetPresent(), 0, patches.size());
         if (bucketItem != null) {
@@ -81,6 +86,19 @@ public final class FluidAnalyzer implements CompatibilityAnalyzer {
             inventoryFacts.put("source_fluid", sourceFluid.toString());
         }
 
+        List<String> runtimeRequirements = new ArrayList<>();
+        if (bucketBridgeAvailable) {
+            runtimeRequirements.add("fluid.bucket_texture_fallback");
+        } else {
+            runtimeRequirements.add("fluid_translator");
+        }
+        if (!results.get(3).supported()) {
+            runtimeRequirements.add("fluid_runtime_bridge");
+        }
+        if (transferDeclared && !results.get(4).supported()) {
+            runtimeRequirements.add("fluid_transfer_bridge");
+        }
+
         return AnalyzerSupport.object(
             descriptor.javaIdentifier(),
             descriptor.kind(),
@@ -88,6 +106,7 @@ public final class FluidAnalyzer implements CompatibilityAnalyzer {
             inventoryFacts,
             profile,
             supportResults,
+            runtimeRequirements,
             new Confidence(bucketBridgeAvailable ? 0.42D : !patches.isEmpty() ? 0.2D : 0.12D, bucketBridgeAvailable ? "Fluid analysis is registry-backed with an explicit metadata-backed bucket icon fallback." : "Fluid analysis is currently registry-backed with optional patch evidence only."),
             AnalyzerSupport.provenance(this.getClass().getSimpleName(), !patches.isEmpty(), patches, List.of()),
             List.of(new CompatibilityFinding("fluid.bridge.partial", CompatibilityFinding.Severity.WARNING, bucketBridgeAvailable ? "behavior" : "presentation", "Fluid support is partial for " + descriptor.javaIdentifier(), bucketBridgeAvailable ? "Hydraulic can reuse an explicit bucket icon fallback for this fluid, but world translation and runtime behavior are still missing." : "Fluids still require dedicated translators and bridges.", "Implement fluid translators and runtime bridges before treating fluid support as functional.", null))

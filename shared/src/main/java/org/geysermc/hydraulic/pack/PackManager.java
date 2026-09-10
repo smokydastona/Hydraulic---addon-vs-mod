@@ -23,9 +23,19 @@ import org.geysermc.hydraulic.compat.CompatibilityManager;
 import org.geysermc.hydraulic.compat.CompatibilityRegistry;
 import org.geysermc.hydraulic.compat.CompatibilityReport;
 import org.geysermc.hydraulic.compat.MappingResolver;
+import org.geysermc.hydraulic.compat.adapter.AdapterCatalog;
+import org.geysermc.hydraulic.compat.adapter.AdapterCatalogCache;
+import org.geysermc.hydraulic.compat.corpus.AddonCorpusLoader;
+import org.geysermc.hydraulic.compat.corpus.CorpusReportWriter;
+import org.geysermc.hydraulic.compat.handoff.CompatibilityHandoffExporter;
+import org.geysermc.hydraulic.compat.handoff.CompatibilityHandoffQueue;
+import org.geysermc.hydraulic.compat.handoff.HandoffEnvelope;
 import org.geysermc.hydraulic.metadata.MetadataIndex;
 import org.geysermc.hydraulic.metadata.MetadataLoader;
 import org.geysermc.hydraulic.item.EquipmentAssetLoader;
+import org.geysermc.hydraulic.pack.index.UniversalResourceIndex;
+import org.geysermc.hydraulic.pack.index.LazyBlockstateProvider;
+import org.geysermc.hydraulic.pack.index.LazyItemDefinitionProvider;
 import org.geysermc.hydraulic.pack.context.PackEventContext;
 import org.geysermc.hydraulic.pack.context.PackPostProcessContext;
 import org.geysermc.hydraulic.pack.context.PackPreProcessContext;
@@ -90,6 +100,11 @@ public class PackManager {
     private final PerformanceReportTracker performanceTracker;
     private final PackValidationTracker packValidationTracker;
     private final ArtifactCache artifactCache;
+    private final AdapterCatalogCache adapterCatalogCache;
+    private final CompatibilityHandoffQueue handoffQueue;
+    private final CompatibilityHandoffExporter handoffExporter;
+    private final AddonCorpusLoader corpusLoader;
+    private final CorpusReportWriter corpusReportWriter;
     private final TextureResolutionCache textureResolutionCache = new TextureResolutionCache();
     private final PackValidator packValidator = new PackValidator();
     private final List<PackModule<?>> modules = new ArrayList<>();
@@ -102,6 +117,9 @@ public class PackManager {
     private MetadataIndex metadataIndex = MetadataIndex.empty();
     private CompatibilityRegistry compatibilityRegistry = CompatibilityRegistry.empty();
     private CompatibilityManager compatibilityManager;
+    private UniversalResourceIndex universalResourceIndex;
+    private LazyBlockstateProvider lazyBlockstateProvider;
+    private LazyItemDefinitionProvider lazyItemDefinitionProvider;
     private long indexCacheHits;
     private long indexCacheMisses;
     private long compatibilityCacheHits;
@@ -121,6 +139,13 @@ public class PackManager {
         this.performanceTracker = new PerformanceReportTracker(LOGGER, hydraulic.dataFolder(Constants.MOD_ID).resolve("reports/performance-report.json"));
         this.packValidationTracker = new PackValidationTracker(LOGGER, hydraulic.dataFolder(Constants.MOD_ID).resolve("reports/pack-validation-report.json"));
         this.artifactCache = new ArtifactCache(LOGGER, hydraulic.dataFolder(Constants.MOD_ID).resolve("cache"));
+        this.adapterCatalogCache = new AdapterCatalogCache(LOGGER, hydraulic.dataFolder(Constants.MOD_ID).resolve("cache"));
+        Path cachePath = hydraulic.dataFolder(Constants.MOD_ID).resolve("cache");
+        this.handoffQueue = new CompatibilityHandoffQueue(LOGGER, cachePath);
+        this.handoffExporter = new CompatibilityHandoffExporter(LOGGER, this.handoffQueue, cachePath);
+        Path dataPath = hydraulic.dataFolder(Constants.MOD_ID);
+        this.corpusLoader = new AddonCorpusLoader(LOGGER, dataPath);
+        this.corpusReportWriter = new CorpusReportWriter(LOGGER, dataPath);
     }
 
     /**
@@ -128,18 +153,37 @@ public class PackManager {
      */
     public void initialize() {
         this.artifactCache.ensureLayout();
+        this.adapterCatalogCache.ensureLayout();
+        this.handoffQueue.ensureLayout();
+        this.handoffQueue.loadQueueState();
+        this.handoffExporter.scheduleRetryProcessing();
+        this.corpusLoader.ensureLayout();
+        this.corpusLoader.loadIndex();
+        this.corpusReportWriter.writeReports(this.corpusLoader.index(), this.corpusLoader.loadAdmissibleEntries());
         long resourceIndexStarted = System.nanoTime();
         LookupSummary lookupSummary = initializeModLookups();
         long indexedResourcesMillis = nanosToMillis(System.nanoTime() - resourceIndexStarted);
         this.artifactCache.storeIndexSnapshot(ArtifactCache.IndexSnapshot.from(this.hydraulic.mods(), this.modResourceIndexes));
+        
+        // Build universal resource index from mod indexes
+        this.universalResourceIndex = UniversalResourceIndex.fromLookups(
+            this.modResourceIndexes,
+            this.namespacesToMods,
+            this.modsToBlocks,
+            this.modsToItems
+        );
+
+        // Initialize lazy resource providers
+        this.lazyBlockstateProvider = new LazyBlockstateProvider(this.modResourceIndexes, LOGGER, 200);
+        this.lazyItemDefinitionProvider = new LazyItemDefinitionProvider(this.modResourceIndexes, LOGGER, 200);
 
         long metadataLoadStarted = System.nanoTime();
         this.metadataIndex = new MetadataLoader(LOGGER).load(this.hydraulic.dataFolder(Constants.MOD_ID).resolve("metadata"));
         long metadataLoadMillis = nanosToMillis(System.nanoTime() - metadataLoadStarted);
 
         long compatibilityStarted = System.nanoTime();
-        ArtifactCache.CompatibilityCacheKey compatibilityCacheKey = this.compatibilityCacheKey();
-        initializeCompatibilityRegistry(compatibilityCacheKey);
+        ArtifactCache.StartupCompatibilityKey startupCompatibilityKey = this.startupCompatibilityKey();
+        initializeCompatibilityRegistry(startupCompatibilityKey);
         long compatibilityInitializationMillis = nanosToMillis(System.nanoTime() - compatibilityStarted);
 
         try {
@@ -482,7 +526,7 @@ public class PackManager {
         );
     }
 
-    private void initializeCompatibilityRegistry(@NotNull ArtifactCache.CompatibilityCacheKey cacheKey) {
+    private void initializeCompatibilityRegistry(@NotNull ArtifactCache.StartupCompatibilityKey cacheKey) {
         Path dataPath = this.hydraulic.dataFolder(Constants.MOD_ID);
         Path metadataPath = dataPath.resolve("metadata");
         this.compatibilityManager = new CompatibilityManager(LOGGER, dataPath);
@@ -567,8 +611,32 @@ public class PackManager {
         if (this.compatibilityManager != null) {
             this.compatibilityManager.writeReport(updatedReport);
         }
-        this.artifactCache.storeValidationArtifact(validationReport, this.compatibilityCacheKey().value());
+        this.artifactCache.storeValidationArtifact(validationReport, this.startupCompatibilityKey().value());
         this.recordArtifactCacheMetrics();
+
+        // Enqueue compatibility report for handoff (non-blocking)
+        enqueueCompatibilityHandoff(updatedReport);
+    }
+
+    private void enqueueCompatibilityHandoff(@NotNull CompatibilityReport report) {
+        try {
+            ArtifactCache.CompatibilityManifest manifest = this.compatibilityManifest(this.startupCompatibilityKey());
+            HandoffEnvelope envelope = HandoffEnvelope.create(
+                manifest,
+                this.compatibilityRegistry.inventory(),
+                report,
+                Constants.VERSION,
+                SharedConstants.getCurrentVersion().id(),
+                resolveBedrockProtocolVersion(),
+                resolveGeyserVersion()
+            );
+            if (this.handoffQueue.enqueue(report, envelope)) {
+                LOGGER.info("Enqueued compatibility report for handoff (trackingId={})", envelope.trackingId());
+                this.handoffExporter.scheduleRetryProcessing();
+            }
+        } catch (Exception e) {
+            LOGGER.error("Failed to enqueue compatibility report for handoff", e);
+        }
     }
 
     @NotNull
@@ -656,23 +724,34 @@ public class PackManager {
     }
 
     @NotNull
-    ArtifactCache.CompatibilityCacheKey compatibilityCacheKey() {
+    ArtifactCache.StartupCompatibilityKey startupCompatibilityKey() {
         TreeMap<String, String> fingerprints = new TreeMap<>();
         for (Map.Entry<String, ModResourceIndex> entry : this.modResourceIndexes.entrySet()) {
             fingerprints.put(entry.getKey(), entry.getValue().fingerprint().stableValue());
         }
         String metadataFingerprint = PackUtil.metadataFingerprint(this.metadataIndex);
         String engineFingerprint = PackUtil.compatibilityEngineFingerprint();
-        return new ArtifactCache.CompatibilityCacheKey(PackUtil.compatibilityCacheFingerprint(metadataFingerprint, fingerprints, engineFingerprint));
+        AdapterCatalog adapterCatalog = this.adapterCatalogCache.loadCatalog();
+        String adapterCatalogFingerprint = adapterCatalog != null ? adapterCatalog.fingerprint() : PackUtil.adapterCatalogFingerprint();
+        return new ArtifactCache.StartupCompatibilityKey(PackUtil.startupCompatibilityFingerprint(metadataFingerprint, fingerprints, engineFingerprint, adapterCatalogFingerprint));
     }
 
     @NotNull
-    private ArtifactCache.CompatibilityManifest compatibilityManifest(@NotNull ArtifactCache.CompatibilityCacheKey cacheKey) {
+    private ArtifactCache.CompatibilityManifest compatibilityManifest(@NotNull ArtifactCache.StartupCompatibilityKey cacheKey) {
         Map<String, String> fingerprints = new TreeMap<>();
         for (Map.Entry<String, ModResourceIndex> entry : this.modResourceIndexes.entrySet()) {
             fingerprints.put(entry.getKey(), entry.getValue().fingerprint().stableValue());
         }
-        return new ArtifactCache.CompatibilityManifest(cacheKey.value(), PackUtil.metadataFingerprint(this.metadataIndex), PackUtil.compatibilityEngineFingerprint(), fingerprints.size(), fingerprints);
+        AdapterCatalog adapterCatalog = this.adapterCatalogCache.loadCatalog();
+        String adapterCatalogFingerprint = adapterCatalog != null ? adapterCatalog.fingerprint() : PackUtil.adapterCatalogFingerprint();
+        return new ArtifactCache.CompatibilityManifest(
+            cacheKey,
+            PackUtil.metadataFingerprint(this.metadataIndex),
+            PackUtil.compatibilityEngineFingerprint(),
+            adapterCatalogFingerprint,
+            fingerprints.size(),
+            fingerprints
+        );
     }
 
     private static long nanosToMillis(long nanos) {
@@ -806,5 +885,69 @@ public class PackManager {
     @NotNull
     public MappingResolver mappingResolver() {
         return this.compatibilityRegistry.mappingResolver();
+    }
+
+    @NotNull
+    public UniversalResourceIndex universalResourceIndex() {
+        return this.universalResourceIndex;
+    }
+
+    @NotNull
+    public LazyBlockstateProvider lazyBlockstateProvider() {
+        return this.lazyBlockstateProvider;
+    }
+
+    @NotNull
+    public LazyItemDefinitionProvider lazyItemDefinitionProvider() {
+        return this.lazyItemDefinitionProvider;
+    }
+
+    @NotNull
+    public CompatibilityHandoffQueue handoffQueue() {
+        return this.handoffQueue;
+    }
+
+    @NotNull
+    public AddonCorpusLoader corpusLoader() {
+        return this.corpusLoader;
+    }
+
+    public void recordLazyResourceProviderMetrics() {
+        if (this.lazyBlockstateProvider != null) {
+            LazyBlockstateProvider.CacheMetrics blockstateMetrics = this.lazyBlockstateProvider.cacheMetrics();
+            this.performanceTracker.recordBlockstateProviderCache(new PerformanceReport.LazyResourceProviderMetrics(
+                blockstateMetrics.hits(),
+                blockstateMetrics.misses(),
+                blockstateMetrics.size(),
+                blockstateMetrics.maxSize()
+            ));
+        }
+        if (this.lazyItemDefinitionProvider != null) {
+            LazyItemDefinitionProvider.CacheMetrics itemMetrics = this.lazyItemDefinitionProvider.cacheMetrics();
+            this.performanceTracker.recordItemDefinitionProviderCache(new PerformanceReport.LazyResourceProviderMetrics(
+                itemMetrics.hits(),
+                itemMetrics.misses(),
+                itemMetrics.size(),
+                itemMetrics.maxSize()
+            ));
+        }
+    }
+
+    @NotNull
+    private static String resolveGeyserVersion() {
+        try {
+            return String.valueOf(GeyserApi.api().geyserApiVersion());
+        } catch (Throwable ignored) {
+            return "unknown";
+        }
+    }
+
+    @NotNull
+    private static String resolveBedrockProtocolVersion() {
+        try {
+            return "geyser-" + GeyserApi.api().geyserApiVersion();
+        } catch (Throwable ignored) {
+            return "unknown";
+        }
     }
 }

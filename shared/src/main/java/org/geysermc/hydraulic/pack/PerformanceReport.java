@@ -12,47 +12,59 @@ public record PerformanceReport(
     @Nullable CacheMetrics modelResolutionCache,
     @Nullable ModelProviderMetrics modelProviderCache,
     @Nullable TextureResolutionMetrics textureResolutionCache,
+    @Nullable LazyResourceProviderMetrics blockstateProviderCache,
+    @Nullable LazyResourceProviderMetrics itemDefinitionProviderCache,
     @Nullable ArtifactCacheMetrics artifactCache,
     @Nullable RuntimeDispatchMetrics runtimeDispatch
 ) {
     @NotNull
     public static PerformanceReport empty() {
-        return new PerformanceReport(null, null, null, null, null, null, null);
+        return new PerformanceReport(null, null, null, null, null, null, null, null, null);
     }
 
     @NotNull
     public PerformanceReport withStartup(@NotNull StartupMetrics startup) {
-        return new PerformanceReport(startup, this.lastPackConversion, this.modelResolutionCache, this.modelProviderCache, this.textureResolutionCache, this.artifactCache, this.runtimeDispatch);
+        return new PerformanceReport(startup, this.lastPackConversion, this.modelResolutionCache, this.modelProviderCache, this.textureResolutionCache, this.blockstateProviderCache, this.itemDefinitionProviderCache, this.artifactCache, this.runtimeDispatch);
     }
 
     @NotNull
     public PerformanceReport withPackConversion(@NotNull PackConversionMetrics packConversion) {
-        return new PerformanceReport(this.startup, packConversion, this.modelResolutionCache, this.modelProviderCache, this.textureResolutionCache, this.artifactCache, this.runtimeDispatch);
+        return new PerformanceReport(this.startup, packConversion, this.modelResolutionCache, this.modelProviderCache, this.textureResolutionCache, this.blockstateProviderCache, this.itemDefinitionProviderCache, this.artifactCache, this.runtimeDispatch);
     }
 
     @NotNull
     public PerformanceReport withModelResolutionCache(@NotNull CacheMetrics cacheMetrics) {
-        return new PerformanceReport(this.startup, this.lastPackConversion, cacheMetrics, this.modelProviderCache, this.textureResolutionCache, this.artifactCache, this.runtimeDispatch);
+        return new PerformanceReport(this.startup, this.lastPackConversion, cacheMetrics, this.modelProviderCache, this.textureResolutionCache, this.blockstateProviderCache, this.itemDefinitionProviderCache, this.artifactCache, this.runtimeDispatch);
     }
 
     @NotNull
     public PerformanceReport withModelProviderCache(@NotNull ModelProviderMetrics modelProviderCache) {
-        return new PerformanceReport(this.startup, this.lastPackConversion, this.modelResolutionCache, modelProviderCache, this.textureResolutionCache, this.artifactCache, this.runtimeDispatch);
+        return new PerformanceReport(this.startup, this.lastPackConversion, this.modelResolutionCache, modelProviderCache, this.textureResolutionCache, this.blockstateProviderCache, this.itemDefinitionProviderCache, this.artifactCache, this.runtimeDispatch);
     }
 
     @NotNull
     public PerformanceReport withTextureResolutionCache(@NotNull TextureResolutionMetrics textureResolutionCache) {
-        return new PerformanceReport(this.startup, this.lastPackConversion, this.modelResolutionCache, this.modelProviderCache, textureResolutionCache, this.artifactCache, this.runtimeDispatch);
+        return new PerformanceReport(this.startup, this.lastPackConversion, this.modelResolutionCache, this.modelProviderCache, textureResolutionCache, this.blockstateProviderCache, this.itemDefinitionProviderCache, this.artifactCache, this.runtimeDispatch);
+    }
+
+    @NotNull
+    public PerformanceReport withBlockstateProviderCache(@NotNull LazyResourceProviderMetrics blockstateProviderCache) {
+        return new PerformanceReport(this.startup, this.lastPackConversion, this.modelResolutionCache, this.modelProviderCache, this.textureResolutionCache, blockstateProviderCache, this.itemDefinitionProviderCache, this.artifactCache, this.runtimeDispatch);
+    }
+
+    @NotNull
+    public PerformanceReport withItemDefinitionProviderCache(@NotNull LazyResourceProviderMetrics itemDefinitionProviderCache) {
+        return new PerformanceReport(this.startup, this.lastPackConversion, this.modelResolutionCache, this.modelProviderCache, this.textureResolutionCache, this.blockstateProviderCache, itemDefinitionProviderCache, this.artifactCache, this.runtimeDispatch);
     }
 
     @NotNull
     public PerformanceReport withArtifactCache(@NotNull ArtifactCacheMetrics artifactCache) {
-        return new PerformanceReport(this.startup, this.lastPackConversion, this.modelResolutionCache, this.modelProviderCache, this.textureResolutionCache, artifactCache, this.runtimeDispatch);
+        return new PerformanceReport(this.startup, this.lastPackConversion, this.modelResolutionCache, this.modelProviderCache, this.textureResolutionCache, this.blockstateProviderCache, this.itemDefinitionProviderCache, artifactCache, this.runtimeDispatch);
     }
 
     @NotNull
     public PerformanceReport withRuntimeDispatch(@NotNull RuntimeDispatchMetrics runtimeDispatch) {
-        return new PerformanceReport(this.startup, this.lastPackConversion, this.modelResolutionCache, this.modelProviderCache, this.textureResolutionCache, this.artifactCache, runtimeDispatch);
+        return new PerformanceReport(this.startup, this.lastPackConversion, this.modelResolutionCache, this.modelProviderCache, this.textureResolutionCache, this.blockstateProviderCache, this.itemDefinitionProviderCache, this.artifactCache, runtimeDispatch);
     }
 
     public record StartupMetrics(
@@ -140,6 +152,17 @@ public record PerformanceReport(
         long misses,
         long evictions,
         long size
+    ) {
+        public long requests() {
+            return this.hits + this.misses;
+        }
+    }
+
+    public record LazyResourceProviderMetrics(
+        long hits,
+        long misses,
+        long size,
+        long maxSize
     ) {
         public long requests() {
             return this.hits + this.misses;

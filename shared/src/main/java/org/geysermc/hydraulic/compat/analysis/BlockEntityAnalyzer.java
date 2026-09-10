@@ -57,13 +57,18 @@ public final class BlockEntityAnalyzer implements CompatibilityAnalyzer {
         supportResults.put("interaction", AnalyzerSupport.support("interaction", SupportLevel.UNSUPPORTED, List.of(results.get(2)), List.of("No block entity interaction bridge exists yet.")));
         supportResults.put("behavior", AnalyzerSupport.support("behavior", SupportLevel.UNSUPPORTED, List.of(results.get(3)), List.of("Block entity behavior translation is not implemented.")));
 
+        Map<String, String> inventoryFacts = new LinkedHashMap<>(AnalyzerSupport.inventoryFacts(descriptor.registered(), descriptor.assetPresent(), 0, patches.size()));
+        inventoryFacts.putAll(BehaviorFactExtractor.extractFacts(patches));
+        List<String> behaviorBridgeRequirements = BehaviorFactExtractor.runtimeRequirements(inventoryFacts);
+
         return AnalyzerSupport.object(
             descriptor.javaIdentifier(),
             descriptor.kind(),
             descriptor.modId(),
-            AnalyzerSupport.inventoryFacts(descriptor.registered(), descriptor.assetPresent(), 0, patches.size()),
+            inventoryFacts,
             profile,
             supportResults,
+            behaviorBridgeRequirements,
             new Confidence(patchBackedDataBridge ? 0.34D : 0.1D, patchBackedDataBridge ? "Block entity analysis is registry-backed with an explicit metadata-backed Bedrock tag template." : "Block entity analysis is registry-backed without an explicit data bridge."),
             AnalyzerSupport.provenance(this.getClass().getSimpleName(), patchBackedDataBridge, patches, List.of()),
             List.of(new CompatibilityFinding("block_entity.bridge.partial", CompatibilityFinding.Severity.WARNING, "behavior", "Block entity runtime support is partial for " + descriptor.javaIdentifier(), patchBackedDataBridge ? "Persistent block entity data can be synthesized from metadata patches, but interaction and behavior bridges are still missing." : "Block entities still need dedicated data, interaction, and behavior bridges.", "Implement the remaining block entity bridges before treating block entity support as functional.", null))

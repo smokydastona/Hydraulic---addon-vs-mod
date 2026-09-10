@@ -90,11 +90,14 @@ public final class BlockAnalyzer implements CompatibilityAnalyzer {
             mapping.rules().stream().map(rule -> rule.sourcePath()).distinct().forEach(metadataSources::add);
         }
 
-        Map<String, String> inventoryFacts = AnalyzerSupport.inventoryFacts(descriptor.registered(), descriptor.assetPresent(), mapping != null ? 1 : 0, patches.size());
+        Map<String, String> inventoryFacts = new LinkedHashMap<>(AnalyzerSupport.inventoryFacts(descriptor.registered(), descriptor.assetPresent(), mapping != null ? 1 : 0, patches.size()));
+        inventoryFacts.putAll(BehaviorFactExtractor.extractFacts(patches));
         inventoryFacts.put("behavior_required", Boolean.toString(behaviorRequired));
         if (behaviorTag != null) {
             inventoryFacts.put("behavior_tag", behaviorTag);
         }
+
+        List<String> behaviorBridgeRequirements = BehaviorFactExtractor.runtimeRequirements(inventoryFacts);
 
         return AnalyzerSupport.object(
             descriptor.javaIdentifier(),
@@ -103,6 +106,7 @@ public final class BlockAnalyzer implements CompatibilityAnalyzer {
             inventoryFacts,
             profile,
             supportResults,
+            behaviorBridgeRequirements,
             new Confidence(mapping != null || !patches.isEmpty() ? (descriptor.assetPresent() ? 0.92D : 0.68D) : (descriptor.assetPresent() ? 0.78D : 0.35D), "Inventory-backed block analyzer with metadata and patch signals."),
             AnalyzerSupport.provenance(this.getClass().getSimpleName(), mapping != null || !patches.isEmpty(), patches, metadataSources),
             findings

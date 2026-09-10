@@ -7,11 +7,13 @@ import org.geysermc.hydraulic.compat.MappingOwnership;
 import org.geysermc.hydraulic.compat.adapter.AdapterBinding;
 import org.geysermc.hydraulic.compat.adapter.AdapterFeature;
 import org.geysermc.hydraulic.compat.ir.CompiledCompatibilityPlan;
+import org.geysermc.hydraulic.compat.runtime.RuntimeBridgeKind;
 import org.geysermc.hydraulic.compat.mapping.ContentPatch;
 import org.geysermc.hydraulic.compat.model.Confidence;
 import org.geysermc.hydraulic.compat.model.SupportLevel;
 import org.junit.jupiter.api.Test;
 
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -46,6 +48,29 @@ class BridgeAdapterSupportTest {
         assertTrue(BridgeAdapterSupport.supportsEntityInteractionPrompt(entityPlan(true, "Open Barrel Cube")));
         assertFalse(BridgeAdapterSupport.supportsEntityInteractionPrompt(entityPlan(false, "Open Barrel Cube")));
         assertFalse(BridgeAdapterSupport.supportsEntityInteractionPrompt(entityPlan(true, null)));
+    }
+
+    @Test
+    void machineBehaviorRequiresMachineBridgeKind() {
+        assertTrue(BridgeAdapterSupport.supportsMachineBehavior(machinePlan(RuntimeBridgeKind.MACHINE_BEHAVIOR)));
+        assertFalse(BridgeAdapterSupport.supportsMachineBehavior(machinePlan(RuntimeBridgeKind.MACHINE_INVENTORY)));
+        assertFalse(BridgeAdapterSupport.supportsMachineBehavior(machinePlanWithoutFacts(RuntimeBridgeKind.MACHINE_BEHAVIOR)));
+    }
+
+    @Test
+    void transferBridgesRequireTypedRuntimeKinds() {
+        assertTrue(BridgeAdapterSupport.supportsItemTransfer(transferPlan(RuntimeBridgeKind.ITEM_TRANSFER)));
+        assertTrue(BridgeAdapterSupport.supportsFluidTransfer(transferPlan(RuntimeBridgeKind.FLUID_TRANSFER)));
+        assertTrue(BridgeAdapterSupport.supportsEnergyTransfer(transferPlan(RuntimeBridgeKind.ENERGY_TRANSFER)));
+        assertFalse(BridgeAdapterSupport.supportsItemTransfer(transferPlan(RuntimeBridgeKind.FLUID_TRANSFER)));
+        assertFalse(BridgeAdapterSupport.supportsItemTransfer(transferPlanWithoutFacts(RuntimeBridgeKind.ITEM_TRANSFER)));
+    }
+
+    @Test
+    void fluidBridgesRequireCompiledFactsAndRuntimeFlags() {
+        assertTrue(BridgeAdapterSupport.supportsFluidTranslator(fluidPlan(true, false)));
+        assertTrue(BridgeAdapterSupport.supportsFluidRuntime(fluidPlan(false, true)));
+        assertFalse(BridgeAdapterSupport.supportsFluidRuntime(fluidPlan(false, false)));
     }
 
     private static CompiledCompatibilityPlan menuPlan(boolean includeAdapter, RuntimeBridgeKind runtimeBridgeKind) {
@@ -125,6 +150,136 @@ class BridgeAdapterSupportTest {
             false,
             SupportLevel.UNSUPPORTED,
             null
+        );
+    }
+
+    private static CompiledCompatibilityPlan machinePlan(RuntimeBridgeKind runtimeBridgeKind) {
+        return new CompiledCompatibilityPlan(
+            "testmod",
+            "block",
+            Identifier.fromNamespaceAndPath("example", "machine").toString(),
+            Identifier.fromNamespaceAndPath("example", "machine").toString(),
+            SupportLevel.ADAPTED,
+            CompatibilityStatus.PARTIAL,
+            70,
+            new Confidence(0.7D, "test"),
+            List.of(),
+            List.of(runtimeBridgeKind.requirementId()),
+            List.of(runtimeBridgeKind),
+            Map.of("has_processing", "true"),
+            false,
+            null,
+            false,
+            null,
+            false,
+            true,
+            false,
+            false,
+            false,
+            null,
+            null,
+            List.of(),
+            List.of(),
+            List.of(),
+            null,
+            false,
+            false,
+            SupportLevel.UNSUPPORTED,
+            null
+        );
+    }
+
+    private static CompiledCompatibilityPlan machinePlanWithoutFacts(RuntimeBridgeKind runtimeBridgeKind) {
+        return machinePlanWithFacts(runtimeBridgeKind, Map.of());
+    }
+
+    private static CompiledCompatibilityPlan transferPlan(RuntimeBridgeKind runtimeBridgeKind) {
+        Map<String, String> facts = switch (runtimeBridgeKind) {
+            case ITEM_TRANSFER -> Map.of("can_insert", "true");
+            case FLUID_TRANSFER -> Map.of("can_insert_fluid", "true");
+            case ENERGY_TRANSFER -> Map.of("can_receive_energy", "true");
+            default -> Map.of();
+        };
+        return machinePlanWithFacts(runtimeBridgeKind, facts);
+    }
+
+    private static CompiledCompatibilityPlan transferPlanWithoutFacts(RuntimeBridgeKind runtimeBridgeKind) {
+        return machinePlanWithFacts(runtimeBridgeKind, Map.of());
+    }
+
+    private static CompiledCompatibilityPlan machinePlanWithFacts(RuntimeBridgeKind runtimeBridgeKind, Map<String, String> facts) {
+        return new CompiledCompatibilityPlan(
+            "testmod",
+            "block",
+            Identifier.fromNamespaceAndPath("example", "machine").toString(),
+            Identifier.fromNamespaceAndPath("example", "machine").toString(),
+            SupportLevel.ADAPTED,
+            CompatibilityStatus.PARTIAL,
+            70,
+            new Confidence(0.7D, "test"),
+            List.of(),
+            List.of(runtimeBridgeKind.requirementId()),
+            List.of(runtimeBridgeKind),
+            facts,
+            false,
+            null,
+            false,
+            null,
+            false,
+            true,
+            false,
+            false,
+            false,
+            null,
+            null,
+            List.of(),
+            List.of(),
+            List.of(),
+            null,
+            false,
+            false,
+            SupportLevel.UNSUPPORTED,
+            null
+        );
+    }
+
+    private static CompiledCompatibilityPlan fluidPlan(boolean includeBucketTexture, boolean requiresRuntime) {
+        Map<String, String> facts = new LinkedHashMap<>();
+        if (includeBucketTexture) {
+            facts.put("bucket_texture", "example:bucket");
+        }
+        return new CompiledCompatibilityPlan(
+            "testmod",
+            "fluid",
+            Identifier.fromNamespaceAndPath("example", "fluid").toString(),
+            Identifier.fromNamespaceAndPath("example", "fluid").toString(),
+            SupportLevel.ADAPTED,
+            CompatibilityStatus.PARTIAL,
+            70,
+            new Confidence(0.7D, "test"),
+            includeBucketTexture ? List.of(new AdapterBinding("fluid.bucket_texture_fallback", AdapterFeature.FLUID_BUCKET_TEXTURE_FALLBACK, "test")) : List.of(),
+            List.of(),
+            List.of(),
+            facts,
+            false,
+            null,
+            false,
+            null,
+            false,
+            false,
+            false,
+            false,
+            false,
+            null,
+            null,
+            List.of(),
+            List.of(),
+            List.of(),
+            null,
+            false,
+            requiresRuntime,
+            SupportLevel.UNSUPPORTED,
+            requiresRuntime ? "fluid_runtime" : null
         );
     }
 

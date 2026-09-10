@@ -152,23 +152,22 @@ public class BlockPackModule extends TexturePackModule<BlockPackModule> {
             return;
         }
 
-        Path blockStatePath = resourceIndex.resolveBlockStatePath(blockLocation);
-        if (blockStatePath == null) {
+        com.google.gson.JsonObject jsonObject = context.hydraulic().getPackManager().lazyBlockstateProvider().getBlockstate(blockLocation);
+        if (jsonObject == null) {
             return;
         }
 
-        try (Reader reader = Files.newBufferedReader(blockStatePath, StandardCharsets.UTF_8)) {
-            JsonElement json = JsonParser.parseReader(reader);
+        try {
             team.unnamed.creative.blockstate.BlockState blockState = BlockStateSerializer.INSTANCE.deserializeFromJson(
-                json,
+                jsonObject,
                 Key.key(blockLocation.getNamespace(), blockLocation.getPath()),
                 PackFormat.UNKNOWN
             );
             if (blockState != null) {
                 this.blockStates.put(blockLocation.toString(), new StateDefinition(blockState, context.modelProvider()));
             }
-        } catch (IOException e) {
-            context.logger().warn("Failed to load indexed blockstate {} from {}", blockLocation, blockStatePath, e);
+        } catch (Exception e) {
+            context.logger().warn("Failed to deserialize indexed blockstate {}", blockLocation, e);
         }
     }
 

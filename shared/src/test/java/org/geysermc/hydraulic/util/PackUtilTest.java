@@ -259,4 +259,21 @@ class PackUtilTest {
 
         assertNotEquals(first, second);
     }
+
+    @Test
+    void startupCompatibilityFingerprintChangesWhenAdapterCatalogFingerprintChanges() {
+        TreeMap<String, String> modFingerprints = new TreeMap<>();
+        modFingerprints.put("example", "fingerprint-1");
+
+        String first = PackUtil.startupCompatibilityFingerprint("metadata-1", modFingerprints, "engine-1", "adapter-catalog-1");
+        String second = PackUtil.startupCompatibilityFingerprint("metadata-1", modFingerprints, "engine-1", "adapter-catalog-2");
+
+        assertNotEquals(first, second);
+    }
+
+    @Test
+    void adapterCatalogFingerprintDefaultsToStableBuiltinOnlyValue() {
+        assertEquals(PackUtil.adapterCatalogFingerprint(), PackUtil.adapterCatalogFingerprint());
+        assertNotEquals("", PackUtil.adapterCatalogFingerprint());
+    }
 }

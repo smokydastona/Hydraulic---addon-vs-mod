@@ -44,6 +44,16 @@ final class PerformanceReportTracker {
         this.write();
     }
 
+    synchronized void recordBlockstateProviderCache(@NotNull PerformanceReport.LazyResourceProviderMetrics metrics) {
+        this.report = this.report.withBlockstateProviderCache(metrics);
+        this.write();
+    }
+
+    synchronized void recordItemDefinitionProviderCache(@NotNull PerformanceReport.LazyResourceProviderMetrics metrics) {
+        this.report = this.report.withItemDefinitionProviderCache(metrics);
+        this.write();
+    }
+
     synchronized void recordArtifactCache(@NotNull PerformanceReport.ArtifactCacheMetrics metrics) {
         this.report = this.report.withArtifactCache(metrics);
         this.write();

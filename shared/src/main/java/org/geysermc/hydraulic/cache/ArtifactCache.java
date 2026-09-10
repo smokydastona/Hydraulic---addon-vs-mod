@@ -88,9 +88,9 @@ public final class ArtifactCache {
     }
 
     @Nullable
-    public CompatibilitySnapshot loadCompatibilitySnapshot(@NotNull CompatibilityCacheKey key) {
+    public CompatibilitySnapshot loadCompatibilitySnapshot(@NotNull StartupCompatibilityKey key) {
         CompatibilityManifest manifest = this.readJson(this.compatibilityPath().resolve(COMPATIBILITY_MANIFEST), CompatibilityManifest.class);
-        if (manifest == null || !manifest.cacheKey().equals(key.value())) {
+        if (manifest == null || !manifest.startupKey().value().equals(key.value())) {
             return null;
         }
 
@@ -162,19 +162,27 @@ public final class ArtifactCache {
         }
     }
 
-    public record CompatibilityCacheKey(@NotNull String value) {
+    public record StartupCompatibilityKey(@NotNull String value) {
     }
 
     public record CompatibilityManifest(
-        @NotNull String cacheKey,
+        @NotNull StartupCompatibilityKey startupKey,
         @NotNull String metadataFingerprint,
         @NotNull String engineFingerprint,
+        @NotNull String adapterCatalogFingerprint,
         int modCount,
         @NotNull Map<String, String> modFingerprints
     ) {
         public CompatibilityManifest {
+            startupKey = startupKey == null ? new StartupCompatibilityKey("") : startupKey;
             engineFingerprint = engineFingerprint == null ? "" : engineFingerprint;
+            adapterCatalogFingerprint = adapterCatalogFingerprint == null ? "" : adapterCatalogFingerprint;
             modFingerprints = Map.copyOf(new LinkedHashMap<>(modFingerprints));
+        }
+
+        @Deprecated
+        public String cacheKey() {
+            return this.startupKey.value();
         }
     }
 

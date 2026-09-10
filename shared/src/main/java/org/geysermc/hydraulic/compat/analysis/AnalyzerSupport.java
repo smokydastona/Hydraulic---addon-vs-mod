@@ -17,9 +17,11 @@ import org.geysermc.hydraulic.compat.model.SupportLevel;
 import org.geysermc.hydraulic.compat.model.SupportResult;
 import org.geysermc.hydraulic.compat.mapping.ContentPatch;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 
@@ -35,6 +37,11 @@ final class AnalyzerSupport {
     @NotNull
     static CapabilityRequirement required(@NotNull Capability capability) {
         return new CapabilityRequirement(capability, true);
+    }
+
+    @NotNull
+    static CapabilityRequirement optional(@NotNull Capability capability) {
+        return new CapabilityRequirement(capability, false);
     }
 
     @NotNull
@@ -81,12 +88,33 @@ final class AnalyzerSupport {
         @NotNull List<Provenance> provenance,
         @NotNull List<CompatibilityFinding> findings
     ) {
+        return object(javaIdentifier, contentType, modId, inventoryFacts, capabilityProfile, supportResults, null, confidence, provenance, findings);
+    }
+
+    @NotNull
+    static CompatibilityObject object(
+        @NotNull String javaIdentifier,
+        @NotNull String contentType,
+        @NotNull String modId,
+        @NotNull Map<String, String> inventoryFacts,
+        @NotNull CapabilityProfile capabilityProfile,
+        @NotNull Map<String, SupportResult> supportResults,
+        @Nullable List<String> customRuntimeRequirements,
+        @NotNull Confidence confidence,
+        @NotNull List<Provenance> provenance,
+        @NotNull List<CompatibilityFinding> findings
+    ) {
         SupportLevel overallLevel = overallLevel(supportResults);
         CompatibilityStatus overallStatus = overallStatus(supportResults);
         int overallScore = overallScore(supportResults);
         CompatibilityObject candidate = new CompatibilityObject(javaIdentifier, contentType, modId, inventoryFacts, capabilityProfile, List.of(), List.of(), supportResults, overallLevel, overallStatus, overallScore, confidence, provenance, findings);
         List<AdapterBinding> adapterBindings = CapabilityAdapterRegistry.bindings(candidate);
         List<String> runtimeRequirements = runtimeRequirements(contentType, inventoryFacts, supportResults, adapterBindings);
+        if (customRuntimeRequirements != null && !customRuntimeRequirements.isEmpty()) {
+            LinkedHashSet<String> merged = new LinkedHashSet<>(runtimeRequirements);
+            merged.addAll(customRuntimeRequirements);
+            runtimeRequirements = List.copyOf(merged);
+        }
         return new CompatibilityObject(javaIdentifier, contentType, modId, inventoryFacts, capabilityProfile, adapterBindings, runtimeRequirements, supportResults, overallLevel, overallStatus, overallScore, confidence, provenance, findings);
     }
 

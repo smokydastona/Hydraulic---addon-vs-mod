@@ -22,11 +22,18 @@ public enum RuntimeBridgeKind {
     BLOCK_ENTITY_INTERACTION("block_entity_interaction_bridge", "block_entity"),
     BLOCK_ENTITY_BEHAVIOR("block_entity_behavior_bridge", "block_entity"),
     FLUID_TRANSLATOR("fluid_translator", "fluid"),
-    FLUID_RUNTIME("fluid_runtime_bridge", "fluid");
+    FLUID_RUNTIME("fluid_runtime_bridge", "fluid"),
+    ITEM_TRANSFER("item_transfer_bridge", "item"),
+    FLUID_TRANSFER("fluid_transfer_bridge", "fluid"),
+    ENERGY_TRANSFER("energy_transfer_bridge", "energy"),
+    MACHINE_BEHAVIOR("machine_behavior_bridge", "machine"),
+    MACHINE_INVENTORY("machine_inventory_bridge", "machine");
 
     private static final List<RuntimeBridgeKind> MENU_RUNTIME_KINDS = List.of(MENU_CONTAINER, MENU_BEHAVIOR);
     private static final List<RuntimeBridgeKind> BLOCK_ENTITY_RUNTIME_KINDS = List.of(BLOCK_ENTITY_DATA, BLOCK_ENTITY_INTERACTION, BLOCK_ENTITY_BEHAVIOR);
     private static final List<RuntimeBridgeKind> FLUID_RUNTIME_KINDS = List.of(FLUID_TRANSLATOR, FLUID_RUNTIME);
+    private static final List<RuntimeBridgeKind> TRANSFER_RUNTIME_KINDS = List.of(ITEM_TRANSFER, FLUID_TRANSFER, ENERGY_TRANSFER);
+    private static final List<RuntimeBridgeKind> MACHINE_RUNTIME_KINDS = List.of(MACHINE_BEHAVIOR, MACHINE_INVENTORY);
 
     private final String requirementId;
     private final String contentType;
@@ -59,6 +66,16 @@ public enum RuntimeBridgeKind {
     @NotNull
     public static List<RuntimeBridgeKind> fluidRuntimeKinds() {
         return FLUID_RUNTIME_KINDS;
+    }
+
+    @NotNull
+    public static List<RuntimeBridgeKind> transferRuntimeKinds() {
+        return TRANSFER_RUNTIME_KINDS;
+    }
+
+    @NotNull
+    public static List<RuntimeBridgeKind> machineRuntimeKinds() {
+        return MACHINE_RUNTIME_KINDS;
     }
 
     @NotNull

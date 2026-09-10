@@ -2,12 +2,12 @@ package org.geysermc.hydraulic.compat;
 
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.level.block.state.BlockState;
-import org.geysermc.hydraulic.compat.runtime.BlockEntityPatchTemplate;
-import org.geysermc.hydraulic.compat.runtime.MenuPatchTemplate;
 import org.geysermc.hydraulic.metadata.BlockMapping;
 import org.geysermc.hydraulic.metadata.BlockStateRule;
 import org.geysermc.hydraulic.metadata.IdentifierMapping;
 import org.geysermc.hydraulic.metadata.MetadataIndex;
+import org.geysermc.hydraulic.compat.runtime.BlockEntityPatchTemplate;
+import org.geysermc.hydraulic.compat.runtime.MenuPatchTemplate;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 

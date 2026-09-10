@@ -7,4 +7,12 @@ public record AdapterBinding(
     @NotNull AdapterFeature feature,
     @NotNull String reason
 ) {
+    @NotNull
+    public static AdapterBinding unsupported(@NotNull String adapterId) {
+        return new AdapterBinding(
+            adapterId,
+            AdapterFeature.UNSUPPORTED,
+            "No adapter available for this capability"
+        );
+    }
 }

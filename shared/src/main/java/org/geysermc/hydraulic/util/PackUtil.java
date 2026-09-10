@@ -52,6 +52,8 @@ public class PackUtil {
     protected static final Logger LOGGER = LogUtils.getLogger();
     private static final String CONVERSION_KEY_ALGORITHM = "HYDRAULIC_CONVERSION_KEY_V3";
     private static final String COMPATIBILITY_ENGINE_ALGORITHM = "HYDRAULIC_COMPATIBILITY_ENGINE_V1";
+    private static final String ADAPTER_CATALOG_ALGORITHM = "HYDRAULIC_ADAPTER_CATALOG_V1";
+    private static final String BUILTIN_ADAPTER_CATALOG_FINGERPRINT = ADAPTER_CATALOG_ALGORITHM + ":builtin-only";
     private static final List<Class<?>> COMPATIBILITY_ENGINE_CLASSES = List.of(
         CompatibilityManager.class,
         AnalyzerRegistry.class,
@@ -277,10 +279,21 @@ public class PackUtil {
     }
 
     @NotNull
-    public static String compatibilityCacheFingerprint(@NotNull String metadataFingerprint, @NotNull Map<String, String> modFingerprints, @NotNull String engineFingerprint) {
+    public static String adapterCatalogFingerprint() {
+        return BUILTIN_ADAPTER_CATALOG_FINGERPRINT;
+    }
+
+    @NotNull
+    public static String startupCompatibilityFingerprint(
+        @NotNull String metadataFingerprint,
+        @NotNull Map<String, String> modFingerprints,
+        @NotNull String engineFingerprint,
+        @NotNull String adapterCatalogFingerprint
+    ) {
         Hasher hasher = Hashing.sha256().newHasher();
         hasher.putString(engineFingerprint, StandardCharsets.UTF_8);
         hasher.putString(metadataFingerprint, StandardCharsets.UTF_8);
+        hasher.putString(adapterCatalogFingerprint, StandardCharsets.UTF_8);
         modFingerprints.entrySet().stream()
             .sorted(Map.Entry.comparingByKey())
             .forEach(entry -> {
@@ -288,6 +301,11 @@ public class PackUtil {
                 hasher.putString(entry.getValue(), StandardCharsets.UTF_8);
             });
         return hasher.hash().toString();
+    }
+
+    @NotNull
+    public static String compatibilityCacheFingerprint(@NotNull String metadataFingerprint, @NotNull Map<String, String> modFingerprints, @NotNull String engineFingerprint) {
+        return startupCompatibilityFingerprint(metadataFingerprint, modFingerprints, engineFingerprint, adapterCatalogFingerprint());
     }
 
     private static void hashSummary(@NotNull Hasher hasher, @NotNull MetadataIndex.Summary summary) {

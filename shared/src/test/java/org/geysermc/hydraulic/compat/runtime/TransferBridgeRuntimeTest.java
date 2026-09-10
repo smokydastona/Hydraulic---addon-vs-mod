@@ -1,0 +1,222 @@
+package org.geysermc.hydraulic.compat.runtime;
+
+import net.minecraft.resources.Identifier;
+import org.geysermc.hydraulic.compat.CompatibilityRegistry;
+import org.geysermc.hydraulic.compat.CompatibilityStatus;
+import org.geysermc.hydraulic.compat.adapter.AdapterBinding;
+import org.geysermc.hydraulic.compat.adapter.AdapterFeature;
+import org.geysermc.hydraulic.compat.ir.CompiledCompatibilityPlan;
+import org.geysermc.hydraulic.compat.model.Confidence;
+import org.geysermc.hydraulic.compat.model.SupportLevel;
+import org.junit.jupiter.api.Test;
+
+import java.util.List;
+import java.util.Map;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+class TransferBridgeRuntimeTest {
+    @Test
+    void itemBridgeUsesActualRuntimeInventorySemantics() {
+        TestInventory inventory = new TestInventory();
+        CompiledCompatibilityPlan plan = runtimePlan(RuntimeBridgeKind.ITEM_TRANSFER, Map.of("can_insert", "true", "can_extract", "true", "inventory_type", "generic"));
+        TransferBridgeFactory.ItemTransferBridge bridge = TransferBridgeFactory.createItemTransfer(plan, inventory);
+
+        assertNotNull(bridge);
+        assertTrue(bridge.canInsert(Identifier.fromNamespaceAndPath("hydraulic", "test_machine")));
+        assertTrue(bridge.canExtract(Identifier.fromNamespaceAndPath("hydraulic", "test_machine")));
+        assertEquals(2, bridge.slotCount(Identifier.fromNamespaceAndPath("hydraulic", "test_machine")));
+
+        int inserted = bridge.insert(
+            Identifier.fromNamespaceAndPath("hydraulic", "test_machine"),
+            new TransferBridgeFactory.ItemStackView("minecraft:iron_ingot", 8),
+            1,
+            "input",
+            false
+        );
+        assertEquals(8, inserted);
+        assertEquals(8, bridge.itemAt(Identifier.fromNamespaceAndPath("hydraulic", "test_machine"), 1).count());
+
+        int extracted = bridge.extract(
+            Identifier.fromNamespaceAndPath("hydraulic", "test_machine"),
+            new TransferBridgeFactory.ItemStackView("minecraft:iron_ingot", 8),
+            1,
+            "output",
+            false
+        );
+        assertEquals(8, extracted);
+        assertEquals(0, bridge.itemAt(Identifier.fromNamespaceAndPath("hydraulic", "test_machine"), 1).count());
+    }
+
+    @Test
+    void fluidAndEnergyBridgesExposeRealRuntimeCapabilities() {
+        TestTank tank = new TestTank();
+        TestEnergyStorage storage = new TestEnergyStorage();
+        CompiledCompatibilityPlan fluidPlan = runtimePlan(RuntimeBridgeKind.FLUID_TRANSFER, Map.of("can_insert_fluid", "true", "can_extract_fluid", "true", "tank_type", "generic"));
+        CompiledCompatibilityPlan energyPlan = runtimePlan(RuntimeBridgeKind.ENERGY_TRANSFER, Map.of("can_receive_energy", "true", "can_provide_energy", "true", "energy_type", "generic"));
+
+        TransferBridgeFactory.FluidTransferBridge fluidBridge = TransferBridgeFactory.createFluidTransfer(fluidPlan, tank);
+        TransferBridgeFactory.EnergyTransferBridge energyBridge = TransferBridgeFactory.createEnergyTransfer(energyPlan, storage);
+
+        assertNotNull(fluidBridge);
+        assertTrue(fluidBridge.canInsertFluid(Identifier.fromNamespaceAndPath("hydraulic", "test_machine")));
+        assertTrue(fluidBridge.canExtractFluid(Identifier.fromNamespaceAndPath("hydraulic", "test_machine")));
+        assertEquals(1000, fluidBridge.tankCapacity(Identifier.fromNamespaceAndPath("hydraulic", "test_machine"), 0));
+        assertEquals(250, fluidBridge.insertFluid(Identifier.fromNamespaceAndPath("hydraulic", "test_machine"), new TransferBridgeFactory.FluidStackView("minecraft:water", 250), 0, "input", false));
+
+        assertNotNull(energyBridge);
+        assertTrue(energyBridge.canReceiveEnergy(Identifier.fromNamespaceAndPath("hydraulic", "test_machine")));
+        assertTrue(energyBridge.canProvideEnergy(Identifier.fromNamespaceAndPath("hydraulic", "test_machine")));
+        assertEquals(1000, energyBridge.getMaxEnergy(Identifier.fromNamespaceAndPath("hydraulic", "test_machine")));
+        assertEquals(250, energyBridge.receiveEnergy(Identifier.fromNamespaceAndPath("hydraulic", "test_machine"), 250, "input", false));
+    }
+
+    private static CompiledCompatibilityPlan runtimePlan(RuntimeBridgeKind kind, Map<String, String> inventoryFacts) {
+        return new CompiledCompatibilityPlan(
+            "testmod",
+            "block",
+            Identifier.fromNamespaceAndPath("hydraulic", "test_machine").toString(),
+            Identifier.fromNamespaceAndPath("hydraulic", "test_machine").toString(),
+            SupportLevel.ADAPTED,
+            CompatibilityStatus.PARTIAL,
+            80,
+            new Confidence(0.8D, "test"),
+            List.of(new AdapterBinding("test.runtime_bridge", AdapterFeature.MENU_FALLBACK_TRANSLATION, "test")),
+            List.of(kind.requirementId()),
+            List.of(kind),
+            inventoryFacts,
+            false,
+            null,
+            false,
+            null,
+            false,
+            false,
+            false,
+            false,
+            false,
+            null,
+            null,
+            List.of(),
+            List.of(),
+            List.of(),
+            null,
+            false,
+            false,
+            SupportLevel.UNSUPPORTED,
+            null
+        );
+    }
+
+    private static final class TestInventory {
+        private final TransferBridgeFactory.ItemStackView[] slots = new TransferBridgeFactory.ItemStackView[] {
+            new TransferBridgeFactory.ItemStackView("minecraft:stone", 1),
+            new TransferBridgeFactory.ItemStackView("minecraft:air", 0)
+        };
+
+        public int getContainerSize() {
+            return slots.length;
+        }
+
+        public TransferBridgeFactory.ItemStackView getItem(int slot) {
+            return slots[slot];
+        }
+
+        public boolean canPlaceItem(int slot, TransferBridgeFactory.ItemStackView item) {
+            return slot >= 0 && slot < slots.length && (item.itemId().equals("minecraft:iron_ingot") || item.itemId().equals("minecraft:stone"));
+        }
+
+        public int insertItem(int slot, TransferBridgeFactory.ItemStackView item, boolean simulate) {
+            if (!canPlaceItem(slot, item)) {
+                return 0;
+            }
+            TransferBridgeFactory.ItemStackView existing = slots[slot];
+            int inserted = Math.min(item.count(), 64 - existing.count());
+            if (!simulate) {
+                slots[slot] = new TransferBridgeFactory.ItemStackView(item.itemId(), existing.count() + inserted);
+            }
+            return inserted;
+        }
+
+        public int extractItem(int slot, TransferBridgeFactory.ItemStackView item, int maxCount, boolean simulate) {
+            TransferBridgeFactory.ItemStackView existing = slots[slot];
+            if (!existing.matches(item)) {
+                return 0;
+            }
+            int extracted = Math.min(maxCount, existing.count());
+            if (!simulate) {
+                slots[slot] = new TransferBridgeFactory.ItemStackView("minecraft:air", 0);
+            }
+            return extracted;
+        }
+    }
+
+    private static final class TestTank {
+        private int amount;
+
+        public int getTanks() {
+            return 1;
+        }
+
+        public int getTankCapacity(int tank) {
+            return 1000;
+        }
+
+        public int fill(int tank, TransferBridgeFactory.FluidStackView fluid, boolean simulate) {
+            if (!fluid.fluidId().equals("minecraft:water")) {
+                return 0;
+            }
+            int space = 1000 - amount;
+            int inserted = Math.min(fluid.amount(), space);
+            if (!simulate) {
+                amount += inserted;
+            }
+            return inserted;
+        }
+
+        public int drain(int tank, int amount, boolean simulate) {
+            int extracted = Math.min(amount, this.amount);
+            if (!simulate) {
+                this.amount -= extracted;
+            }
+            return extracted;
+        }
+    }
+
+    private static final class TestEnergyStorage {
+        private int energy;
+
+        public int getMaxEnergyStored() {
+            return 1000;
+        }
+
+        public int getEnergyStored() {
+            return energy;
+        }
+
+        public boolean canReceive() {
+            return true;
+        }
+
+        public boolean canExtract() {
+            return true;
+        }
+
+        public int receiveEnergy(int maxReceive, boolean simulate) {
+            int inserted = Math.min(maxReceive, 1000 - energy);
+            if (!simulate) {
+                energy += inserted;
+            }
+            return inserted;
+        }
+
+        public int extractEnergy(int maxExtract, boolean simulate) {
+            int extracted = Math.min(maxExtract, energy);
+            if (!simulate) {
+                energy -= extracted;
+            }
+            return extracted;
+        }
+    }
+}

@@ -37,22 +37,47 @@ class ArtifactCacheTest {
         ArtifactCache cache = new ArtifactCache(LoggerFactory.getLogger("ArtifactCacheTest"), this.tempDir.resolve("cache"));
         cache.ensureLayout();
 
-        ArtifactCache.CompatibilityCacheKey key = new ArtifactCache.CompatibilityCacheKey("compat-key-1");
+        ArtifactCache.StartupCompatibilityKey key = new ArtifactCache.StartupCompatibilityKey("startup-key-1");
         ContentInventory inventory = sampleInventory();
         CompatibilityReport report = sampleReport();
         cache.storeCompatibilitySnapshot(new ArtifactCache.CompatibilitySnapshot(
-            new ArtifactCache.CompatibilityManifest(key.value(), "metadata-1", "engine-1", 1, Map.of("testmod", "fingerprint-1")),
+            new ArtifactCache.CompatibilityManifest(key, "metadata-1", "engine-1", "adapter-catalog-1", 1, Map.of("testmod", "fingerprint-1")),
             inventory,
             report
         ));
 
         ArtifactCache.CompatibilitySnapshot loaded = cache.loadCompatibilitySnapshot(key);
         assertNotNull(loaded);
-        assertEquals("compat-key-1", loaded.manifest().cacheKey());
+        assertEquals("startup-key-1", loaded.manifest().startupKey().value());
         assertEquals("engine-1", loaded.manifest().engineFingerprint());
+        assertEquals("adapter-catalog-1", loaded.manifest().adapterCatalogFingerprint());
         assertEquals(1, loaded.inventory().mods().size());
         assertEquals("testmod", loaded.report().profile("testmod").modId());
-        assertNull(cache.loadCompatibilitySnapshot(new ArtifactCache.CompatibilityCacheKey("compat-key-2")));
+        assertNull(cache.loadCompatibilitySnapshot(new ArtifactCache.StartupCompatibilityKey("startup-key-2")));
+    }
+
+    @Test
+    void ignoresLegacyCompatibilityManifestWithoutStartupKey() throws IOException {
+        ArtifactCache cache = new ArtifactCache(LoggerFactory.getLogger("ArtifactCacheTest"), this.tempDir.resolve("cache"));
+        cache.ensureLayout();
+
+        Path compatibilityPath = this.tempDir.resolve("cache/compatibility");
+        Files.createDirectories(compatibilityPath);
+        Files.writeString(compatibilityPath.resolve("compatibility-manifest.json"), """
+            {
+              "cacheKey": "legacy-key",
+              "metadataFingerprint": "metadata-1",
+              "engineFingerprint": "engine-1",
+              "modCount": 1,
+              "modFingerprints": {
+                "testmod": "fingerprint-1"
+              }
+            }
+            """);
+        Files.writeString(compatibilityPath.resolve("content-inventory.json"), Constants.GSON.toJson(sampleInventory()));
+        Files.writeString(compatibilityPath.resolve("compatibility-report.json"), Constants.GSON.toJson(sampleReport()));
+
+        assertNull(cache.loadCompatibilitySnapshot(new ArtifactCache.StartupCompatibilityKey("legacy-key")));
     }
 
     @Test
