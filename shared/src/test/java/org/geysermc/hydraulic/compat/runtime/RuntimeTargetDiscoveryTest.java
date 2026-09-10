@@ -56,6 +56,60 @@ class RuntimeTargetDiscoveryTest {
     }
 
     @Test
+    void carriesTraceIdAcrossTargetTransferAndSynchronization() {
+        RuntimeTraceId traceId = new RuntimeTraceId("bedrock-action-1");
+        TestItemBridge items = new TestItemBridge();
+        RuntimeTargetDiscovery discovery = discovery(new RuntimeTargetDiscovery.Target(MACHINE, items, null, null));
+        DirtyStateTracker dirty = new DirtyStateTracker();
+
+        RuntimeTargetDiscovery.Resolution resolution = discovery.discover(POSITION, traceId);
+        TransferResult transfer = discovery.transferItem(
+            POSITION,
+            TransferDirection.INSERT,
+            new TransferBridgeFactory.ItemStackView("minecraft:stone", 4),
+            0,
+            "north",
+            dirty,
+            traceId
+        );
+        StateChangeSet changes = dirty.drain();
+        SyncBatch batch = new SyncPlanner().plan(changes);
+        EncodedSyncChange encoded = new SyncEncoder().encode(batch).getFirst();
+        SyncDeliveryResult delivery = new SyncDeliveryResult(encoded, SyncDeliveryStatus.SENT, null);
+
+        assertEquals(traceId, resolution.traceId());
+        assertEquals(traceId, transfer.traceId());
+        assertEquals(traceId, changes.traceId());
+        assertEquals(traceId, changes.changes().getFirst().traceId());
+        assertEquals(traceId, batch.traceId());
+        assertEquals(traceId, batch.changes().getFirst().traceId());
+        assertEquals(traceId, encoded.traceId());
+        assertEquals(traceId, delivery.traceId());
+    }
+
+    @Test
+    void carriesTraceIdOnRejectedTargetResolution() {
+        RuntimeTraceId traceId = new RuntimeTraceId("bedrock-action-missing-target");
+        RuntimeTargetDiscovery discovery = discovery(null);
+
+        RuntimeTargetDiscovery.Resolution resolution = discovery.discover(POSITION, traceId);
+        TransferResult transfer = discovery.transferItem(
+            POSITION,
+            TransferDirection.INSERT,
+            new TransferBridgeFactory.ItemStackView("minecraft:stone", 1),
+            0,
+            null,
+            null,
+            traceId
+        );
+
+        assertEquals(RuntimeTargetDiscovery.Status.TARGET_UNAVAILABLE, resolution.status());
+        assertEquals(traceId, resolution.traceId());
+        assertFalse(transfer.committed());
+        assertEquals(traceId, transfer.traceId());
+    }
+
+    @Test
     void discoversFluidAndEnergyTargetsThroughSameResolver() {
         TestFluidBridge fluids = new TestFluidBridge();
         TestEnergyBridge energy = new TestEnergyBridge();

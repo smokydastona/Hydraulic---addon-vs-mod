@@ -6,8 +6,17 @@ import org.jetbrains.annotations.Nullable;
 public record SyncDeliveryResult(
     @NotNull EncodedSyncChange change,
     @NotNull SyncDeliveryStatus status,
-    @Nullable String reason
+    @Nullable String reason,
+    @Nullable RuntimeTraceId traceId
 ) {
+    public SyncDeliveryResult(
+        @NotNull EncodedSyncChange change,
+        @NotNull SyncDeliveryStatus status,
+        @Nullable String reason
+    ) {
+        this(change, status, reason, change.traceId());
+    }
+
     public SyncDeliveryResult {
         if ((status == SyncDeliveryStatus.TRANSPORT_FAILED
             || status == SyncDeliveryStatus.TARGET_UNAVAILABLE

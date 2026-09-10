@@ -1,6 +1,7 @@
 package org.geysermc.hydraulic.compat.runtime;
 
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -19,14 +20,26 @@ public final class SyncPlanner {
                 change.field(),
                 change.before(),
                 change.after(),
-                priority(change.field())
+                priority(change.field()),
+                change.traceId() != null ? change.traceId() : changes.traceId()
             );
             SyncChange previous = coalesced.get(key);
             coalesced.put(key, previous == null
                 ? next
-                : new SyncChange(next.blockIdentifier(), next.field(), previous.before(), next.after(), higher(previous.priority(), next.priority())));
+                : new SyncChange(next.blockIdentifier(), next.field(), previous.before(), next.after(), higher(previous.priority(), next.priority()), combineTrace(previous.traceId(), next.traceId())));
         }
         return new SyncBatch(new ArrayList<>(coalesced.values()));
+    }
+
+    @Nullable
+    private static RuntimeTraceId combineTrace(@Nullable RuntimeTraceId first, @Nullable RuntimeTraceId second) {
+        if (first == null) {
+            return second;
+        }
+        if (second == null || first.equals(second)) {
+            return first;
+        }
+        return null;
     }
 
     @NotNull

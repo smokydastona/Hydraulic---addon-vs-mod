@@ -34,7 +34,8 @@ public final class SyncEncoder {
                     null,
                     null,
                     change.priority(),
-                    change.field()
+                    change.field(),
+                    change.traceId()
                 ));
                 continue;
             }
@@ -53,7 +54,8 @@ public final class SyncEncoder {
                     change.before(),
                     change.after(),
                     change.priority(),
-                    change.field()
+                    change.field(),
+                    change.traceId()
                 ));
             } else {
                 encoded.add(new EncodedSyncChange(
@@ -68,7 +70,8 @@ public final class SyncEncoder {
                     change.before(),
                     change.after(),
                     change.priority(),
-                    change.field()
+                    change.field(),
+                    change.traceId()
                 ));
             }
         }

@@ -9,6 +9,16 @@ public record SyncChange(
     @NotNull String field,
     @Nullable Object before,
     @Nullable Object after,
-    @NotNull SyncPriority priority
+    @NotNull SyncPriority priority,
+    @Nullable RuntimeTraceId traceId
 ) {
+    public SyncChange(
+        @NotNull Identifier blockIdentifier,
+        @NotNull String field,
+        @Nullable Object before,
+        @Nullable Object after,
+        @NotNull SyncPriority priority
+    ) {
+        this(blockIdentifier, field, before, after, priority, null);
+    }
 }

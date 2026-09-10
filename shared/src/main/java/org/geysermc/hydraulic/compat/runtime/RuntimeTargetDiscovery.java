@@ -36,16 +36,21 @@ public final class RuntimeTargetDiscovery {
 
     @NotNull
     public Resolution discover(@NotNull Position position) {
+        return discover(position, null);
+    }
+
+    @NotNull
+    public Resolution discover(@NotNull Position position, @Nullable RuntimeTraceId traceId) {
         Target target = this.targetSource.targetAt(position);
         if (target == null) {
-            return new Resolution(position, Status.TARGET_UNAVAILABLE, null, null, "No runtime target found at " + position.asKey());
+            return new Resolution(position, Status.TARGET_UNAVAILABLE, null, null, "No runtime target found at " + position.asKey(), traceId);
         }
 
         MachineBridgeFactory.ResourceAutomationAccess automation = this.automationResolver.resolve(target);
         if (automation == null) {
-            return new Resolution(position, Status.CAPABILITY_UNAVAILABLE, target.blockIdentifier(), null, "No executable automation capability for " + target.blockIdentifier());
+            return new Resolution(position, Status.CAPABILITY_UNAVAILABLE, target.blockIdentifier(), null, "No executable automation capability for " + target.blockIdentifier(), traceId);
         }
-        return new Resolution(position, Status.RESOLVED, target.blockIdentifier(), automation, null);
+        return new Resolution(position, Status.RESOLVED, target.blockIdentifier(), automation, null, traceId);
     }
 
     @NotNull
@@ -57,14 +62,29 @@ public final class RuntimeTargetDiscovery {
         @Nullable String side,
         @Nullable DirtyStateTracker dirtyStateTracker
     ) {
-        Resolution resolution = discover(position);
+        return transferItem(position, direction, item, slot, side, dirtyStateTracker, null);
+    }
+
+    @NotNull
+    public TransferResult transferItem(
+        @NotNull Position position,
+        @NotNull TransferDirection direction,
+        @NotNull TransferBridgeFactory.ItemStackView item,
+        int slot,
+        @Nullable String side,
+        @Nullable DirtyStateTracker dirtyStateTracker,
+        @Nullable RuntimeTraceId traceId
+    ) {
+        Resolution resolution = discover(position, traceId);
         if (!resolution.resolved()) {
-            return TransferResult.rejected(resolution.reason());
+            return TransferResult.rejected(resolution.reason()).withTrace(traceId);
         }
         TransferRequest request = new TransferRequest(resolution.blockIdentifier(), direction, item, slot, side);
-        return dirtyStateTracker == null
-            ? resolution.automationAccess().transferItem(request)
-            : resolution.automationAccess().transferItem(request, dirtyStateTracker);
+        TransferResult result = resolution.automationAccess().transferItem(request).withTrace(traceId);
+        if (dirtyStateTracker != null && result.committed()) {
+            dirtyStateTracker.record(result.stateChanges());
+        }
+        return result;
     }
 
     @NotNull
@@ -76,14 +96,29 @@ public final class RuntimeTargetDiscovery {
         @Nullable String side,
         @Nullable DirtyStateTracker dirtyStateTracker
     ) {
-        Resolution resolution = discover(position);
+        return transferFluid(position, direction, fluid, tank, side, dirtyStateTracker, null);
+    }
+
+    @NotNull
+    public TransferResult transferFluid(
+        @NotNull Position position,
+        @NotNull TransferDirection direction,
+        @NotNull TransferBridgeFactory.FluidStackView fluid,
+        int tank,
+        @Nullable String side,
+        @Nullable DirtyStateTracker dirtyStateTracker,
+        @Nullable RuntimeTraceId traceId
+    ) {
+        Resolution resolution = discover(position, traceId);
         if (!resolution.resolved()) {
-            return TransferResult.rejected(resolution.reason());
+            return TransferResult.rejected(resolution.reason()).withTrace(traceId);
         }
         FluidTransferRequest request = new FluidTransferRequest(resolution.blockIdentifier(), direction, fluid, tank, side);
-        return dirtyStateTracker == null
-            ? resolution.automationAccess().transferFluid(request)
-            : resolution.automationAccess().transferFluid(request, dirtyStateTracker);
+        TransferResult result = resolution.automationAccess().transferFluid(request).withTrace(traceId);
+        if (dirtyStateTracker != null && result.committed()) {
+            dirtyStateTracker.record(result.stateChanges());
+        }
+        return result;
     }
 
     @NotNull
@@ -94,14 +129,28 @@ public final class RuntimeTargetDiscovery {
         @Nullable String side,
         @Nullable DirtyStateTracker dirtyStateTracker
     ) {
-        Resolution resolution = discover(position);
+        return transferEnergy(position, direction, amount, side, dirtyStateTracker, null);
+    }
+
+    @NotNull
+    public TransferResult transferEnergy(
+        @NotNull Position position,
+        @NotNull TransferDirection direction,
+        int amount,
+        @Nullable String side,
+        @Nullable DirtyStateTracker dirtyStateTracker,
+        @Nullable RuntimeTraceId traceId
+    ) {
+        Resolution resolution = discover(position, traceId);
         if (!resolution.resolved()) {
-            return TransferResult.rejected(resolution.reason());
+            return TransferResult.rejected(resolution.reason()).withTrace(traceId);
         }
         EnergyTransferRequest request = new EnergyTransferRequest(resolution.blockIdentifier(), direction, amount, side);
-        return dirtyStateTracker == null
-            ? resolution.automationAccess().transferEnergy(request)
-            : resolution.automationAccess().transferEnergy(request, dirtyStateTracker);
+        TransferResult result = resolution.automationAccess().transferEnergy(request).withTrace(traceId);
+        if (dirtyStateTracker != null && result.committed()) {
+            dirtyStateTracker.record(result.stateChanges());
+        }
+        return result;
     }
 
     public enum Status {
@@ -144,8 +193,19 @@ public final class RuntimeTargetDiscovery {
         @NotNull Status status,
         @Nullable Identifier blockIdentifier,
         @Nullable MachineBridgeFactory.ResourceAutomationAccess automationAccess,
-        @Nullable String reason
+        @Nullable String reason,
+        @Nullable RuntimeTraceId traceId
     ) {
+        public Resolution(
+            @NotNull Position position,
+            @NotNull Status status,
+            @Nullable Identifier blockIdentifier,
+            @Nullable MachineBridgeFactory.ResourceAutomationAccess automationAccess,
+            @Nullable String reason
+        ) {
+            this(position, status, blockIdentifier, automationAccess, reason, null);
+        }
+
         public Resolution {
             if (status != Status.RESOLVED && (reason == null || reason.isBlank())) {
                 throw new IllegalArgumentException("Unresolved runtime targets require a reason");
