@@ -115,6 +115,23 @@ public final class MachineBridgeFactory {
     }
 
     @Nullable
+    public static MixedResourceMachineProcessingBridge createMixedProcessing(
+        @Nullable CompiledCompatibilityPlan plan,
+        @Nullable TransferBridgeFactory.ItemTransferBridge items,
+        @Nullable TransferBridgeFactory.FluidTransferBridge fluids,
+        @Nullable TransferBridgeFactory.EnergyTransferBridge energy,
+        @NotNull List<MixedResourceMachineProcessingBridge.MixedMachineRecipe> recipes
+    ) {
+        if (!BridgeAdapterSupport.supportsMachineBehavior(plan)
+            || !BridgeAdapterSupport.supportsMachineInventory(plan)
+            || recipes.isEmpty()
+            || !supportsRecipeResources(items, fluids, energy, recipes)) {
+            return null;
+        }
+        return new MixedResourceMachineProcessingBridge(plan, items, fluids, energy, recipes);
+    }
+
+    @Nullable
     public static MachineProcessingBridge createProcessing(
         @Nullable CompiledCompatibilityPlan plan,
         @Nullable TransferBridgeFactory.ItemTransferBridge inventory
@@ -140,6 +157,25 @@ public final class MachineBridgeFactory {
     @Nullable
     private static Integer firstSlot(@Nullable List<Integer> slots) {
         return slots == null || slots.isEmpty() ? null : slots.getFirst();
+    }
+
+    private static boolean supportsRecipeResources(
+        @Nullable TransferBridgeFactory.ItemTransferBridge items,
+        @Nullable TransferBridgeFactory.FluidTransferBridge fluids,
+        @Nullable TransferBridgeFactory.EnergyTransferBridge energy,
+        @NotNull List<MixedResourceMachineProcessingBridge.MixedMachineRecipe> recipes
+    ) {
+        boolean needsItems = false;
+        boolean needsFluids = false;
+        boolean needsEnergy = false;
+        for (MixedResourceMachineProcessingBridge.MixedMachineRecipe recipe : recipes) {
+            needsItems |= !recipe.itemInputs().isEmpty() || !recipe.itemOutputs().isEmpty();
+            needsFluids |= !recipe.fluidInputs().isEmpty() || !recipe.fluidOutputs().isEmpty();
+            needsEnergy |= recipe.energyInput() > 0 || recipe.energyOutput() > 0;
+        }
+        return (!needsItems || items != null && items.executable())
+            && (!needsFluids || fluids != null && fluids.executable())
+            && (!needsEnergy || energy != null && energy.executable());
     }
 
     @Nullable
