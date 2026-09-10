@@ -17,6 +17,7 @@ import org.geysermc.hydraulic.compat.ir.CompiledCompatibilityPlan;
 import org.geysermc.hydraulic.compat.model.CompatibilityObject;
 import org.geysermc.hydraulic.compat.runtime.CompatibilityDecisions;
 import org.geysermc.hydraulic.pack.PackModule;
+import org.geysermc.hydraulic.pack.TexturePackModule;
 import org.geysermc.hydraulic.pack.context.PackPostProcessContext;
 import org.geysermc.pack.bedrock.resource.attachables.Attachable;
 import org.geysermc.pack.bedrock.resource.attachables.Attachables;
@@ -34,8 +35,7 @@ import java.util.Optional;
 
 @SuppressWarnings({"rawtypes", "this-escape"})
 @AutoService(PackModule.class)
-public class ArmorPackModule extends PackModule<ArmorPackModule> {
-    private static final String BEDROCK_ARMOR_TEXTURE_LOCATION = "textures/entity/%s/equipment/%s/%s";
+public class ArmorPackModule extends TexturePackModule<ArmorPackModule> {
 
     private static final Map<String, String> ATTACHABLE_MATERIALS = new HashMap<>() {
         {
@@ -119,7 +119,8 @@ public class ArmorPackModule extends PackModule<ArmorPackModule> {
             description.item(items);
 
             Map<String, String> textures = new LinkedHashMap<>();
-            textures.put("default", String.format(BEDROCK_ARMOR_TEXTURE_LOCATION, layerTexture.namespace(), layerType.name().toLowerCase(), layerTexture.value()));
+            Key resolvedLayerTexture = EquipmentAssetLoader.sourceTextureKey(layerType, layerTexture);
+            textures.put("default", getOutputFromModel(context, resolvedLayerTexture).replace("textures/", "").replace(".png", ""));
             textures.put("enchanted", "textures/misc/enchanted_actor_glint");
             description.textures(textures);
 
