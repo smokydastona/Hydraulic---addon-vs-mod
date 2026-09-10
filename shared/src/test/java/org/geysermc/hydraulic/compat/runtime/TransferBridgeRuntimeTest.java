@@ -168,6 +168,7 @@ class TransferBridgeRuntimeTest {
 
         assertFalse(result.committed());
         assertEquals(0, result.moved());
+        assertTrue(result.stateChanges().changes().isEmpty());
         assertTrue(transfer.itemAt(machine, 1).isEmpty());
     }
 
@@ -181,10 +182,14 @@ class TransferBridgeRuntimeTest {
             .add(new TransferRequest(machine, TransferDirection.INSERT, new TransferBridgeFactory.ItemStackView("minecraft:iron_ingot", 1), 1, null))
             .add(new TransferRequest(machine, TransferDirection.EXTRACT, new TransferBridgeFactory.ItemStackView("minecraft:stone", 1), 0, null));
 
-        TransferResult result = transaction.execute();
+        DirtyStateTracker dirtyStateTracker = new DirtyStateTracker();
+        TransferResult result = transaction.execute(dirtyStateTracker);
 
         assertTrue(result.committed());
         assertEquals(2, result.moved());
+        assertTrue(dirtyStateTracker.dirty());
+        assertEquals(2, dirtyStateTracker.drain().changes().size());
+        assertFalse(dirtyStateTracker.dirty());
         assertEquals("minecraft:iron_ingot", transfer.itemAt(machine, 1).itemId());
         assertTrue(transfer.itemAt(machine, 0).isEmpty());
     }

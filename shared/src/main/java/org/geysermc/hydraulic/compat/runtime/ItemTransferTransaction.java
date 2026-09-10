@@ -38,25 +38,45 @@ public final class ItemTransferTransaction {
             TransferBridgeFactory.OperationResult result = operate(request, true);
             simulations.add(result);
             if (!isComplete(result, request)) {
-                return new TransferResult(false, 0, result.status(), result.failureReason(), simulations);
+                return new TransferResult(false, 0, result.status(), result.failureReason(), simulations, StateChangeSet.empty());
             }
         }
 
         List<CommittedOperation> committed = new ArrayList<>(this.requests.size());
         List<TransferBridgeFactory.OperationResult> results = new ArrayList<>(this.requests.size());
+        List<StateChangeSet.FieldChange> changes = new ArrayList<>(this.requests.size());
         int moved = 0;
         for (TransferRequest request : this.requests) {
+            TransferBridgeFactory.ItemStackView before = this.bridge.itemAt(request.blockIdentifier(), request.slot());
             TransferBridgeFactory.OperationResult result = operate(request, false);
             results.add(result);
             if (!isComplete(result, request)) {
                 rollback(committed);
-                return new TransferResult(false, 0, result.status(), result.failureReason(), results);
+                return new TransferResult(false, 0, result.status(), result.failureReason(), results, StateChangeSet.empty());
             }
             committed.add(new CommittedOperation(request, result.moved()));
+            TransferBridgeFactory.ItemStackView after = this.bridge.itemAt(request.blockIdentifier(), request.slot());
+            if (!java.util.Objects.equals(before, after)) {
+                changes.add(new StateChangeSet.FieldChange(
+                    request.blockIdentifier(),
+                    "inventory.slot." + request.slot(),
+                    before,
+                    after
+                ));
+            }
             moved += result.moved();
         }
 
-        return new TransferResult(true, moved, TransferBridgeFactory.OperationStatus.COMPLETED, null, results);
+        return new TransferResult(true, moved, TransferBridgeFactory.OperationStatus.COMPLETED, null, results, new StateChangeSet(changes));
+    }
+
+    @NotNull
+    public TransferResult execute(@NotNull DirtyStateTracker dirtyStateTracker) {
+        TransferResult result = execute();
+        if (result.committed()) {
+            dirtyStateTracker.record(result.stateChanges());
+        }
+        return result;
     }
 
     private TransferBridgeFactory.OperationResult operate(@NotNull TransferRequest request, boolean simulate) {
