@@ -79,6 +79,16 @@ class FluidAnalyzerTest {
         assertFalse(object.runtimeRequirements().contains("fluid_translator"));
     }
 
+    @Test
+    void doesNotClaimTransferBridgeWithoutDeclaredTransferSemantics() {
+        ContentInventory.ContentDescriptor descriptor = new ContentInventory.ContentDescriptor("fluid", "example", FLUID_ID.toString(), true, false, List.of());
+
+        CompatibilityObject object = new FluidAnalyzer().analyze(descriptor, emptyInventory(), MetadataIndex.empty());
+
+        assertEquals(SupportLevel.NATIVE, object.supportResults().get("transfer").level());
+        assertFalse(object.runtimeRequirements().contains("fluid_transfer_bridge"));
+    }
+
     private static ContentInventory.ModContentInventory emptyInventory() {
         return new ContentInventory.ModContentInventory(
             "example",
