@@ -35,13 +35,14 @@ public final class FluidContainerBridge {
         if (container.isEmpty()) {
             return 0;
         }
-        int moved = this.tank.insertFluid(
+        TransferBridgeFactory.OperationResult result = this.tank.insertFluidResult(
             blockIdentifier,
             new TransferBridgeFactory.FluidStackView(container.fluidId(), Math.min(container.amount(), this.containerCapacity)),
             this.tankIndex,
             side,
             simulate
         );
+        int moved = result.moved();
         if (!simulate) {
             container.remove(moved);
         }
@@ -62,13 +63,14 @@ public final class FluidContainerBridge {
         if (requested <= 0) {
             return 0;
         }
-        int moved = this.tank.extractFluid(
+        TransferBridgeFactory.OperationResult result = this.tank.extractFluidResult(
             blockIdentifier,
             new TransferBridgeFactory.FluidStackView(fluidId, requested),
             this.tankIndex,
             side,
             simulate
         );
+        int moved = result.moved();
         if (!simulate) {
             container.add(fluidId, moved);
         }

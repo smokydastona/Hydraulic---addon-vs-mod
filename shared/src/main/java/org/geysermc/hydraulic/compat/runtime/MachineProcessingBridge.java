@@ -15,6 +15,7 @@ public final class MachineProcessingBridge {
     private final int inputSlot;
     private final int outputSlot;
     private final List<MachineRecipe> recipes;
+    private MachineRecipe activeRecipe;
     private int progress;
 
     MachineProcessingBridge(
@@ -43,12 +44,19 @@ public final class MachineProcessingBridge {
     public boolean tick(@NotNull Identifier blockIdentifier) {
         MachineRecipe recipe = findRecipe(blockIdentifier);
         if (recipe == null) {
+            this.activeRecipe = null;
             this.progress = 0;
             return false;
         }
 
+        if (!recipe.equals(this.activeRecipe)) {
+            this.activeRecipe = recipe;
+            this.progress = 0;
+        }
+
         TransferBridgeFactory.ItemStackView input = this.inventory.itemAt(blockIdentifier, this.inputSlot);
         if (input == null || !input.matches(recipe.input()) || input.count() < recipe.input().count()) {
+            this.activeRecipe = null;
             this.progress = 0;
             return false;
         }
@@ -60,24 +68,27 @@ public final class MachineProcessingBridge {
 
         TransferBridgeFactory.ItemStackView output = this.inventory.itemAt(blockIdentifier, this.outputSlot);
         if (!canAcceptOutput(blockIdentifier, output, recipe.output())
-            || this.inventory.extract(blockIdentifier, recipe.input(), this.inputSlot, null, true) < recipe.input().count()
-            || this.inventory.insert(blockIdentifier, recipe.output(), this.outputSlot, null, true) < recipe.output().count()) {
+            || !this.inventory.extractResult(blockIdentifier, recipe.input(), this.inputSlot, null, true).successful()
+            || !this.inventory.insertResult(blockIdentifier, recipe.output(), this.outputSlot, null, true).successful()) {
             return false;
         }
 
-        int extracted = this.inventory.extract(blockIdentifier, recipe.input(), this.inputSlot, null, false);
-        if (extracted != recipe.input().count()) {
+        TransferBridgeFactory.OperationResult extracted = this.inventory.extractResult(blockIdentifier, recipe.input(), this.inputSlot, null, false);
+        if (!extracted.successful() || extracted.moved() != recipe.input().count()) {
+            this.activeRecipe = null;
             this.progress = 0;
             return false;
         }
 
-        int inserted = this.inventory.insert(blockIdentifier, recipe.output(), this.outputSlot, null, false);
-        if (inserted != recipe.output().count()) {
+        TransferBridgeFactory.OperationResult inserted = this.inventory.insertResult(blockIdentifier, recipe.output(), this.outputSlot, null, false);
+        if (!inserted.successful() || inserted.moved() != recipe.output().count()) {
             this.inventory.insert(blockIdentifier, recipe.input(), this.inputSlot, null, false);
+            this.activeRecipe = null;
             this.progress = 0;
             return false;
         }
 
+        this.activeRecipe = null;
         this.progress = 0;
         return true;
     }

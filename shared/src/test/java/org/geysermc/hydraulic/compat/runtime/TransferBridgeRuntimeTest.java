@@ -14,6 +14,7 @@ import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -84,6 +85,17 @@ class TransferBridgeRuntimeTest {
         assertTrue(bridge.canExtract(Identifier.fromNamespaceAndPath("hydraulic", "test_machine")));
         assertEquals(2, bridge.slotCount(Identifier.fromNamespaceAndPath("hydraulic", "test_machine")));
 
+        TransferBridgeFactory.OperationResult simulated = bridge.insertResult(
+            Identifier.fromNamespaceAndPath("hydraulic", "test_machine"),
+            new TransferBridgeFactory.ItemStackView("minecraft:iron_ingot", 8),
+            1,
+            "input",
+            true
+        );
+        assertEquals(TransferBridgeFactory.OperationStatus.COMPLETED, simulated.status());
+        assertTrue(simulated.simulated());
+        assertEquals(0, bridge.itemAt(Identifier.fromNamespaceAndPath("hydraulic", "test_machine"), 1).count());
+
         int inserted = bridge.insert(
             Identifier.fromNamespaceAndPath("hydraulic", "test_machine"),
             new TransferBridgeFactory.ItemStackView("minecraft:iron_ingot", 8),
@@ -103,6 +115,17 @@ class TransferBridgeRuntimeTest {
         );
         assertEquals(8, extracted);
         assertEquals(0, bridge.itemAt(Identifier.fromNamespaceAndPath("hydraulic", "test_machine"), 1).count());
+
+        TransferBridgeFactory.OperationResult rejected = bridge.insertResult(
+            Identifier.fromNamespaceAndPath("hydraulic", "test_machine"),
+            new TransferBridgeFactory.ItemStackView("minecraft:diamond", 1),
+            1,
+            "input",
+            false
+        );
+        assertEquals(TransferBridgeFactory.OperationStatus.REJECTED, rejected.status());
+        assertEquals(2, bridge.operationMetrics().snapshot().attempts());
+        assertEquals(1, bridge.operationMetrics().snapshot().simulated());
     }
 
     @Test
@@ -247,6 +270,10 @@ class TransferBridgeRuntimeTest {
         assertTrue(fluidBridge.canExtractFluid(Identifier.fromNamespaceAndPath("hydraulic", "test_machine")));
         assertEquals(1000, fluidBridge.tankCapacity(Identifier.fromNamespaceAndPath("hydraulic", "test_machine"), 0));
         assertEquals(250, fluidBridge.insertFluid(Identifier.fromNamespaceAndPath("hydraulic", "test_machine"), new TransferBridgeFactory.FluidStackView("minecraft:water", 250), 0, "input", false));
+        assertEquals(
+            TransferBridgeFactory.OperationStatus.PARTIAL,
+            fluidBridge.insertFluidResult(Identifier.fromNamespaceAndPath("hydraulic", "test_machine"), new TransferBridgeFactory.FluidStackView("minecraft:water", 1000), 0, "input", true).status()
+        );
 
         assertNotNull(energyBridge);
         assertTrue(energyBridge.executable());
@@ -254,6 +281,25 @@ class TransferBridgeRuntimeTest {
         assertTrue(energyBridge.canProvideEnergy(Identifier.fromNamespaceAndPath("hydraulic", "test_machine")));
         assertEquals(1000, energyBridge.getMaxEnergy(Identifier.fromNamespaceAndPath("hydraulic", "test_machine")));
         assertEquals(250, energyBridge.receiveEnergy(Identifier.fromNamespaceAndPath("hydraulic", "test_machine"), 250, "input", false));
+    }
+
+    @Test
+    void transferOperationFailuresBecomeStructuredResults() {
+        Identifier machine = Identifier.fromNamespaceAndPath("hydraulic", "test_machine");
+        CompiledCompatibilityPlan plan = runtimePlan(RuntimeBridgeKind.ITEM_TRANSFER, Map.of("can_insert", "true", "can_extract", "true", "inventory_type", "generic"));
+        TransferBridgeFactory.ItemTransferBridge bridge = TransferBridgeFactory.createItemTransfer(plan, new ThrowingInventory());
+
+        TransferBridgeFactory.OperationResult result = bridge.insertResult(
+            machine,
+            new TransferBridgeFactory.ItemStackView("minecraft:stone", 1),
+            0,
+            null,
+            false
+        );
+
+        assertEquals(TransferBridgeFactory.OperationStatus.FAILED, result.status());
+        assertEquals("inventory failure", result.failureReason());
+        assertFalse(result.successful());
     }
 
     @Test
@@ -274,6 +320,7 @@ class TransferBridgeRuntimeTest {
         assertTrue(container.isEmpty());
         assertEquals(250, bridge.transferFromTank(machine, container, "minecraft:water", "output", false));
         assertEquals(250, container.amount());
+        assertEquals(2, transfer.operationMetrics().snapshot().attempts());
     }
 
     @Test
@@ -350,7 +397,10 @@ class TransferBridgeRuntimeTest {
         }
 
         public boolean canPlaceItem(int slot, TransferBridgeFactory.ItemStackView item) {
-            return slot >= 0 && slot < slots.length && !item.isEmpty();
+            return slot >= 0 && slot < slots.length && !item.isEmpty()
+                && (item.itemId().equals("minecraft:stone")
+                || item.itemId().equals("minecraft:iron_ingot")
+                || item.itemId().equals("minecraft:gold_ingot"));
         }
 
         public int insertItem(int slot, TransferBridgeFactory.ItemStackView item, boolean simulate) {
@@ -413,6 +463,20 @@ class TransferBridgeRuntimeTest {
     private static final class InsertOnlyInventory {
         public int insertItem(int slot, TransferBridgeFactory.ItemStackView item, boolean simulate) {
             return item.count();
+        }
+    }
+
+    private static final class ThrowingInventory {
+        public int getContainerSize() {
+            return 1;
+        }
+
+        public int insertItem(int slot, TransferBridgeFactory.ItemStackView item, boolean simulate) {
+            throw new IllegalStateException("inventory failure");
+        }
+
+        public int extractItem(int slot, TransferBridgeFactory.ItemStackView item, int maxCount, boolean simulate) {
+            return 0;
         }
     }
 

@@ -7,6 +7,9 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.lang.reflect.Method;
+import java.lang.reflect.InvocationTargetException;
+import java.util.function.IntSupplier;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * Factory for creating transfer system bridges (item, fluid, energy) based on compiled compatibility plans.
@@ -14,6 +17,70 @@ import java.lang.reflect.Method;
  */
 public final class TransferBridgeFactory {
     private TransferBridgeFactory() {
+    }
+
+    public enum OperationStatus {
+        COMPLETED,
+        PARTIAL,
+        REJECTED,
+        FAILED
+    }
+
+    public record OperationResult(
+        int requested,
+        int moved,
+        boolean simulated,
+        @NotNull OperationStatus status,
+        @Nullable String failureReason
+    ) {
+        public OperationResult {
+            requested = Math.max(0, requested);
+            moved = Math.max(0, Math.min(requested, moved));
+            if (status == OperationStatus.FAILED && (failureReason == null || failureReason.isBlank())) {
+                throw new IllegalArgumentException("Failed transfer operations require a failure reason");
+            }
+            if (status != OperationStatus.FAILED && failureReason != null) {
+                throw new IllegalArgumentException("Only failed transfer operations may have a failure reason");
+            }
+        }
+
+        public boolean successful() {
+            return this.status == OperationStatus.COMPLETED || this.status == OperationStatus.PARTIAL;
+        }
+    }
+
+    public static final class OperationMetrics {
+        private final AtomicLong attempts = new AtomicLong();
+        private final AtomicLong completed = new AtomicLong();
+        private final AtomicLong partial = new AtomicLong();
+        private final AtomicLong rejected = new AtomicLong();
+        private final AtomicLong failed = new AtomicLong();
+        private final AtomicLong simulated = new AtomicLong();
+        private static final OperationMetrics NOOP = new OperationMetrics();
+
+        private void record(@NotNull OperationResult result) {
+            if (this == NOOP) {
+                return;
+            }
+            this.attempts.incrementAndGet();
+            if (result.simulated()) {
+                this.simulated.incrementAndGet();
+            }
+            switch (result.status()) {
+                case COMPLETED -> this.completed.incrementAndGet();
+                case PARTIAL -> this.partial.incrementAndGet();
+                case REJECTED -> this.rejected.incrementAndGet();
+                case FAILED -> this.failed.incrementAndGet();
+            }
+        }
+
+        @NotNull
+        public MetricsSnapshot snapshot() {
+            return new MetricsSnapshot(this.attempts.get(), this.completed.get(), this.partial.get(), this.rejected.get(), this.failed.get(), this.simulated.get());
+        }
+
+        public record MetricsSnapshot(long attempts, long completed, long partial, long rejected, long failed, long simulated) {
+        }
     }
 
     public static boolean supportsItemTransfer(@NotNull Identifier blockIdentifier, @NotNull CompatibilityRegistry compatibilityRegistry) {
@@ -136,6 +203,22 @@ public final class TransferBridgeFactory {
         default int extract(@NotNull Identifier blockIdentifier, @NotNull ItemStackView item, int slot, @Nullable String side, boolean simulate) {
             return 0;
         }
+
+        default @NotNull OperationResult insertResult(@NotNull Identifier blockIdentifier, @NotNull ItemStackView item, int slot, @Nullable String side, boolean simulate) {
+            OperationResult result = operationResult(item.count(), simulate, () -> insert(blockIdentifier, item, slot, side, simulate));
+            operationMetrics().record(result);
+            return result;
+        }
+
+        default @NotNull OperationResult extractResult(@NotNull Identifier blockIdentifier, @NotNull ItemStackView item, int slot, @Nullable String side, boolean simulate) {
+            OperationResult result = operationResult(item.count(), simulate, () -> extract(blockIdentifier, item, slot, side, simulate));
+            operationMetrics().record(result);
+            return result;
+        }
+
+        default @NotNull OperationMetrics operationMetrics() {
+            return OperationMetrics.NOOP;
+        }
     }
 
     public interface FluidTransferBridge {
@@ -166,6 +249,22 @@ public final class TransferBridgeFactory {
         default int extractFluid(@NotNull Identifier blockIdentifier, @NotNull FluidStackView fluid, int tank, @Nullable String side, boolean simulate) {
             return 0;
         }
+
+        default @NotNull OperationResult insertFluidResult(@NotNull Identifier blockIdentifier, @NotNull FluidStackView fluid, int tank, @Nullable String side, boolean simulate) {
+            OperationResult result = operationResult(fluid.amount(), simulate, () -> insertFluid(blockIdentifier, fluid, tank, side, simulate));
+            operationMetrics().record(result);
+            return result;
+        }
+
+        default @NotNull OperationResult extractFluidResult(@NotNull Identifier blockIdentifier, @NotNull FluidStackView fluid, int tank, @Nullable String side, boolean simulate) {
+            OperationResult result = operationResult(fluid.amount(), simulate, () -> extractFluid(blockIdentifier, fluid, tank, side, simulate));
+            operationMetrics().record(result);
+            return result;
+        }
+
+        default @NotNull OperationMetrics operationMetrics() {
+            return OperationMetrics.NOOP;
+        }
     }
 
     public interface EnergyTransferBridge {
@@ -191,6 +290,22 @@ public final class TransferBridgeFactory {
 
         default int extractEnergy(@NotNull Identifier blockIdentifier, int amount, @Nullable String side, boolean simulate) {
             return 0;
+        }
+
+        default @NotNull OperationResult receiveEnergyResult(@NotNull Identifier blockIdentifier, int amount, @Nullable String side, boolean simulate) {
+            OperationResult result = operationResult(amount, simulate, () -> receiveEnergy(blockIdentifier, amount, side, simulate));
+            operationMetrics().record(result);
+            return result;
+        }
+
+        default @NotNull OperationResult extractEnergyResult(@NotNull Identifier blockIdentifier, int amount, @Nullable String side, boolean simulate) {
+            OperationResult result = operationResult(amount, simulate, () -> extractEnergy(blockIdentifier, amount, side, simulate));
+            operationMetrics().record(result);
+            return result;
+        }
+
+        default @NotNull OperationMetrics operationMetrics() {
+            return OperationMetrics.NOOP;
         }
     }
 
@@ -384,6 +499,7 @@ public final class TransferBridgeFactory {
     private static final class RuntimeBackedItemTransferBridge implements ItemTransferBridge {
         private final CompiledCompatibilityPlan plan;
         private final RuntimeInventoryAdapter inventory;
+        private final OperationMetrics metrics = new OperationMetrics();
 
         private RuntimeBackedItemTransferBridge(@NotNull CompiledCompatibilityPlan plan, @NotNull RuntimeInventoryAdapter inventory) {
             this.plan = plan;
@@ -393,6 +509,11 @@ public final class TransferBridgeFactory {
         @Override
         public boolean executable() {
             return true;
+        }
+
+        @Override
+        public OperationMetrics operationMetrics() {
+            return this.metrics;
         }
 
         @Override
@@ -435,6 +556,7 @@ public final class TransferBridgeFactory {
     private static final class RuntimeBackedFluidTransferBridge implements FluidTransferBridge {
         private final CompiledCompatibilityPlan plan;
         private final RuntimeFluidAdapter runtime;
+        private final OperationMetrics metrics = new OperationMetrics();
 
         private RuntimeBackedFluidTransferBridge(@NotNull CompiledCompatibilityPlan plan, @NotNull RuntimeFluidAdapter runtime) {
             this.plan = plan;
@@ -444,6 +566,11 @@ public final class TransferBridgeFactory {
         @Override
         public boolean executable() {
             return true;
+        }
+
+        @Override
+        public OperationMetrics operationMetrics() {
+            return this.metrics;
         }
 
         @Override
@@ -491,6 +618,7 @@ public final class TransferBridgeFactory {
     private static final class RuntimeBackedEnergyTransferBridge implements EnergyTransferBridge {
         private final CompiledCompatibilityPlan plan;
         private final RuntimeEnergyAdapter runtime;
+        private final OperationMetrics metrics = new OperationMetrics();
 
         private RuntimeBackedEnergyTransferBridge(@NotNull CompiledCompatibilityPlan plan, @NotNull RuntimeEnergyAdapter runtime) {
             this.plan = plan;
@@ -500,6 +628,11 @@ public final class TransferBridgeFactory {
         @Override
         public boolean executable() {
             return true;
+        }
+
+        @Override
+        public OperationMetrics operationMetrics() {
+            return this.metrics;
         }
 
         @Override
@@ -706,6 +839,15 @@ public final class TransferBridgeFactory {
                 }
                 try {
                     return method.invoke(target, effectiveArgs);
+                } catch (InvocationTargetException exception) {
+                    Throwable cause = exception.getCause();
+                    if (cause instanceof RuntimeException runtimeException) {
+                        throw runtimeException;
+                    }
+                    if (cause instanceof Error error) {
+                        throw error;
+                    }
+                    return null;
                 } catch (ReflectiveOperationException ignored) {
                     return null;
                 }
@@ -780,5 +922,22 @@ public final class TransferBridgeFactory {
             return number.intValue();
         }
         return 0;
+    }
+
+    @NotNull
+    private static OperationResult operationResult(int requested, boolean simulated, @NotNull IntSupplier operation) {
+        int normalizedRequested = Math.max(0, requested);
+        try {
+            int moved = operation.getAsInt();
+            int normalizedMoved = Math.max(0, Math.min(normalizedRequested, moved));
+            OperationStatus status = normalizedMoved == normalizedRequested
+                ? OperationStatus.COMPLETED
+                : normalizedMoved == 0 ? OperationStatus.REJECTED : OperationStatus.PARTIAL;
+            return new OperationResult(normalizedRequested, normalizedMoved, simulated, status, null);
+        } catch (RuntimeException exception) {
+            String reason = exception.getMessage();
+            return new OperationResult(normalizedRequested, 0, simulated, OperationStatus.FAILED,
+                reason == null || reason.isBlank() ? exception.getClass().getSimpleName() : reason);
+        }
     }
 }
