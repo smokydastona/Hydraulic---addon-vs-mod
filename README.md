@@ -1,0 +1,300 @@
+# Hydraulic
+
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Discord](https://img.shields.io/discord/613163671870242838.svg?color=%237289da&label=discord)](https://discord.gg/geysermc)
+
+Hydraulic is a companion to Geyser which allows for Bedrock players to join modded Minecraft: Java Edition servers.
+
+Hydraulic is an open collaboration project by [CubeCraft Games](https://cubecraft.net).
+
+
+## About Skeleton Key (This Fork)
+The goal of Hydraulic — Skeleton Key is to make each individual modded Java Minecraft server as accessible as possible to Bedrock players without requiring the server owner to manually configure compatibility for every mod. On startup, Hydraulic will scan the installed mod environment and compare it with the previous scan. When the server is new or its mod configuration has changed, Hydraulic will check the shared adapter library for known mod-specific solutions, apply those adapters where available, and use its generalized compatibility adapter to handle everything else before generating or updating the required Bedrock pack(s). Hydraulic will then produce a detailed compatibility report that can be sent through a handshake agent to a shared processing system, potentially GitHub-based, where the results can be used to develop, improve, and distribute mod-specific adapters. When the server's scan is unchanged, previously validated results can be reused so the server can start with minimal additional processing. The long-term goal is a self-improving compatibility ecosystem where every server can operate independently while contributing knowledge that makes the next server more compatible.
+
+This fork keeps the normal Hydraulic pack pipeline, but now adds a broader compatibility-analysis and metadata-patch layer on top of it.
+
+The fork now records typed compatibility evidence for discovered mod content, separates compatibility into content, presentation, state/data, interaction, and behavior domains, and lets metadata patches progressively refine the result.
+
+Right now this fork adds:
+- metadata-based block matching by Java block ID and optional Java state filters
+- item, recipe, entity, and menu identifier mapping metadata on the same compatibility/report foundation
+- Metadata V2 patch loading for blocks, items, recipes, entities, menus, and fluids
+- lazy on-demand model loading from indexed model paths with a bounded cache instead of eager global model deserialization at startup
+- indexed model-provider lookups in item and bow post-processing too, so runtime texture binding and bow override resolution no longer depend on parsed-pack model lookup
+- shared cached texture-output resolution for model- and block-texture paths, with live hit and miss metrics in the performance report
+- a first metadata-backed menu fallback bridge that can route unsupported Java menu opens into an explicitly declared Bedrock `ContainerType`
+- capability-driven adapter dispatch for the live menu and block-entity bridge seams, so runtime translator creation now follows analyzer-produced adapter bindings
+- typed runtime bridge categories compiled into the runtime dispatch table, so analyzer-derived bridge requirements for blocks, items, entities, menus, block entities, and fluids are available as direct runtime categories instead of only raw strings in the report
+- item creative exposure now also consumes the typed `ITEM_BEHAVIOR` bridge category, so wearable and bow presentation adapters no longer keep behavior-required items in Bedrock creative inventory
+- a first metadata-backed fluid bucket icon bridge that lets custom bucket items inherit explicit fluid presentation through the existing custom-item registration path
+- fluid-backed bucket items now also stay out of Bedrock creative inventory when their source fluid still requires a deeper runtime bridge, even if the icon can fall back through compatibility metadata
+- override support for Bedrock block identifier, geometry, and material
+- typed compatibility objects with support levels, confidence, provenance, findings, and mod fingerprints
+- a first analyzer API with block, item, entity, fluid, block-entity, menu, and recipe analyzers
+- a first entity runtime consumer that registers metadata-backed custom entities through Geyser
+- local Fabric dev metadata examples for the test block, item, and recipe surfaces
+
+## What is Hydraulic?
+Hydraulic is a server-side mod, which allows for Bedrock players to join modded Minecraft: Java Edition servers. This project works alongside [Geyser](https://github.com/GeyserMC/Geyser) to make this possible.
+
+### This project is still in very early development and should not be used on production setups! You can get [Hydraulic](https://geysermc.org/download?project=other-projects&hydraulic=expanded) from the GeyserMC website.
+
+## What Changed Compared To Upstream Hydraulic?
+Upstream Hydraulic mainly relies on its existing registry, model, and resource-pack conversion flow.
+
+This fork adds a declarative metadata index that is loaded during pack manager startup. That metadata is then used by the block conversion path to selectively override how a block is exposed to Bedrock, while the compatibility report records how far each discovered content object gets across the five compatibility domains.
+
+In practice, that means you can now attach extra mapping rules in JSON for cases where a mod content entry needs:
+- a different Bedrock identifier
+- a specific Bedrock geometry name
+- a specific material key
+- a small Bedrock state override for the generated custom block state
+
+If no metadata rule matches, Hydraulic falls back to its normal behavior.
+
+## Metadata Overrides
+Metadata files are loaded from Hydraulic's metadata directory:
+
+`config/hydraulic/metadata`
+
+The loader now walks this directory recursively. The intended layout is:
+
+- `config/hydraulic/metadata/builtin`
+- `config/hydraulic/metadata/mods`
+- `config/hydraulic/metadata/server`
+- `config/hydraulic/metadata/user`
+
+Higher-priority folders win when rules overlap:
+
+- `builtin` = 0
+- `mods` = 100
+- `server` = 500
+- `user` = 1000
+
+In the Fabric dev environment used by this repo, that resolves to:
+
+`fabric/run/config/hydraulic/metadata`
+
+The included runtime example file is:
+
+`fabric/run/config/hydraulic/metadata/hydraulic_test_mod.golden_barrel.json`
+
+That runtime file is now seeded automatically from the tracked test-mod resource:
+
+`test/src/main/resources/hydraulic/metadata/hydraulic_test_mod.golden_barrel.json`
+
+Example:
+
+```json
+{
+	"blocks": [
+		{
+			"java_id": "hydraulic_test_mod:golden_barrel",
+			"rules": [
+				{
+					"bedrock_identifier": "hydraulic_test_mod:golden_barrel_override",
+					"bedrock_state": {
+						"variant": "gold"
+					},
+					"geometry": "minecraft:geometry.full_block",
+					"material": "hydraulic_test_mod:block/golden_barrel"
+				}
+			]
+		}
+	]
+}
+```
+
+Supported fields today:
+- `java_id`: the Java block identifier
+- `java_when`: optional Java block state match values
+- `bedrock_identifier`: optional Bedrock block identifier override
+- `bedrock_state`: optional Bedrock state values to inject into the generated custom block state
+- `geometry`: optional Bedrock geometry override
+- `material`: optional Bedrock material override
+- `interaction_prompt`: records a metadata-backed Bedrock entity interaction prompt in compatibility output when present
+- `bucket_texture`: records a metadata-backed fluid bucket icon fallback in compatibility output when present
+- `behavior_required`: marks content that still needs a runtime bridge or behavior-layer support
+- `behavior_tag`: declares the bridge category Hydraulic should report and route through capability adapters
+
+The same metadata directory also supports simple item, recipe, entity, and menu identifier mappings:
+
+```json
+{
+	"items": [
+		{
+			"java_id": "hydraulic_test_mod:barrel_pack",
+			"bedrock_identifier": "hydraulic_test_mod:barrel_pack_override"
+		}
+	],
+	"recipes": [
+		{
+			"java_id": "hydraulic_test_mod:barrel_stick",
+			"bedrock_identifier": "hydraulic_test_mod:barrel_stick_recipe_override"
+		}
+	],
+	"entities": [
+		{
+			"java_id": "hydraulic_test_mod:barrel_cube",
+			"bedrock_identifier": "hydraulic_test_mod:barrel_cube_override"
+		}
+	],
+	"menus": [
+		{
+			"java_id": "hydraulic_test_mod:barrel_menu",
+			"bedrock_identifier": "hydraulic_test_mod:barrel_menu_override"
+		}
+	]
+}
+```
+
+Metadata V2 additionally supports patch entries. Patches are loaded recursively, respect the same ownership precedence, are recorded in the compatibility report, and can synthesize current block and identifier mappings when they expose fields Hydraulic already understands.
+
+Example patch file:
+
+```json
+{
+	"patches": [
+		{
+			"target": "hydraulic_test_mod:golden_barrel",
+			"content_type": "block",
+			"patch": {
+				"visual": {
+					"geometry": "minecraft:geometry.full_block",
+					"material": "hydraulic_test_mod:block/golden_barrel"
+				},
+				"bedrock": {
+					"identifier": "hydraulic_test_mod:golden_barrel_override",
+					"state": {
+						"variant": "gold"
+					}
+				},
+				"behavior": {
+					"required": true,
+					"tag": "machine"
+				}
+			}
+		}
+	]
+}
+```
+
+Supported patch paths today:
+- `bedrock.identifier`
+- `bedrock.state.<key>`
+- `bedrock.menu.container_type`
+- `bedrock.block_entity.id`
+- `bedrock.block_entity.data.<key>`
+- `visual.geometry`
+- `visual.material`
+- `visual.bucket_texture`
+- `java.when.<key>`
+- `interaction.prompt`
+- `behavior.required`
+- `behavior.tag`
+
+For `bedrock.block_entity.data.<key>`, literal scalar values still work as before. Metadata can now also request a live copy from the incoming Java block-entity tag with a `$java.<path>` value such as `$java.CustomName` or `$java.front_text.page`. Numeric path segments now also traverse list-backed Java NBT, so metadata can target values like `$java.Items.0.Count` when the source tag contains lists. Bedrock destination paths can likewise use numeric segments, so a patch key such as `bedrock.block_entity.data.Items.0.Count` now synthesizes real list-backed Bedrock output instead of a bogus nested compound.
+
+Unsupported patch data is still preserved in the metadata index and compatibility report, but only the fields above are synthesized into the current runtime mapping layer.
+
+## Compatibility Inventory And Report
+On startup, this fork now writes three compatibility artifacts under Hydraulic's data folder:
+
+- `config/hydraulic/reports/content-inventory.json`
+- `config/hydraulic/reports/compatibility-report.json`
+- `config/hydraulic/reports/performance-report.json`
+- `config/hydraulic/reports/pack-validation-report.json`
+
+`content-inventory.json` records the per-mod discovery inventory, including registry entries, discovered assets, metadata targets, patch targets, and a mod fingerprint.
+
+That inventory now reuses the same indexed asset and data pass created during startup, so compatibility reporting no longer performs its own second filesystem walk just to rebuild those discovered resource categories.
+
+Compatibility analysis now also routes through an explicit `AnalyzerRegistry` keyed by content kind instead of linearly scanning every analyzer for every descriptor, so the current block, item, entity, fluid, block-entity, menu, and recipe analyzers dispatch through the same direct content-type boundary the architecture plan calls for.
+
+Pack invalidation is now also driven by a persisted conversion key under Hydraulic's per-mod storage instead of manifest UUIDs derived from a full-tree hash walk. That key is built from the indexed mod resource fingerprint, the transitive fingerprints of any indexed mods referenced through model or equipment namespaces, Hydraulic version, Minecraft version, and loaded metadata state, so metadata-only changes and cross-mod asset dependency changes now correctly force reconversion.
+
+Hydraulic now also persists a first-class cache layout under `config/hydraulic/cache` for index, compatibility, conversion, validation, and manifest artifacts. On repeat startup, Hydraulic can now rehydrate the live per-mod `ModResourceIndex` state directly from the cached index snapshot when mod roots, indexed files, and indexed directories are unchanged, and the compatibility layer can reuse cached `content-inventory.json` and `compatibility-report.json` when the startup compatibility key is unchanged. That startup key currently includes the indexed mod fingerprints, metadata fingerprint, compatibility-engine fingerprint, and a stable built-in adapter-catalog fingerprint, which keeps the synchronous startup path local-only today while reserving a precise invalidation slot for the later shared adapter-catalog work. Conversion and validation artifacts are mirrored into the same cache tree for inspection and future reuse work.
+
+Compatibility cache reuse is now also keyed by a compatibility-engine fingerprint derived from the current compatibility manager, analyzer registry and analyzers, and capability adapter registry classes, plus the explicit startup compatibility manifest key persisted with the cached compatibility snapshot, so analyzer or adapter code changes force compatibility artifact regeneration even when mod resources and metadata stay unchanged. Older compatibility manifests that predate the explicit startup key safely miss the cache once and are replaced on the next successful startup.
+
+Model lookup during pack conversion no longer requires eagerly flattening every discovered mod model into one startup-time map. `ModResourceIndex` now records generic model file paths, and Hydraulic builds a lightweight `IndexedModelProvider` that lazily deserializes mod or vanilla model JSON on demand through a bounded cache. Missing models are negatively cached as well, so repeated parent lookups for absent entries do not repeatedly hit disk.
+
+Custom model conversion no longer walks the full parsed `ResourcePack` model set for the active mod either. Hydraulic now iterates the indexed model keys owned by that mod and stitches those models through `IndexedModelProvider`, so the model conversion stage uses the same indexed source of truth as lookup instead of depending on `ResourcePack#models()`.
+
+Texture-output resolution now also reuses a shared bounded cache instead of recomputing the same Bedrock output paths every time item, bow, or block conversion asks for them. The current slice centralizes those lookups under `TexturePackModule` and records live hit, miss, eviction, and size evidence in the same performance artifact used for the model-provider and runtime-dispatch slices.
+
+Texture conversion itself now also builds a per-pack dependency graph from converted models plus armor equipment assets before the texture stage runs. Hydraulic uses that graph to record how many textures were discovered, selected, and omitted for each conversion batch, accumulates the selected set across multi-root extraction passes for the same mod, and now loads file-backed textures directly from `ModResourceIndex` instead of depending on an eager parsed `ResourcePack#textures()` walk. In the current bundled test mod, the validated runtime still selected all 17 discovered textures because every texture asset is referenced, but the dependency graph, indexed extraction path, and report path are now real and ready to expose reductions in larger packs.
+
+Block texture post-processing no longer needs an eager full indexed-texture scan just to register Bedrock texture names and flipbooks. Hydraulic now resolves only the selected texture keys for the current mod back through `ModResourceIndex`, and it lazily reads only the selected texture `.mcmeta` files that actually need animation metadata during block registration.
+
+Block material caching is now also demand-driven. Instead of stitching every parsed model during preprocessing just to populate `materials.json`, Hydraulic now builds and persists material entries only when a real block-state model or explicit metadata `material` override is actually consumed during custom-block registration.
+
+Block preprocessing no longer parses the full `ResourcePack` blockstate asset set up front. `ModResourceIndex` now resolves blockstate file paths directly for the registered blocks owned by the current mod, and Hydraulic deserializes only those indexed blockstates that the block registration path can actually consume.
+
+Item preprocessing no longer depends on a full parsed `ResourcePack` item-definition walk either. Hydraulic now resolves indexed item asset paths per registered item, deserializes modern `assets/.../items/*.json` definitions only when present, and falls back to the existing lazy model-provider path for legacy `models/item/*.json` assets.
+
+That indexed modern item path now also degrades unsupported third-party item model schemas cleanly instead of surfacing them as preprocessing errors. On the current validated Fabric runtime with `citadelfabric-26.2-1.2.0.jar`, unsupported `citadel:custom_item_model` definitions are downgraded to explicit `ItemPackModule` warnings and legacy model fallback while pack conversion, server startup, and Geyser startup still complete.
+
+Item and bow post-processing now use that same indexed model-provider path for their runtime texture binding work. Item icon resolution, block-item model fallback texture resolution, and bow pulling-override model resolution now all query `context.modelProvider()` instead of asking the parsed Java `ResourcePack` for models directly. On the current validated Fabric runtime, that still converted both packs, generated the bow attachable for `hydraulic_test_mod:barrel_bow`, registered 16 custom items, kept both generated packs valid, and recorded `modelProviderCache.hits = 194` with `misses = 26`.
+
+The item pipeline now also reuses resolved item texture bindings across preprocess and postprocess instead of re-stitching the same item and block fallback models a second time during texture emission. That keeps current item classification behavior intact while pushing one more repeated provider-lookup seam out of the conversion hot path.
+
+The current compatibility report is now also compiled into a first in-memory runtime dispatch surface during startup. The first `CompiledCompatibilityPlan` slice covers block creative and placement decisions, item registration and creative exposure, armor and bow attachable presentation, metadata-backed custom entity registration when that degradation is explicitly tagged as visual-only, menu fallback translators, block-entity patch translators, first-class fluid plan lookup, the candidate indexes used by unsupported menu and block-entity runtime diagnostics, and precompiled state-aware block definition groupings plus per-state runtime metadata for block registration and block-item placement. The remaining block-item texture fallback decision path now also consumes compiled block plans instead of reading raw compatibility objects back out of the report during conversion. Current runtime bridges and warning paths now hit direct identifier-driven lookups or precompiled candidate lists instead of re-scanning compatibility profiles or metadata templates on each use.
+
+That compiled runtime slice now also classifies analyzer-derived runtime requirements into typed `RuntimeBridgeKind` categories. Current runtime consumers use those typed categories for clearer suppression and degradation diagnostics, unsupported menu and block-entity warning paths now gather candidate objects through typed bridge-group queries in the dispatch table, fluid plans now expose a compiled `fluidRuntimeRequirements` subset and `requiresFluidRuntime` flag, and future bridge factories can bind to structured bridge classes like `MENU_CONTAINER`, `BLOCK_ENTITY_DATA`, or `FLUID_RUNTIME` without having to reinterpret freeform requirement strings.
+
+Metadata V2 can now also drive a first real fluid-adjacent runtime bridge. A `fluid` patch with `visual.bucket_texture` marks fluid presentation as adapted only when Hydraulic can resolve a real Java bucket item for that fluid, binds the explicit `fluid.bucket_texture_fallback` adapter, and exposes `bucket_item` plus `bucket_texture` in `compatibility-report.json`. The current `ItemAnalyzer` and `ItemPackModule` now consume that compiled fluid plan so a custom `BucketItem` without its own discoverable item model can inherit the configured icon through the existing custom-item registration path. Live Fabric validation now shows `hydraulic_test_mod:barrel_fluid` binding `FLUID_BUCKET_TEXTURE_FALLBACK` with only `fluid_runtime_bridge` still outstanding, while `hydraulic_test_mod:barrel_bucket` records `fluid_source = hydraulic_test_mod:barrel_fluid`, `bucket_texture = hydraulic_test_mod:barrel_pack`, and the explicit fallback finding instead of a plain missing-asset warning.
+
+`compatibility-report.json` records per-object analyzer output, including:
+- support levels: `NATIVE`, `AUTOMATIC`, `ADAPTED`, `APPROXIMATED`, `VISUAL_ONLY`, `UNSUPPORTED`
+- the five compatibility domains: content, presentation, state/data, interaction, behavior
+- capability requirements and analyzer results
+- derived adapter bindings for the currently implemented generic runtime bridges
+- derived runtime requirements for the bridges or generators that are still missing
+- patch-derived facts such as `behavior_required` and `behavior_tag` when present
+- confidence, provenance, and structured findings
+- metadata validation issues emitted during Metadata V2 loading
+- a `packValidation` section merged in after pack preparation completes, summarizing each mod's `valid` flag, `errorCount`, `warningCount`, and `manualActions` from `pack-validation-report.json`, so manual actions are visible next to compatibility findings instead of only in the sibling artifact
+
+`performance-report.json` records the measured startup and conversion costs for the current run, including resource indexing time, indexed blockstate and item-asset totals, metadata load time, compatibility initialization time, lazy model-provider setup time, cumulative `StateDefinition` model-resolution cache hits and misses, lazy model-provider cache hits/misses/evictions/size/indexed-model totals, shared texture-resolution cache hits/misses/evictions/size, aggregate and per-mod texture dependency selection counts (`discoveredTextures`, `selectedTextures`, `omittedTextures`, `textureDependencySources`), artifact-cache hit/miss evidence for index, compatibility, conversion, and validation stages, runtime-dispatch hit/miss evidence for block, item, entity, menu, block-entity, and fluid plan lookups, and the last pack-conversion batch with per-mod outcomes. Compatibility inventory generation, index rehydration, pack invalidation, model lookup, custom model extraction, repeated texture-output resolution, texture-stage selection across multiple resource roots, and block texture post-processing now all ride on indexed discovery data or bounded caches rather than separate eager filesystem or model-parse passes, and the compiled plan slice continues to expose measurable identifier-driven lookup activity in the same artifact.
+
+The persisted `conversion-key.json` in Hydraulic's per-mod storage now also records `dependencyFingerprint` and `dependentModCount`, so cache identity is inspectable when a mod's generated output depends on assets owned by another indexed mod. That dependency fingerprint is now driven by explicit indexed model and equipment resource edges plus the concrete referenced model and texture file stamps they traverse, which means unrelated files elsewhere in a dependent namespace no longer force reconversion.
+
+`pack-validation-report.json` records post-generation Bedrock pack validation per converted mod. It now checks whether a generated pack archive exists, whether `manifest.json` is present and structurally valid, whether all generated JSON entries are parseable, whether the archive contains content beyond manifest scaffolding, whether `pack_icon.png` is present, and whether generated texture files match the texture dependency graph's concrete selected texture set. That last slice can now fail missing required generated textures and warn on leftover unreferenced texture files before runtime registration. Each mod result includes structured `errors`, `warnings`, and `manualActions` so invalid generated output is visible before runtime registration. Hydraulic now prepares converted packs during its own startup and only registers those prepared packs later at the Geyser resource-pack seam, so these structural artifacts still land even when a later Geyser Bedrock bootstrap step fails.
+
+When Geyser receives a Java menu open for a container type it cannot translate, Hydraulic now emits a compatibility-backed runtime warning that explains the protocol boundary and lists any discovered menu objects still requiring menu runtime bridges. When Hydraulic can resolve the live Java menu identifier, that warning now binds to the matched compiled menu plan and reports its explicit requirements such as `container_bridge` or `menu_behavior_bridge` instead of only reporting the protocol container type.
+
+Metadata V2 can now also drive a first real menu fallback bridge. A `menu` patch with `bedrock.menu.container_type` lets Hydraulic resolve the live Java menu identifier from the active server container state and substitute an existing Geyser inventory translator when the original open-screen path had no translator. That runtime path now also requires the compiled `menu.fallback_translator` adapter binding, so the bridge activates through the same capability-driven adapter selection recorded in compatibility reporting instead of from raw patch presence alone. This is intentionally limited to explicit fallback layouts; it does not create a generic menu behavior bridge.
+
+That menu fallback path now also compiles the validated fallback container directly into the runtime plan as a typed `ContainerType`, so the unsupported-open-screen bridge no longer reparses container enum names from strings when it fires. Menu metadata validation now resolves against the live protocol enum instead of a brittle hardcoded whitelist, which fixes the real `crafter_3x3` protocol spelling and widens the generic fallback seam to the current protocol container set.
+
+When Geyser receives Java block entity data that falls through to its default `EmptyBlockEntityTranslator`, Hydraulic now attempts to resolve the live Java block entity at that position and emits a compatibility-backed runtime warning only when the compatibility report already marks that object as still requiring block-entity runtime bridges such as `block_entity_data_bridge`. That unsupported-runtime path now also reads from precompiled dispatch plans and bridge-candidate indexes instead of rescanning compatibility objects live.
+
+Metadata V2 can now also drive a first real block-entity data bridge. A `block_entity` patch with `bedrock.block_entity.id` and `bedrock.block_entity.data.*` synthesizes Bedrock block-entity tag output at the same Geyser seam before Hydraulic falls back to the unsupported-runtime warning path. Those patch values can now be either constants or explicit `$java.<path>` copies from the live Java block-entity tag, which makes the bridge useful for carrying through names and other discovered state instead of only stamping fixed literals. Numeric path segments now also traverse list-backed Java NBT on that live runtime path, so block-entity patches can pull values out of list elements as well as nested compounds, and numeric destination segments now synthesize list-backed Bedrock tag structures instead of only nested compounds. That translator still requires the compiled `block_entity.patch_translator` adapter binding, so runtime activation follows analyzer-backed capability selection rather than raw patch presence alone. This is intentionally limited to data translation; interaction and behavior bridges are still missing.
+
+Metadata V2 can now also drive a first real entity interaction bridge. An `entity` patch with `interaction.prompt` marks interaction support as adapted, records that prompt in `compatibility-report.json`, binds the explicit `entity.interaction_prompt` adapter, and overrides Bedrock hover text at Geyser's `BedrockInteractTranslator` seam while still reusing the existing downstream Java interact packet path. The bundled `barrel_cube` test entity now also opens its test menu on Java interaction, so the bridge is tied to a real controlled runtime outcome instead of a report-only label. This slice is intentionally narrow: it improves discoverability and routing for explicit metadata-backed entity interactions, but richer entity behavior remains unsupported.
+
+The current report is still conservative. It is intended to answer "what do we know right now from registries, assets, metadata, and patches?" not "is this mod fully playable end-to-end on Bedrock?" Behavior-heavy entities, fluids, menus, and block entities will still show low support until dedicated runtime bridges are implemented. For items, behavior-tagged patches already affect runtime exposure decisions, and explicit typed `ITEM_BEHAVIOR` bridge requirements now keep those items out of Bedrock creative exposure even when a wearable or bow presentation adapter still applies. For entities, metadata-backed identifier mappings only drive custom entity registration when the compiled plan still requires behavior-layer runtime support but metadata explicitly marks that downgrade as `visual_only_runtime`; metadata-backed `interaction.prompt` patches now also surface a real Bedrock hover prompt and clear `entity_interaction_bridge` from the report when Hydraulic can truthfully reuse the existing Java interaction packet path.
+
+That fluid bucket icon slice is intentionally narrow. It improves presentation and custom item registration for bucket items backed by explicit fluid metadata, but it does not translate world fluid blocks, transfer, storage, or fluid interaction behavior yet.
+
+## Contributing
+Any contributions are appreciated. Please feel free to reach out to us on [Discord](https://discord.gg/geysermc) if
+you're interested in helping out with Hydraulic.
+
+### Project Setup
+1. Clone the repo to your computer.
+2. Navigate to the Hydraulic root directory and run `git submodule update --init --recursive`. This command downloads all the needed submodules for Hydraulic and is a crucial step in this process.
+3. If your default JVM/JDK is not Java 25, please set your IDE to use a valid Java 25 JVM. Otherwise, you will run into an error while building Hydraulic. 
+4. The project should import into your IDE after the loom setup is complete. For more detailed information, see the [Fabric setup](https://docs.fabricmc.net/develop/getting-started/setting-up).
+5. Use `./gradlew build` to compile jars and refresh the generated test assets used by this fork's Fabric test module.
+6. Use `./gradlew :fabric:runServer` to run a server with Hydraulic installed. This runtime path reuses the last generated test assets instead of rerunning datagen on every launch. Make sure you have Geyser in your `mods` folder along with Hydraulic.
+7. If you want to refresh only the generated test assets without a full build, run `./gradlew :test:prepareGeneratedResources`.
+8. If you want to test metadata overrides in the Fabric dev environment, place your JSON files in `fabric/run/config/hydraulic/metadata` before starting the server.
+
+## Links:
+- Website: https://geysermc.org
+- Docs: https://geysermc.org/wiki/other/hydraulic
+- Download: https://geysermc.org/download?project=other-projects&hydraulic=expanded
+- Discord: https://discord.gg/geysermc
+- Donate: https://opencollective.com/geysermc

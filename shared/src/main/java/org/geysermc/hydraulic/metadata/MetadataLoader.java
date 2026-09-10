@@ -1,0 +1,632 @@
+package org.geysermc.hydraulic.metadata;
+
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import net.minecraft.resources.Identifier;
+import org.geysermc.hydraulic.compat.mapping.ContentPatch;
+import org.geysermc.hydraulic.Constants;
+import org.geysermc.hydraulic.compat.MappingOwnership;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
+import org.slf4j.Logger;
+
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Stream;
+
+public final class MetadataLoader {
+    private final Logger logger;
+
+    public MetadataLoader(@NotNull Logger logger) {
+        this.logger = logger;
+    }
+
+    @NotNull
+    public MetadataIndex load(@NotNull Path directory) {
+        if (Files.notExists(directory)) {
+            return MetadataIndex.empty();
+        }
+
+        Map<Identifier, List<BlockStateRule>> blockMappings = new LinkedHashMap<>();
+        Map<Identifier, IdentifierMapping> itemMappings = new LinkedHashMap<>();
+        Map<Identifier, IdentifierMapping> recipeMappings = new LinkedHashMap<>();
+        Map<Identifier, IdentifierMapping> entityMappings = new LinkedHashMap<>();
+        Map<Identifier, IdentifierMapping> menuMappings = new LinkedHashMap<>();
+        Map<Identifier, List<ContentPatch>> contentPatches = new LinkedHashMap<>();
+        List<MetadataValidationIssue> validationIssues = new ArrayList<>();
+        Map<String, Integer> ownershipFileCounts = new LinkedHashMap<>();
+        int fileCount = 0;
+        int blockMappingCount = 0;
+        int itemMappingCount = 0;
+        int recipeMappingCount = 0;
+        int entityMappingCount = 0;
+        int menuMappingCount = 0;
+        int patchCount = 0;
+        int ruleCount = 0;
+
+        try (Stream<Path> stream = Files.walk(directory)) {
+            List<Path> files = stream
+                .filter(Files::isRegularFile)
+                .filter(file -> file.toString().endsWith(".json"))
+                .sorted(Comparator.comparing(path -> normalize(directory.relativize(path))))
+                .toList();
+
+            for (Path path : files) {
+                LoadStats stats = this.loadFile(directory, path, blockMappings, itemMappings, recipeMappings, entityMappings, menuMappings, contentPatches, validationIssues, ownershipFileCounts);
+                fileCount += stats.fileCount();
+                blockMappingCount += stats.blockMappingCount();
+                itemMappingCount += stats.itemMappingCount();
+                recipeMappingCount += stats.recipeMappingCount();
+                entityMappingCount += stats.entityMappingCount();
+                menuMappingCount += stats.menuMappingCount();
+                patchCount += stats.patchCount();
+                ruleCount += stats.ruleCount();
+            }
+        } catch (IOException e) {
+            this.logger.error("Failed to list metadata directory {}", directory, e);
+        }
+
+        Map<Identifier, BlockMapping> finalizedMappings = new LinkedHashMap<>();
+        for (Map.Entry<Identifier, List<BlockStateRule>> entry : blockMappings.entrySet()) {
+            List<BlockStateRule> rules = new ArrayList<>(entry.getValue());
+            rules.sort(
+                Comparator.comparingInt(BlockStateRule::priority).reversed()
+                    .thenComparing(Comparator.comparingInt(BlockStateRule::specificity).reversed())
+                    .thenComparing(BlockStateRule::sourcePath)
+                    .thenComparingInt(BlockStateRule::order)
+            );
+            finalizedMappings.put(entry.getKey(), new BlockMapping(entry.getKey(), List.copyOf(rules)));
+        }
+
+        Map<Identifier, List<ContentPatch>> finalizedPatches = new LinkedHashMap<>();
+        for (Map.Entry<Identifier, List<ContentPatch>> entry : contentPatches.entrySet()) {
+            List<ContentPatch> patches = new ArrayList<>(entry.getValue());
+            patches.sort(
+                Comparator.comparingInt(ContentPatch::priority).reversed()
+                    .thenComparing(ContentPatch::sourcePath)
+                    .thenComparingInt(ContentPatch::order)
+            );
+            finalizedPatches.put(entry.getKey(), List.copyOf(patches));
+        }
+
+        return new MetadataIndex(
+            finalizedMappings,
+            itemMappings,
+            recipeMappings,
+            entityMappings,
+            menuMappings,
+            finalizedPatches,
+            List.copyOf(validationIssues),
+            new MetadataIndex.Summary(fileCount, blockMappingCount, itemMappingCount, recipeMappingCount, entityMappingCount, menuMappingCount, patchCount, ruleCount, validationIssues.size(), ownershipFileCounts)
+        );
+    }
+
+    @NotNull
+    private LoadStats loadFile(
+        @NotNull Path rootDirectory,
+        @NotNull Path path,
+        @NotNull Map<Identifier, List<BlockStateRule>> blockMappings,
+        @NotNull Map<Identifier, IdentifierMapping> itemMappings,
+        @NotNull Map<Identifier, IdentifierMapping> recipeMappings,
+        @NotNull Map<Identifier, IdentifierMapping> entityMappings,
+        @NotNull Map<Identifier, IdentifierMapping> menuMappings,
+        @NotNull Map<Identifier, List<ContentPatch>> contentPatches,
+        @NotNull List<MetadataValidationIssue> validationIssues,
+        @NotNull Map<String, Integer> ownershipFileCounts
+    ) {
+        Path relativePath = rootDirectory.relativize(path);
+        String sourcePath = normalize(relativePath);
+        MappingOwnership ownership = MappingOwnership.fromRelativePath(relativePath);
+
+        try (BufferedReader reader = Files.newBufferedReader(path)) {
+            JsonObject jsonRoot = Constants.GSON.fromJson(reader, JsonObject.class);
+            if (jsonRoot == null) {
+                this.logger.warn("Ignoring empty metadata file {}", path);
+                return LoadStats.empty();
+            }
+
+            List<JsonObject> blockObjects = new ArrayList<>();
+            JsonArray blocks = jsonRoot.getAsJsonArray("blocks");
+            if (blocks != null) {
+                for (JsonElement element : blocks) {
+                    if (element.isJsonObject()) {
+                        blockObjects.add(element.getAsJsonObject());
+                    }
+                }
+            } else if (jsonRoot.has("java_id")) {
+                blockObjects.add(jsonRoot);
+            }
+
+            JsonArray itemObjects = jsonRoot.getAsJsonArray("items");
+            JsonArray recipeObjects = jsonRoot.getAsJsonArray("recipes");
+            JsonArray entityObjects = jsonRoot.getAsJsonArray("entities");
+            JsonArray menuObjects = jsonRoot.getAsJsonArray("menus");
+            List<JsonObject> patchObjects = new ArrayList<>();
+            JsonArray patches = jsonRoot.getAsJsonArray("patches");
+            if (patches != null) {
+                for (JsonElement element : patches) {
+                    if (element.isJsonObject()) {
+                        patchObjects.add(element.getAsJsonObject());
+                    }
+                }
+            } else if (jsonRoot.has("target") && jsonRoot.has("patch")) {
+                patchObjects.add(jsonRoot);
+            }
+
+            if (blockObjects.isEmpty() && itemObjects == null && recipeObjects == null && entityObjects == null && menuObjects == null && patchObjects.isEmpty()) {
+                this.logger.warn("Ignoring metadata file without blocks, items, recipes, entities, menus, patches, or java_id in {}", path);
+                return LoadStats.empty();
+            }
+
+            int blockMappingCount = 0;
+            int itemMappingCount = 0;
+            int recipeMappingCount = 0;
+            int entityMappingCount = 0;
+            int menuMappingCount = 0;
+            int patchCount = 0;
+            int ruleCount = 0;
+            for (int index = 0; index < blockObjects.size(); index++) {
+                BlockMapping mapping = this.parseBlockMapping(blockObjects.get(index), path, ownership, sourcePath, index);
+                if (mapping == null) {
+                    continue;
+                }
+
+                blockMappings.computeIfAbsent(mapping.javaIdentifier(), ignored -> new ArrayList<>()).addAll(mapping.rules());
+                blockMappingCount++;
+                ruleCount += mapping.rules().size();
+            }
+
+            itemMappingCount += this.parseIdentifierMappings(itemObjects, "item", path, ownership, sourcePath, itemMappings);
+            recipeMappingCount += this.parseIdentifierMappings(recipeObjects, "recipe", path, ownership, sourcePath, recipeMappings);
+            entityMappingCount += this.parseIdentifierMappings(entityObjects, "entity", path, ownership, sourcePath, entityMappings);
+            menuMappingCount += this.parseIdentifierMappings(menuObjects, "menu", path, ownership, sourcePath, menuMappings);
+            patchCount += this.parsePatches(patchObjects, path, ownership, sourcePath, contentPatches, validationIssues);
+            patchCount += this.extractTypedPatches(blockObjects, "block", path, ownership, sourcePath, contentPatches, validationIssues);
+            patchCount += this.extractTypedPatches(itemObjects, "item", path, ownership, sourcePath, contentPatches, validationIssues);
+            patchCount += this.extractTypedPatches(recipeObjects, "recipe", path, ownership, sourcePath, contentPatches, validationIssues);
+            patchCount += this.extractTypedPatches(entityObjects, "entity", path, ownership, sourcePath, contentPatches, validationIssues);
+            patchCount += this.extractTypedPatches(menuObjects, "menu", path, ownership, sourcePath, contentPatches, validationIssues);
+
+            this.synthesizeMappingsFromPatches(blockMappings, itemMappings, recipeMappings, entityMappings, menuMappings, contentPatches, validationIssues);
+
+            ownershipFileCounts.merge(ownership.name().toLowerCase(), 1, Integer::sum);
+            return new LoadStats(1, blockMappingCount, itemMappingCount, recipeMappingCount, entityMappingCount, menuMappingCount, patchCount, ruleCount);
+        } catch (Exception e) {
+            this.logger.error("Failed to load metadata file {}", path, e);
+            return LoadStats.empty();
+        }
+    }
+
+    private int parseIdentifierMappings(
+        @Nullable JsonArray array,
+        @NotNull String kind,
+        @NotNull Path path,
+        @NotNull MappingOwnership ownership,
+        @NotNull String sourcePath,
+        @NotNull Map<Identifier, IdentifierMapping> mappings
+    ) {
+        if (array == null) {
+            return 0;
+        }
+
+        int count = 0;
+        int basePriority = ownership.priority();
+        for (int index = 0; index < array.size(); index++) {
+            JsonElement element = array.get(index);
+            if (!element.isJsonObject()) {
+                continue;
+            }
+
+            IdentifierMapping mapping = this.parseIdentifierMapping(element.getAsJsonObject(), kind, path, ownership, sourcePath, basePriority, index);
+            if (mapping == null) {
+                continue;
+            }
+
+            IdentifierMapping current = mappings.get(mapping.javaIdentifier());
+            if (current == null || this.hasHigherPrecedence(mapping, current)) {
+                mappings.put(mapping.javaIdentifier(), mapping);
+            }
+            count++;
+        }
+        return count;
+    }
+
+    @Nullable
+    private BlockMapping parseBlockMapping(
+        @NotNull JsonObject object,
+        @NotNull Path path,
+        @NotNull MappingOwnership ownership,
+        @NotNull String sourcePath,
+        int mappingIndex
+    ) {
+        Identifier javaIdentifier = this.parseIdentifier(object, "java_id", path, true);
+        if (javaIdentifier == null) {
+            return null;
+        }
+
+        JsonArray rulesArray = object.getAsJsonArray("rules");
+        if (rulesArray == null) {
+            this.logger.warn("Ignoring block metadata without rules for {} in {}", javaIdentifier, path);
+            return null;
+        }
+
+        List<BlockStateRule> rules = new ArrayList<>();
+        int basePriority = ownership.priority();
+        for (JsonElement ruleElement : rulesArray) {
+            if (!ruleElement.isJsonObject()) {
+                continue;
+            }
+
+            BlockStateRule rule = this.parseRule(
+                ruleElement.getAsJsonObject(),
+                path,
+                ownership,
+                sourcePath,
+                basePriority,
+                (mappingIndex * 10_000) + rules.size()
+            );
+            if (rule != null) {
+                rules.add(rule);
+            }
+        }
+
+        if (rules.isEmpty()) {
+            this.logger.warn("Ignoring block metadata without valid rules for {} in {}", javaIdentifier, path);
+            return null;
+        }
+
+        return new BlockMapping(javaIdentifier, List.copyOf(rules));
+    }
+
+    @Nullable
+    private BlockStateRule parseRule(
+        @NotNull JsonObject object,
+        @NotNull Path path,
+        @NotNull MappingOwnership ownership,
+        @NotNull String sourcePath,
+        int priority,
+        int order
+    ) {
+        Map<String, String> javaWhen = this.parseStringMap(object.getAsJsonObject("java_when"));
+        Identifier bedrockIdentifier = this.parseIdentifier(object, "bedrock_identifier", path, false);
+        Map<String, String> bedrockState = this.parseStringMap(object.getAsJsonObject("bedrock_state"));
+        String geometryId = this.optionalString(object, "geometry");
+        String materialId = this.optionalString(object, "material");
+        boolean behaviorRequired = object.has("behavior_required") && object.get("behavior_required").getAsBoolean();
+        String behaviorTag = this.optionalString(object, "behavior_tag");
+
+        return new BlockStateRule(
+            Map.copyOf(javaWhen),
+            bedrockIdentifier,
+            bedrockState.isEmpty() ? null : Map.copyOf(bedrockState),
+            geometryId,
+            materialId,
+            behaviorRequired,
+            behaviorTag,
+            ownership,
+            sourcePath,
+            priority,
+            order
+        );
+    }
+
+    @Nullable
+    private IdentifierMapping parseIdentifierMapping(
+        @NotNull JsonObject object,
+        @NotNull String kind,
+        @NotNull Path path,
+        @NotNull MappingOwnership ownership,
+        @NotNull String sourcePath,
+        int priority,
+        int order
+    ) {
+        Identifier javaIdentifier = this.parseIdentifier(object, "java_id", path, true);
+        Identifier bedrockIdentifier = this.parseIdentifier(object, "bedrock_identifier", path, true);
+        if (javaIdentifier == null || bedrockIdentifier == null) {
+            this.logger.warn("Ignoring {} metadata missing valid identifiers in {}", kind, path);
+            return null;
+        }
+
+        return new IdentifierMapping(javaIdentifier, bedrockIdentifier, ownership, sourcePath, priority, order);
+    }
+
+    private boolean hasHigherPrecedence(@NotNull IdentifierMapping candidate, @NotNull IdentifierMapping existing) {
+        if (candidate.priority() != existing.priority()) {
+            return candidate.priority() > existing.priority();
+        }
+        int sourceCompare = candidate.sourcePath().compareTo(existing.sourcePath());
+        if (sourceCompare != 0) {
+            return sourceCompare < 0;
+        }
+        return candidate.order() < existing.order();
+    }
+
+    private int parsePatches(
+        @NotNull List<JsonObject> patchObjects,
+        @NotNull Path path,
+        @NotNull MappingOwnership ownership,
+        @NotNull String sourcePath,
+        @NotNull Map<Identifier, List<ContentPatch>> contentPatches,
+        @NotNull List<MetadataValidationIssue> validationIssues
+    ) {
+        int count = 0;
+        for (int index = 0; index < patchObjects.size(); index++) {
+            ContentPatch patch = this.parsePatch(patchObjects.get(index), path, ownership, sourcePath, index, null, validationIssues);
+            if (patch == null) {
+                continue;
+            }
+            contentPatches.computeIfAbsent(patch.target(), ignored -> new ArrayList<>()).add(patch);
+            count++;
+        }
+        return count;
+    }
+
+    private int extractTypedPatches(
+        @Nullable JsonArray array,
+        @NotNull String contentType,
+        @NotNull Path path,
+        @NotNull MappingOwnership ownership,
+        @NotNull String sourcePath,
+        @NotNull Map<Identifier, List<ContentPatch>> contentPatches,
+        @NotNull List<MetadataValidationIssue> validationIssues
+    ) {
+        if (array == null) {
+            return 0;
+        }
+
+        List<JsonObject> objects = new ArrayList<>();
+        for (JsonElement element : array) {
+            if (element.isJsonObject()) {
+                objects.add(element.getAsJsonObject());
+            }
+        }
+        return this.extractTypedPatches(objects, contentType, path, ownership, sourcePath, contentPatches, validationIssues);
+    }
+
+    private int extractTypedPatches(
+        @Nullable List<JsonObject> objects,
+        @NotNull String contentType,
+        @NotNull Path path,
+        @NotNull MappingOwnership ownership,
+        @NotNull String sourcePath,
+        @NotNull Map<Identifier, List<ContentPatch>> contentPatches,
+        @NotNull List<MetadataValidationIssue> validationIssues
+    ) {
+        if (objects == null) {
+            return 0;
+        }
+
+        int count = 0;
+        for (int index = 0; index < objects.size(); index++) {
+            ContentPatch patch = this.parsePatch(objects.get(index), path, ownership, sourcePath, index, contentType, validationIssues);
+            if (patch == null) {
+                continue;
+            }
+            contentPatches.computeIfAbsent(patch.target(), ignored -> new ArrayList<>()).add(patch);
+            count++;
+        }
+        return count;
+    }
+
+    @Nullable
+    private ContentPatch parsePatch(
+        @NotNull JsonObject object,
+        @NotNull Path path,
+        @NotNull MappingOwnership ownership,
+        @NotNull String sourcePath,
+        int order,
+        @Nullable String fallbackContentType,
+        @NotNull List<MetadataValidationIssue> validationIssues
+    ) {
+        if (!object.has("patch") || !object.get("patch").isJsonObject()) {
+            return null;
+        }
+
+        Identifier target = this.parseIdentifier(object, object.has("target") ? "target" : "java_id", path, true);
+        if (target == null) {
+            validationIssues.add(new MetadataValidationIssue("metadata.patch.target", "ERROR", "Ignoring metadata patch missing a valid target identifier.", sourcePath, null));
+            return null;
+        }
+
+        Map<String, String> operations = new LinkedHashMap<>();
+        this.flattenPatch("", object.getAsJsonObject("patch"), operations);
+        if (operations.isEmpty()) {
+            validationIssues.add(new MetadataValidationIssue("metadata.patch.empty", "ERROR", "Ignoring metadata patch without any operations.", sourcePath, target.toString()));
+            return null;
+        }
+
+        String contentType = this.optionalString(object, "content_type");
+        return new ContentPatch(target, contentType != null ? contentType : fallbackContentType, operations, ownership, sourcePath, ownership.priority(), order);
+    }
+
+    private void flattenPatch(@NotNull String prefix, @NotNull JsonObject patch, @NotNull Map<String, String> operations) {
+        for (Map.Entry<String, JsonElement> entry : patch.entrySet()) {
+            String key = prefix.isEmpty() ? entry.getKey() : prefix + "." + entry.getKey();
+            JsonElement value = entry.getValue();
+            if (value.isJsonObject()) {
+                this.flattenPatch(key, value.getAsJsonObject(), operations);
+            } else if (value.isJsonPrimitive() || value.isJsonNull()) {
+                operations.put(key, value.isJsonNull() ? "null" : value.getAsString());
+            } else {
+                operations.put(key, Constants.GSON.toJson(value));
+            }
+        }
+    }
+
+    private void synthesizeMappingsFromPatches(
+        @NotNull Map<Identifier, List<BlockStateRule>> blockMappings,
+        @NotNull Map<Identifier, IdentifierMapping> itemMappings,
+        @NotNull Map<Identifier, IdentifierMapping> recipeMappings,
+        @NotNull Map<Identifier, IdentifierMapping> entityMappings,
+        @NotNull Map<Identifier, IdentifierMapping> menuMappings,
+        @NotNull Map<Identifier, List<ContentPatch>> contentPatches,
+        @NotNull List<MetadataValidationIssue> validationIssues
+    ) {
+        for (Map.Entry<Identifier, List<ContentPatch>> entry : contentPatches.entrySet()) {
+            for (ContentPatch patch : entry.getValue()) {
+                if (patch.contentType() == null) {
+                    continue;
+                }
+
+                if (patch.contentType().equals("block")) {
+                    BlockStateRule rule = this.patchToBlockRule(patch);
+                    if (rule != null) {
+                        blockMappings.computeIfAbsent(patch.target(), ignored -> new ArrayList<>()).add(rule);
+                    }
+                    continue;
+                }
+
+                if (patch.contentType().equals("menu")) {
+                    this.validateMenuPatch(patch, validationIssues);
+                }
+
+                IdentifierMapping mapping = this.patchToIdentifierMapping(patch);
+                if (mapping == null) {
+                    continue;
+                }
+
+                switch (patch.contentType()) {
+                    case "item" -> this.applyIdentifierPatchMapping(itemMappings, mapping);
+                    case "recipe" -> this.applyIdentifierPatchMapping(recipeMappings, mapping);
+                    case "entity" -> this.applyIdentifierPatchMapping(entityMappings, mapping);
+                    case "menu" -> this.applyIdentifierPatchMapping(menuMappings, mapping);
+                    default -> validationIssues.add(new MetadataValidationIssue("metadata.patch.unsupported_type", "WARNING", "Ignoring synthesized mapping for unsupported patch content type " + patch.contentType(), patch.sourcePath(), patch.target().toString()));
+                }
+            }
+        }
+    }
+
+    private void applyIdentifierPatchMapping(@NotNull Map<Identifier, IdentifierMapping> mappings, @NotNull IdentifierMapping candidate) {
+        IdentifierMapping existing = mappings.get(candidate.javaIdentifier());
+        if (existing == null || this.hasHigherPrecedence(candidate, existing)) {
+            mappings.put(candidate.javaIdentifier(), candidate);
+        }
+    }
+
+    @Nullable
+    private BlockStateRule patchToBlockRule(@NotNull ContentPatch patch) {
+        Map<String, String> javaWhen = slicePatch(patch.operations(), "java.when.");
+        Identifier bedrockIdentifier = parseIdentifierValue(patch.operations().get("bedrock.identifier"));
+        Map<String, String> bedrockState = slicePatch(patch.operations(), "bedrock.state.");
+        String geometryId = patch.operations().get("visual.geometry");
+        String materialId = patch.operations().get("visual.material");
+        boolean behaviorRequired = Boolean.parseBoolean(patch.operations().getOrDefault("behavior.required", "false"));
+        String behaviorTag = patch.operations().get("behavior.tag");
+
+        if (bedrockIdentifier == null && bedrockState.isEmpty() && geometryId == null && materialId == null && !behaviorRequired && behaviorTag == null && javaWhen.isEmpty()) {
+            return null;
+        }
+
+        return new BlockStateRule(javaWhen, bedrockIdentifier, bedrockState.isEmpty() ? null : bedrockState, geometryId, materialId, behaviorRequired, behaviorTag, patch.ownership(), patch.sourcePath(), patch.priority(), patch.order());
+    }
+
+    @Nullable
+    private IdentifierMapping patchToIdentifierMapping(@NotNull ContentPatch patch) {
+        Identifier bedrockIdentifier = parseIdentifierValue(patch.operations().get("bedrock.identifier"));
+        if (bedrockIdentifier == null) {
+            return null;
+        }
+        return new IdentifierMapping(patch.target(), bedrockIdentifier, patch.ownership(), patch.sourcePath(), patch.priority(), patch.order());
+    }
+
+    private void validateMenuPatch(@NotNull ContentPatch patch, @NotNull List<MetadataValidationIssue> validationIssues) {
+        String fallbackContainerType = patch.operation("bedrock.menu.container_type");
+        if (fallbackContainerType == null) {
+            return;
+        }
+
+        String normalizedContainerType = org.geysermc.hydraulic.compat.runtime.MenuPatchTemplate.normalizeContainerTypeName(fallbackContainerType);
+        if (!org.geysermc.hydraulic.compat.runtime.MenuPatchTemplate.isSupportedContainerType(normalizedContainerType)) {
+            validationIssues.add(new MetadataValidationIssue(
+                "metadata.patch.menu.container_type",
+                "WARNING",
+                "Ignoring invalid bedrock.menu.container_type value " + fallbackContainerType,
+                patch.sourcePath(),
+                patch.target().toString()
+            ));
+        }
+    }
+
+    @NotNull
+    private static Map<String, String> slicePatch(@NotNull Map<String, String> operations, @NotNull String prefix) {
+        Map<String, String> values = new LinkedHashMap<>();
+        for (Map.Entry<String, String> entry : operations.entrySet()) {
+            if (entry.getKey().startsWith(prefix)) {
+                values.put(entry.getKey().substring(prefix.length()), entry.getValue());
+            }
+        }
+        return values;
+    }
+
+    @Nullable
+    private static Identifier parseIdentifierValue(@Nullable String value) {
+        if (value == null) {
+            return null;
+        }
+        int separator = value.indexOf(':');
+        if (separator <= 0 || separator == value.length() - 1) {
+            return null;
+        }
+        return Identifier.fromNamespaceAndPath(value.substring(0, separator), value.substring(separator + 1));
+    }
+
+    @NotNull
+    private static String normalize(@NotNull Path path) {
+        return path.toString().replace('\\', '/');
+    }
+
+    @NotNull
+    private Map<String, String> parseStringMap(@Nullable JsonObject object) {
+        if (object == null) {
+            return Map.of();
+        }
+
+        Map<String, String> values = new LinkedHashMap<>();
+        for (Map.Entry<String, JsonElement> entry : object.entrySet()) {
+            values.put(entry.getKey(), entry.getValue().getAsString());
+        }
+        return values;
+    }
+
+    @Nullable
+    private Identifier parseIdentifier(@NotNull JsonObject object, @NotNull String key, @NotNull Path path, boolean required) {
+        String value = this.optionalString(object, key);
+        if (value == null) {
+            if (required) {
+                this.logger.warn("Ignoring metadata entry missing {} in {}", key, path);
+            }
+            return null;
+        }
+
+        int separator = value.indexOf(':');
+        if (separator <= 0 || separator == value.length() - 1) {
+            this.logger.warn("Ignoring invalid identifier {} in {}", value, path);
+            return null;
+        }
+
+        return Identifier.fromNamespaceAndPath(value.substring(0, separator), value.substring(separator + 1));
+    }
+
+    @Nullable
+    private String optionalString(@NotNull JsonObject object, @NotNull String key) {
+        if (!object.has(key) || object.get(key).isJsonNull()) {
+            return null;
+        }
+        return object.get(key).getAsString();
+    }
+
+    private record LoadStats(int fileCount, int blockMappingCount, int itemMappingCount, int recipeMappingCount, int entityMappingCount, int menuMappingCount, int patchCount, int ruleCount) {
+        @NotNull
+        private static LoadStats empty() {
+            return new LoadStats(0, 0, 0, 0, 0, 0, 0, 0);
+        }
+    }
+}

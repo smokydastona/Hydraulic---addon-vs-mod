@@ -1,0 +1,13 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "org.geysermc.hydraulic.fabric.mixin",
+  "compatibilityLevel": "JAVA_25",
+  "mixins": [
+    "GeyserFabricPlatformMixin",
+    "RegistrySyncManagerMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}
