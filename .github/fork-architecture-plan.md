@@ -371,6 +371,7 @@ config/hydraulic/
 - The current visual-only entity downgrade validation path is now repository-backed instead of depending on a hand-maintained ignored dev file: the bundled test mod seeds `hydraulic_test_mod.golden_barrel.json` into Hydraulic's config metadata directory before `SERVER_STARTING`, and a fresh runtime boot after deleting the existing dev copy still restored the metadata-backed `barrel_cube` entity override and `barrel_pack` item behavior gating from tracked resources.
 - Focused shared regression coverage now also proves the compatibility cache identity expands with the compatibility-engine fingerprint and that persisted compatibility manifests retain that fingerprint across store/load, closing the stale-report path that previously required manual cache clearing after analyzer changes.
 - Focused shared runtime-dispatch coverage now also proves that bucket-item creative exposure follows the linked fluid plan instead of only the bucket item's local presentation state, closing a real false-positive exposure path for partially supported fluids.
+- Fresh Java 25 validation after the transaction, synchronization, mixed-machine, automation, and compiled mixed-recipe slices now also confirms the full Gradle `build` succeeds and `:fabric:runServer` reaches Geyser ready state on UDP `19132`. The run converted eight packs with `failedPacks = 0`, registered 857 custom blocks, 989 custom items, and 1 custom entity, and `pack-validation-report.json` marked `create`, `travelersbackpack`, `lootr`, `apollib`, `citadel`, `farmersdelight`, `hydraulic`, and `hydraulic_test_mod` as valid. Create still emits fourteen `pack.path.long` warnings and one manual action for long Bedrock pack paths.
 
 ### What is still too narrow
 - Discovery is still duplicated across multiple subsystems.
@@ -384,7 +385,7 @@ config/hydraulic/
 - Block-entity runtime translation is now more useful for metadata-backed data bridges because compiled templates can carry live Java tag values through to Bedrock output, but the seam is still patch-driven and does not yet cover interaction or behavior.
 - Compatibility analysis now has explicit kind-keyed analyzer dispatch, but it still reconstructs facts too often and still depends on repeated asset discovery.
 - Non-block compatibility remains shallower than the block path.
-- Live Bedrock-client synchronization verification, richer menu behavior, block-entity behavior, deeper entity behavior, custom networking, custom rendering analysis, and broad machine recipe discovery remain incomplete.
+- Live Bedrock-client synchronization verification, richer menu behavior, block-entity behavior, deeper entity behavior, custom networking, custom rendering analysis, and broad automatic machine recipe discovery remain incomplete.
 - There is still no universal compiled runtime plan that removes compatibility reasoning from hot paths.
 
 ## Primary Architectural Correction
