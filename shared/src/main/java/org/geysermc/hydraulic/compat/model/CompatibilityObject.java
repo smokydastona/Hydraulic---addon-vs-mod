@@ -34,4 +34,9 @@ public record CompatibilityObject(
         provenance = List.copyOf(provenance);
         findings = List.copyOf(findings);
     }
+
+    @NotNull
+    public CompatibilityContract contract() {
+        return CompatibilityContract.from(this);
+    }
 }

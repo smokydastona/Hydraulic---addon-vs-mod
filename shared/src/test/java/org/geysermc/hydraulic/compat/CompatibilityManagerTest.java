@@ -106,6 +106,14 @@ class CompatibilityManagerTest {
         assertNotNull(summary.mods().get("examplemod"));
         assertEquals(1, summary.mods().get("examplemod").objectCount());
         assertEquals(report.mods().get("examplemod").overallLevel(), summary.mods().get("examplemod").overallLevel());
+
+        CompatibilityContractReport contracts;
+        try (var reader = Files.newBufferedReader(tempDir.resolve("reports/compatibility-contracts.json"))) {
+            contracts = Constants.GSON.fromJson(reader, CompatibilityContractReport.class);
+        }
+        assertNotNull(contracts);
+        assertEquals(1, contracts.mods().get("examplemod").size());
+        assertEquals("example:test_block", contracts.mods().get("examplemod").getFirst().javaIdentifier());
     }
 
     @Test

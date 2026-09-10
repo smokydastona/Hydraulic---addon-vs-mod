@@ -406,6 +406,7 @@ Including:
 content-inventory.json
 compatibility-report.json
 compatibility-summary.json
+compatibility-contracts.json
 performance-report.json
 pack-validation-report.json
 ```
@@ -426,6 +427,8 @@ The compatibility report can show:
 * provenance
 * validation results
 * unsupported behavior
+
+Each analyzed object also has a typed compatibility contract at the analysis boundary. The contract separates content, presentation, state, interaction, behavior, and network outcomes, records required runtime bridges, and marks whether the object is executable or must degrade to visual-only or omitted behavior.
 
 The performance report records measured work performed during indexing, compatibility analysis, conversion and runtime dispatch.
 
