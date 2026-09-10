@@ -88,8 +88,7 @@ public final class FluidAnalyzer implements CompatibilityAnalyzer {
         List<String> runtimeRequirements = new ArrayList<>();
         if (bucketBridgeAvailable) {
             runtimeRequirements.add("fluid.bucket_texture_fallback");
-        }
-        if (!results.get(2).supported()) {
+        } else {
             runtimeRequirements.add("fluid_translator");
         }
         if (!results.get(3).supported()) {
