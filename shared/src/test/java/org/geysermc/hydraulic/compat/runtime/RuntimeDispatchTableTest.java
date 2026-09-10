@@ -50,6 +50,7 @@ class RuntimeDispatchTableTest {
     @Test
     void resolvesRuntimeBridgeRequirementsThroughTheTypedIndex() {
         assertEquals(RuntimeBridgeKind.FLUID_TRANSFER, RuntimeBridgeKind.fromRequirement("fluid_transfer_bridge"));
+        assertEquals(RuntimeBridgeKind.NETWORK_PROTOCOL, RuntimeBridgeKind.fromRequirement("network_protocol_bridge"));
         assertNull(RuntimeBridgeKind.fromRequirement("unknown_bridge"));
         assertEquals(
             List.of(RuntimeBridgeKind.FLUID_TRANSFER, RuntimeBridgeKind.ITEM_TRANSFER),

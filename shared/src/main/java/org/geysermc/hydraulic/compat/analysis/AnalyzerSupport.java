@@ -166,6 +166,10 @@ final class AnalyzerSupport {
             }
         }
 
+        if (Boolean.parseBoolean(inventoryFacts.getOrDefault("custom_networking", "false"))) {
+            requirements.add("network_protocol_bridge");
+        }
+
         return List.copyOf(requirements);
     }
 

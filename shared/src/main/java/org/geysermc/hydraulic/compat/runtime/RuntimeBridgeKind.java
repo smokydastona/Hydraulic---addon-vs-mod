@@ -30,7 +30,8 @@ public enum RuntimeBridgeKind {
     ENERGY_TRANSFER("energy_transfer_bridge", "energy"),
     MACHINE_BEHAVIOR("machine_behavior_bridge", "machine"),
     MACHINE_INVENTORY("machine_inventory_bridge", "machine"),
-    AUTOMATION_ACCESS("automation_access_bridge", "machine");
+    AUTOMATION_ACCESS("automation_access_bridge", "machine"),
+    NETWORK_PROTOCOL("network_protocol_bridge", "network");
 
     private static final List<RuntimeBridgeKind> MENU_RUNTIME_KINDS = List.of(MENU_CONTAINER, MENU_BEHAVIOR);
     private static final List<RuntimeBridgeKind> BLOCK_ENTITY_RUNTIME_KINDS = List.of(BLOCK_ENTITY_DATA, BLOCK_ENTITY_INTERACTION, BLOCK_ENTITY_BEHAVIOR);
