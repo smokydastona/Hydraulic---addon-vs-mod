@@ -46,7 +46,7 @@ public final class TransferBridgeFactory {
             return null;
         }
         RuntimeInventoryAdapter adapter = RuntimeInventoryAdapter.from(runtimeInventory);
-        if (adapter == null) {
+        if (adapter == null || !supportsInventoryPlan(plan, adapter)) {
             return null;
         }
         return new RuntimeBackedItemTransferBridge(plan, adapter);
@@ -76,7 +76,7 @@ public final class TransferBridgeFactory {
             return null;
         }
         RuntimeFluidAdapter adapter = RuntimeFluidAdapter.from(runtimeTank);
-        if (adapter == null) {
+        if (adapter == null || !supportsFluidPlan(plan, adapter)) {
             return null;
         }
         return new RuntimeBackedFluidTransferBridge(plan, adapter);
@@ -106,7 +106,7 @@ public final class TransferBridgeFactory {
             return null;
         }
         RuntimeEnergyAdapter adapter = RuntimeEnergyAdapter.from(runtimeStorage);
-        if (adapter == null) {
+        if (adapter == null || !supportsEnergyPlan(plan, adapter)) {
             return null;
         }
         return new RuntimeBackedEnergyTransferBridge(plan, adapter);
@@ -189,6 +189,25 @@ public final class TransferBridgeFactory {
         default int extractEnergy(@NotNull Identifier blockIdentifier, int amount, @Nullable String side, boolean simulate) {
             return 0;
         }
+    }
+
+    private static boolean supportsInventoryPlan(@NotNull CompiledCompatibilityPlan plan, @NotNull RuntimeInventoryAdapter adapter) {
+        return (!booleanFact(plan, "can_insert") || adapter.supportsInsertion())
+            && (!booleanFact(plan, "can_extract") || adapter.supportsExtraction());
+    }
+
+    private static boolean supportsFluidPlan(@NotNull CompiledCompatibilityPlan plan, @NotNull RuntimeFluidAdapter adapter) {
+        return (!booleanFact(plan, "can_insert_fluid") || adapter.supportsInsertion())
+            && (!booleanFact(plan, "can_extract_fluid") || adapter.supportsExtraction());
+    }
+
+    private static boolean supportsEnergyPlan(@NotNull CompiledCompatibilityPlan plan, @NotNull RuntimeEnergyAdapter adapter) {
+        return (!booleanFact(plan, "can_receive_energy") || adapter.canReceive())
+            && (!booleanFact(plan, "can_provide_energy") || adapter.canExtract());
+    }
+
+    private static boolean booleanFact(@NotNull CompiledCompatibilityPlan plan, @NotNull String key) {
+        return Boolean.parseBoolean(plan.inventoryFacts().getOrDefault(key, "false"));
     }
 
     public record ItemStackView(String itemId, int count) {
@@ -322,12 +341,12 @@ public final class TransferBridgeFactory {
 
         @Override
         public boolean canInsert(@NotNull Identifier blockIdentifier) {
-            return inventory.supportsInsertion() || (plan.inventoryFacts().containsKey("can_insert") && Boolean.parseBoolean(plan.inventoryFacts().get("can_insert")));
+            return inventory.supportsInsertion();
         }
 
         @Override
         public boolean canExtract(@NotNull Identifier blockIdentifier) {
-            return inventory.supportsExtraction() || (plan.inventoryFacts().containsKey("can_extract") && Boolean.parseBoolean(plan.inventoryFacts().get("can_extract")));
+            return inventory.supportsExtraction();
         }
 
         @Override
@@ -392,12 +411,12 @@ public final class TransferBridgeFactory {
 
         @Override
         public boolean canInsertFluid(@NotNull Identifier blockIdentifier) {
-            return runtime.supportsInsertion() || (plan.inventoryFacts().containsKey("can_insert_fluid") && Boolean.parseBoolean(plan.inventoryFacts().get("can_insert_fluid")));
+            return runtime.supportsInsertion();
         }
 
         @Override
         public boolean canExtractFluid(@NotNull Identifier blockIdentifier) {
-            return runtime.supportsExtraction() || (plan.inventoryFacts().containsKey("can_extract_fluid") && Boolean.parseBoolean(plan.inventoryFacts().get("can_extract_fluid")));
+            return runtime.supportsExtraction();
         }
 
         @Override
@@ -467,12 +486,12 @@ public final class TransferBridgeFactory {
 
         @Override
         public boolean canReceiveEnergy(@NotNull Identifier blockIdentifier) {
-            return runtime.canReceive() || (plan.inventoryFacts().containsKey("can_receive_energy") && Boolean.parseBoolean(plan.inventoryFacts().get("can_receive_energy")));
+            return runtime.canReceive();
         }
 
         @Override
         public boolean canProvideEnergy(@NotNull Identifier blockIdentifier) {
-            return runtime.canExtract() || (plan.inventoryFacts().containsKey("can_provide_energy") && Boolean.parseBoolean(plan.inventoryFacts().get("can_provide_energy")));
+            return runtime.canExtract();
         }
 
         @Override

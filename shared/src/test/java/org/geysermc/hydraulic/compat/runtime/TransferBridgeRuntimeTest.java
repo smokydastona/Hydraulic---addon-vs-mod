@@ -32,6 +32,29 @@ class TransferBridgeRuntimeTest {
     }
 
     @Test
+    void declaredDirectionsMustHaveConcreteRuntimeOperations() {
+        CompiledCompatibilityPlan itemPlan = runtimePlan(RuntimeBridgeKind.ITEM_TRANSFER, Map.of("can_insert", "true", "can_extract", "true"));
+        CompiledCompatibilityPlan fluidPlan = runtimePlan(RuntimeBridgeKind.FLUID_TRANSFER, Map.of("can_insert_fluid", "true", "can_extract_fluid", "true"));
+        CompiledCompatibilityPlan energyPlan = runtimePlan(RuntimeBridgeKind.ENERGY_TRANSFER, Map.of("can_receive_energy", "true", "can_provide_energy", "true"));
+
+        assertNull(TransferBridgeFactory.createItemTransfer(itemPlan, new InsertOnlyInventory()));
+        assertNull(TransferBridgeFactory.createFluidTransfer(fluidPlan, new FillOnlyTank()));
+        assertNull(TransferBridgeFactory.createEnergyTransfer(energyPlan, new ReceiveOnlyStorage()));
+    }
+
+    @Test
+    void emptyDispatchTableDoesNotCreateRuntimeBridges() {
+        RuntimeDispatchTable dispatchTable = RuntimeDispatchTable.empty();
+        Identifier block = Identifier.fromNamespaceAndPath("hydraulic", "missing_machine");
+
+        assertNull(dispatchTable.itemTransfer(block, new Object()));
+        assertNull(dispatchTable.fluidTransfer(block, new Object()));
+        assertNull(dispatchTable.energyTransfer(block, new Object()));
+        assertNull(dispatchTable.machineBehavior(block));
+        assertNull(dispatchTable.machineInventory(block));
+    }
+
+    @Test
     void itemBridgeUsesActualRuntimeInventorySemantics() {
         TestInventory inventory = new TestInventory();
         CompiledCompatibilityPlan plan = runtimePlan(RuntimeBridgeKind.ITEM_TRANSFER, Map.of("can_insert", "true", "can_extract", "true", "inventory_type", "generic"));
@@ -194,6 +217,24 @@ class TransferBridgeRuntimeTest {
                 this.amount -= extracted;
             }
             return extracted;
+        }
+    }
+
+    private static final class InsertOnlyInventory {
+        public int insertItem(int slot, TransferBridgeFactory.ItemStackView item, boolean simulate) {
+            return item.count();
+        }
+    }
+
+    private static final class FillOnlyTank {
+        public int fill(int tank, TransferBridgeFactory.FluidStackView fluid, boolean simulate) {
+            return fluid.amount();
+        }
+    }
+
+    private static final class ReceiveOnlyStorage {
+        public int receiveEnergy(int amount, boolean simulate) {
+            return amount;
         }
     }
 

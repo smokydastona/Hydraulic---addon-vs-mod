@@ -36,6 +36,11 @@ public final class MachineBridgeFactory {
     @Nullable
     public static MachineBehaviorBridge createMachineBehavior(@NotNull Identifier blockIdentifier, @NotNull CompatibilityRegistry compatibilityRegistry) {
         CompiledCompatibilityPlan plan = compatibilityRegistry.dispatchTable().block(blockIdentifier);
+        return createMachineBehavior(plan);
+    }
+
+    @Nullable
+    public static MachineBehaviorBridge createMachineBehavior(@Nullable CompiledCompatibilityPlan plan) {
         if (!BridgeAdapterSupport.supportsMachineBehavior(plan)) {
             return null;
         }
@@ -48,6 +53,11 @@ public final class MachineBridgeFactory {
     @Nullable
     public static MachineInventoryBridge createMachineInventory(@NotNull Identifier blockIdentifier, @NotNull CompatibilityRegistry compatibilityRegistry) {
         CompiledCompatibilityPlan plan = compatibilityRegistry.dispatchTable().block(blockIdentifier);
+        return createMachineInventory(plan);
+    }
+
+    @Nullable
+    public static MachineInventoryBridge createMachineInventory(@Nullable CompiledCompatibilityPlan plan) {
         if (!BridgeAdapterSupport.supportsMachineInventory(plan)) {
             return null;
         }

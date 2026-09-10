@@ -209,6 +209,36 @@ public final class RuntimeDispatchTable {
     }
 
     @Nullable
+    public TransferBridgeFactory.ItemTransferBridge itemTransfer(@NotNull Identifier blockIdentifier, @NotNull Object runtimeInventory) {
+        CompiledCompatibilityPlan plan = this.block(blockIdentifier);
+        return plan == null ? null : TransferBridgeFactory.createItemTransfer(plan, runtimeInventory);
+    }
+
+    @Nullable
+    public TransferBridgeFactory.FluidTransferBridge fluidTransfer(@NotNull Identifier blockIdentifier, @NotNull Object runtimeTank) {
+        CompiledCompatibilityPlan plan = this.block(blockIdentifier);
+        return plan == null ? null : TransferBridgeFactory.createFluidTransfer(plan, runtimeTank);
+    }
+
+    @Nullable
+    public TransferBridgeFactory.EnergyTransferBridge energyTransfer(@NotNull Identifier blockIdentifier, @NotNull Object runtimeStorage) {
+        CompiledCompatibilityPlan plan = this.block(blockIdentifier);
+        return plan == null ? null : TransferBridgeFactory.createEnergyTransfer(plan, runtimeStorage);
+    }
+
+    @Nullable
+    public MachineBridgeFactory.MachineBehaviorBridge machineBehavior(@NotNull Identifier blockIdentifier) {
+        CompiledCompatibilityPlan plan = this.block(blockIdentifier);
+        return plan == null ? null : MachineBridgeFactory.createMachineBehavior(plan);
+    }
+
+    @Nullable
+    public MachineBridgeFactory.MachineInventoryBridge machineInventory(@NotNull Identifier blockIdentifier) {
+        CompiledCompatibilityPlan plan = this.block(blockIdentifier);
+        return plan == null ? null : MachineBridgeFactory.createMachineInventory(plan);
+    }
+
+    @Nullable
     public CompiledCompatibilityPlan plan(@NotNull String contentType, @NotNull String javaIdentifier) {
         CompiledCompatibilityPlan plan = this.plansByTypeAndIdentifier.get(key(contentType, javaIdentifier));
         this.recordLookup(contentType, plan != null);
