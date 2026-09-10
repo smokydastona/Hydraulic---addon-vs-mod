@@ -5,6 +5,7 @@
   "compatibilityLevel": "JAVA_25",
   "mixins": [
     "ext.BedrockInteractTranslatorMixin",
+    "ext.BedrockInventoryTransactionTranslatorMixin",
     "ext.BlockStateSerializerMixin",
     "ext.JavaBlockEntityDataTranslatorMixin",
     "ext.JavaOpenScreenTranslatorMixin",
