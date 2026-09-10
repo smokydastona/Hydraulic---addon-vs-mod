@@ -39,4 +39,24 @@ public record CompatibilityObject(
     public CompatibilityContract contract() {
         return CompatibilityContract.from(this);
     }
+
+    @NotNull
+    public CompatibilityObject withInventoryFacts(@NotNull Map<String, String> updatedFacts) {
+        return new CompatibilityObject(
+            this.javaIdentifier,
+            this.contentType,
+            this.modId,
+            updatedFacts,
+            this.capabilityProfile,
+            this.adapterBindings,
+            this.runtimeRequirements,
+            this.supportResults,
+            this.overallLevel,
+            this.overallStatus,
+            this.overallScore,
+            this.confidence,
+            this.provenance,
+            this.findings
+        );
+    }
 }

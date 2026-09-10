@@ -286,7 +286,11 @@ public final class CompatibilityManager {
             if (analyzer == null) {
                 continue;
             }
-            objects.add(analyzer.analyze(descriptor, modInventory, metadataIndex));
+            CompatibilityObject object = analyzer.analyze(descriptor, modInventory, metadataIndex);
+            Map<String, String> facts = new LinkedHashMap<>(object.inventoryFacts());
+            facts.put("custom_networking", Boolean.toString(modInventory.fingerprint().usesCustomNetworking()));
+            facts.put("custom_rendering", Boolean.toString(modInventory.fingerprint().usesCustomRenderers()));
+            objects.add(object.withInventoryFacts(facts));
         }
         return List.copyOf(objects);
     }

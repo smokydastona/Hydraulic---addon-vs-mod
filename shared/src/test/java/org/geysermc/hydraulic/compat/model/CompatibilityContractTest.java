@@ -70,6 +70,32 @@ class CompatibilityContractTest {
         assertTrue(object.contract().domains().containsKey(CompatibilityContract.Domain.BEHAVIOR));
     }
 
+    @Test
+    void convertsCrossCuttingNetworkAndRenderingFactsIntoConservativeActions() {
+        CompatibilityObject object = new CompatibilityObject(
+            "example:renderer",
+            "entity",
+            "example",
+            Map.of("custom_networking", "true", "custom_rendering", "true"),
+            new CapabilityProfile("example:renderer", List.of(), List.of()),
+            List.of(),
+            List.of(),
+            Map.of("presentation", result(SupportLevel.AUTOMATIC, CompatibilityStatus.COMPLETE)),
+            SupportLevel.AUTOMATIC,
+            CompatibilityStatus.COMPLETE,
+            100,
+            new Confidence(0.9D, "test"),
+            List.of(),
+            List.of()
+        );
+
+        CompatibilityContract contract = object.contract();
+
+        assertEquals(CompatibilityContract.Action.OMIT, contract.domains().get(CompatibilityContract.Domain.NETWORK).action());
+        assertEquals(CompatibilityContract.Action.APPROXIMATE, contract.domains().get(CompatibilityContract.Domain.PRESENTATION).action());
+        assertEquals(List.of("custom_networking"), contract.domains().get(CompatibilityContract.Domain.NETWORK).missingCapabilities());
+    }
+
     private static SupportResult result(SupportLevel level, CompatibilityStatus status) {
         return new SupportResult("test", level, status, 80, List.of("available"), List.of(), List.of());
     }

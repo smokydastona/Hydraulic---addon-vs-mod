@@ -42,6 +42,33 @@ public record CompatibilityContract(
             domains.put(domain, DomainContract.from(result));
         }
 
+        if (Boolean.parseBoolean(object.inventoryFacts().getOrDefault("custom_networking", "false"))) {
+            domains.put(Domain.NETWORK, new DomainContract(
+                SupportLevel.UNSUPPORTED,
+                CompatibilityStatus.NONE,
+                Action.OMIT,
+                List.of(),
+                List.of("custom_networking"),
+                List.of("Custom networking was detected; no generic protocol bridge is available.")
+            ));
+        }
+        if (Boolean.parseBoolean(object.inventoryFacts().getOrDefault("custom_rendering", "false"))) {
+            DomainContract existingPresentation = domains.get(Domain.PRESENTATION);
+            List<String> supported = existingPresentation == null ? List.of() : existingPresentation.supportedCapabilities();
+            List<String> missing = new java.util.ArrayList<>(existingPresentation == null ? List.of() : existingPresentation.missingCapabilities());
+            missing.add("custom_rendering");
+            List<String> notes = new java.util.ArrayList<>(existingPresentation == null ? List.of() : existingPresentation.notes());
+            notes.add("Custom rendering was detected; presentation may require approximation.");
+            domains.put(Domain.PRESENTATION, new DomainContract(
+                SupportLevel.APPROXIMATED,
+                CompatibilityStatus.PARTIAL,
+                Action.APPROXIMATE,
+                supported,
+                missing,
+                notes
+            ));
+        }
+
         List<RuntimeBridgeKind> requiredBridges = RuntimeBridgeKind.resolve(object.runtimeRequirements());
         boolean executable = object.overallLevel() != SupportLevel.UNSUPPORTED
             && object.overallLevel() != SupportLevel.VISUAL_ONLY
