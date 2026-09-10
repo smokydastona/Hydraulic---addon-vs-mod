@@ -76,8 +76,11 @@ class TransferBridgeRuntimeTest {
         Identifier block = Identifier.fromNamespaceAndPath("hydraulic", "missing_machine");
 
         assertNull(dispatchTable.itemTransfer(block, new Object()));
+        assertNull(dispatchTable.itemTransaction(block, new Object()));
         assertNull(dispatchTable.fluidTransfer(block, new Object()));
+        assertNull(dispatchTable.fluidTransaction(block, new Object()));
         assertNull(dispatchTable.energyTransfer(block, new Object()));
+        assertNull(dispatchTable.energyTransaction(block, new Object()));
         assertNull(dispatchTable.machineBehavior(block));
         assertNull(dispatchTable.machineInventory(block));
         assertNull(dispatchTable.inventoryAccess(block, new Object()));

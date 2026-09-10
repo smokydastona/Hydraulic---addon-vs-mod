@@ -227,9 +227,21 @@ public final class RuntimeDispatchTable {
     }
 
     @Nullable
+    public FluidTransferTransaction fluidTransaction(@NotNull Identifier blockIdentifier, @NotNull Object runtimeTank) {
+        TransferBridgeFactory.FluidTransferBridge bridge = this.fluidTransfer(blockIdentifier, runtimeTank);
+        return bridge == null ? null : new FluidTransferTransaction(bridge);
+    }
+
+    @Nullable
     public TransferBridgeFactory.EnergyTransferBridge energyTransfer(@NotNull Identifier blockIdentifier, @NotNull Object runtimeStorage) {
         CompiledCompatibilityPlan plan = this.block(blockIdentifier);
         return plan == null ? null : TransferBridgeFactory.createEnergyTransfer(plan, runtimeStorage);
+    }
+
+    @Nullable
+    public EnergyTransferTransaction energyTransaction(@NotNull Identifier blockIdentifier, @NotNull Object runtimeStorage) {
+        TransferBridgeFactory.EnergyTransferBridge bridge = this.energyTransfer(blockIdentifier, runtimeStorage);
+        return bridge == null ? null : new EnergyTransferTransaction(bridge);
     }
 
     @Nullable
