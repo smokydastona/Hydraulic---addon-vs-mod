@@ -69,6 +69,19 @@ public final class MachineBridgeFactory {
     }
 
     @Nullable
+    public static InventoryAccess createInventoryAccess(
+        @Nullable CompiledCompatibilityPlan plan,
+        @Nullable TransferBridgeFactory.ItemTransferBridge inventory
+    ) {
+        if (!BridgeAdapterSupport.supportsMachineInventory(plan)
+            || inventory == null
+            || !inventory.executable()) {
+            return null;
+        }
+        return new RuntimeInventoryAccess(plan, inventory);
+    }
+
+    @Nullable
     public static AutomationAccess createAutomation(
         @Nullable CompiledCompatibilityPlan plan,
         @Nullable TransferBridgeFactory.ItemTransferBridge inventory
@@ -177,6 +190,46 @@ public final class MachineBridgeFactory {
         boolean hasInventory(@NotNull Identifier blockIdentifier);
         @Nullable String inventoryLayout(@NotNull Identifier blockIdentifier);
         @Nullable String slotSemantics(@NotNull Identifier blockIdentifier);
+    }
+
+    public interface InventoryAccess {
+        int slotCount(@NotNull Identifier blockIdentifier);
+        @Nullable TransferBridgeFactory.ItemStackView itemAt(@NotNull Identifier blockIdentifier, int slot);
+        @Nullable String inventoryLayout(@NotNull Identifier blockIdentifier);
+        @Nullable String slotSemantics(@NotNull Identifier blockIdentifier);
+    }
+
+    private static final class RuntimeInventoryAccess implements InventoryAccess {
+        private final CompiledCompatibilityPlan plan;
+        private final TransferBridgeFactory.ItemTransferBridge inventory;
+
+        private RuntimeInventoryAccess(@NotNull CompiledCompatibilityPlan plan, @NotNull TransferBridgeFactory.ItemTransferBridge inventory) {
+            this.plan = plan;
+            this.inventory = inventory;
+        }
+
+        @Override
+        public int slotCount(@NotNull Identifier blockIdentifier) {
+            return this.inventory.slotCount(blockIdentifier);
+        }
+
+        @Override
+        @Nullable
+        public TransferBridgeFactory.ItemStackView itemAt(@NotNull Identifier blockIdentifier, int slot) {
+            return this.inventory.itemAt(blockIdentifier, slot);
+        }
+
+        @Override
+        @Nullable
+        public String inventoryLayout(@NotNull Identifier blockIdentifier) {
+            return this.plan.inventoryFacts().get("inventory_layout");
+        }
+
+        @Override
+        @Nullable
+        public String slotSemantics(@NotNull Identifier blockIdentifier) {
+            return this.plan.inventoryFacts().get("slot_semantics");
+        }
     }
 
     public interface AutomationAccess {

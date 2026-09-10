@@ -213,6 +213,29 @@ class TransferBridgeRuntimeTest {
     }
 
     @Test
+    void inventoryAccessReadsRealRuntimeInventoryState() {
+        Identifier machine = Identifier.fromNamespaceAndPath("hydraulic", "test_machine");
+        CompiledCompatibilityPlan plan = runtimePlan(
+            List.of(RuntimeBridgeKind.ITEM_TRANSFER, RuntimeBridgeKind.MACHINE_INVENTORY),
+            Map.of(
+                "can_insert", "true",
+                "can_extract", "true",
+                "has_inventory", "true",
+                "inventory_layout", "machine",
+                "slot_semantics", "input,output"
+            )
+        );
+        TransferBridgeFactory.ItemTransferBridge transfer = TransferBridgeFactory.createItemTransfer(plan, new TestInventory());
+        MachineBridgeFactory.InventoryAccess inventory = MachineBridgeFactory.createInventoryAccess(plan, transfer);
+
+        assertNotNull(inventory);
+        assertEquals(2, inventory.slotCount(machine));
+        assertEquals("minecraft:stone", inventory.itemAt(machine, 0).itemId());
+        assertEquals("machine", inventory.inventoryLayout(machine));
+        assertEquals("input,output", inventory.slotSemantics(machine));
+    }
+
+    @Test
     void machineProcessingCompilesRecipesFromPlanFacts() {
         Identifier machine = Identifier.fromNamespaceAndPath("hydraulic", "test_machine");
         TestInventory inventory = new TestInventory();
