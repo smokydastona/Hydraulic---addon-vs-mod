@@ -244,6 +244,11 @@ MENU_CONTAINER
 BLOCK_ENTITY_DATA
 FLUID_RUNTIME
 ITEM_BEHAVIOR
+ITEM_TRANSFER
+FLUID_TRANSFER
+ENERGY_TRANSFER
+MACHINE_INVENTORY
+AUTOMATION_ACCESS
 ```
 
 This is intended to give future runtime bridges a consistent place to plug into the system.
@@ -290,6 +295,18 @@ A fluid can provide a configured bucket texture and the corresponding bucket ite
 
 This is intentionally separate from actual fluid simulation.
 
+### Executable Capability Bridges
+
+The shared runtime layer now exposes fail-closed executable bridges for:
+
+* item, fluid, and energy transfer
+* machine inventory slot reads
+* sided automation insertion and extraction
+* generic machine processing from compiled recipe facts
+* normalized container-to-tank transfers with fluid identity checks
+
+These bridges operate against compatible Java runtime objects through the compiled dispatch table. Unsupported object shapes, missing directions, malformed recipes, and mismatched fluids do not become silent no-op behavior.
+
 ---
 
 # Machines, Automation and Fluids
@@ -323,17 +340,16 @@ Phlodgate's long-term goal is to bridge the underlying behavior as well.
 
 ### Current limitation
 
-**Machine, automation and deeper fluid runtime behavior are not finished.**
+**Universal machine, automation and deeper fluid runtime behavior are not finished.**
 
 The current fluid system can analyze fluid content and handle some presentation-related compatibility, but it does not yet provide a universal translation layer for:
 
 * world fluid simulation
-* fluid transfer
-* fluid storage
-* machine fluid handling
-* generic item transfer
-* generic energy transfer
-* arbitrary automation systems
+* world fluid simulation
+* universal recipe discovery
+* machine-specific fluid and energy semantics
+* network synchronization for custom machines
+* arbitrary automation systems and filtering semantics
 
 These are active areas of development.
 
