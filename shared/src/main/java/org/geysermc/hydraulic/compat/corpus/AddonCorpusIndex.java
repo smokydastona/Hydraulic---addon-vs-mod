@@ -24,8 +24,8 @@ public record AddonCorpusIndex(
     @NotNull
     public static AddonCorpusIndex empty() {
         return new AddonCorpusIndex(
-            "v1.0.0",
-            "HYDRAULIC_CORPUS_INDEX_V1",
+            "v2.0.0",
+            "HYDRAULIC_CORPUS_INDEX_V2",
             Map.of(),
             new CorpusMetadata(0, 0, 0, System.currentTimeMillis())
         );

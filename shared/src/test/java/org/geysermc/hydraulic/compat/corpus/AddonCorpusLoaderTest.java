@@ -24,8 +24,8 @@ class AddonCorpusLoaderTest {
         loader.ensureLayout();
 
         AddonCorpusIndex index = new AddonCorpusIndex(
-            "v1.0.0",
-            "HYDRAULIC_CORPUS_INDEX_V1",
+            "v2.0.0",
+            "HYDRAULIC_CORPUS_INDEX_V2",
             Map.of("example-addon", new AddonCorpusIndex.IndexedEntry(
                 "example-addon",
                 "example:machine",
@@ -45,6 +45,7 @@ class AddonCorpusLoaderTest {
         AddonCorpusLoader reloaded = new AddonCorpusLoader(LoggerFactory.getLogger("CorpusLoaderTest"), this.tempDir);
         AddonCorpusIndex loadedIndex = reloaded.loadIndex();
         assertEquals(1, loadedIndex.entries().size());
+        assertTrue(Files.isRegularFile(this.tempDir.resolve("corpus/corpus-manifest.json")));
 
         AddonCorpusEntry loadedEntry = reloaded.loadEntry("example-addon");
         assertNotNull(loadedEntry);
@@ -57,8 +58,8 @@ class AddonCorpusLoaderTest {
         AddonCorpusLoader loader = new AddonCorpusLoader(LoggerFactory.getLogger("CorpusLoaderTest"), this.tempDir);
         loader.ensureLayout();
         AddonCorpusIndex index = new AddonCorpusIndex(
-            "v1.0.0",
-            "HYDRAULIC_CORPUS_INDEX_V1",
+            "v2.0.0",
+            "HYDRAULIC_CORPUS_INDEX_V2",
             Map.of("../outside", new AddonCorpusIndex.IndexedEntry(
                 "../outside", "example:machine", "../", true, "FULLY_PERMISSIVE", 0.9D, System.currentTimeMillis()
             )),
@@ -68,6 +69,50 @@ class AddonCorpusLoaderTest {
 
         assertNull(loader.loadEntry("../outside"));
         assertTrue(!Files.exists(this.tempDir.resolve("outside.json")));
+    }
+
+    @Test
+    void rejectsEntryWhoseIdentityDiffersFromIndex() throws Exception {
+        AddonCorpusLoader loader = new AddonCorpusLoader(LoggerFactory.getLogger("CorpusLoaderTest"), this.tempDir);
+        loader.ensureLayout();
+        AddonCorpusIndex index = new AddonCorpusIndex(
+            "v2.0.0",
+            "HYDRAULIC_CORPUS_INDEX_V2",
+            Map.of("example-addon", new AddonCorpusIndex.IndexedEntry(
+                "example-addon", "example:machine", "curated", true, "FULLY_PERMISSIVE", 0.9D, System.currentTimeMillis()
+            )),
+            new AddonCorpusIndex.CorpusMetadata(1, 1, 0, System.currentTimeMillis())
+        );
+        loader.storeIndex(index);
+        loader.storeEntry(sampleEntry("different-addon"), "curated");
+        Files.move(
+            this.tempDir.resolve("corpus/curated/different-addon.json"),
+            this.tempDir.resolve("corpus/curated/example-addon.json")
+        );
+
+        AddonCorpusLoader reloaded = new AddonCorpusLoader(LoggerFactory.getLogger("CorpusLoaderTest"), this.tempDir);
+        reloaded.loadIndex();
+        assertNull(reloaded.loadEntry("example-addon"));
+    }
+
+    @Test
+    void rejectsTamperedCorpusIndexManifest() throws Exception {
+        AddonCorpusLoader loader = new AddonCorpusLoader(LoggerFactory.getLogger("CorpusLoaderTest"), this.tempDir);
+        loader.ensureLayout();
+        AddonCorpusIndex index = new AddonCorpusIndex(
+            "v2.0.0",
+            "HYDRAULIC_CORPUS_INDEX_V2",
+            Map.of(),
+            new AddonCorpusIndex.CorpusMetadata(0, 0, 0, System.currentTimeMillis())
+        );
+        loader.storeIndex(index);
+        Files.writeString(
+            this.tempDir.resolve("corpus/corpus-index.json"),
+            Files.readString(this.tempDir.resolve("corpus/corpus-index.json")).replace("v2.0.0", "tampered")
+        );
+
+        AddonCorpusLoader reloaded = new AddonCorpusLoader(LoggerFactory.getLogger("CorpusLoaderTest"), this.tempDir);
+        assertTrue(reloaded.loadIndex().entries().isEmpty());
     }
 
     private static AddonCorpusEntry sampleEntry(String corpusId) {
@@ -82,6 +127,18 @@ class AddonCorpusLoaderTest {
             new AddonCorpusEntry.AddonCapabilities(Set.of("machine"), Set.of("processor"), Set.of("item"), Set.of(), Set.of(), Set.of(), Set.of(), Map.of()),
             new AddonCorpusEntry.AddonEvidence(java.util.List.of("manifest"), java.util.List.of(), java.util.List.of(), java.util.List.of(), java.util.List.of(), Map.of()),
             new AddonCorpusEntry.AddonConfidence(0.9D, "manifest", java.util.List.of("machine block"), java.util.List.of(), java.util.List.of()),
+            new AddonCorpusEntry.AddonImplementationFacts(
+                "custom component machine",
+                java.util.List.of("single-block processing only"),
+                java.util.List.of("bounded per-tick transfer"),
+                java.util.List.of("dynamic properties"),
+                java.util.List.of("player interact", "server tick"),
+                java.util.List.of("slot-checked insertion and extraction"),
+                java.util.List.of("custom form"),
+                java.util.List.of("example:core"),
+                "high",
+                "generic-machine"
+            ),
             new AddonCorpusEntry.AddonProvenance("test", System.currentTimeMillis(), null, null, "v1.0.0", java.util.List.of())
         );
     }

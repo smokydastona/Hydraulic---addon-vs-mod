@@ -60,6 +60,16 @@ public final class CorpusReportWriter {
             record.put("confidence", entry.confidence().overallScore());
             record.put("machineTypes", entry.capabilities().machineTypes());
             record.put("transferTypes", entry.capabilities().transferTypes());
+            record.put("implementationPattern", entry.implementationFacts().implementationPattern());
+            record.put("limitations", entry.implementationFacts().limitations());
+            record.put("performanceCharacteristics", entry.implementationFacts().performanceCharacteristics());
+            record.put("persistenceMethods", entry.implementationFacts().persistenceMethods());
+            record.put("runtimeHooks", entry.implementationFacts().runtimeHooks());
+            record.put("transferSemantics", entry.implementationFacts().transferSemantics());
+            record.put("uiMethods", entry.implementationFacts().uiMethods());
+            record.put("dependencies", entry.implementationFacts().dependencies());
+            record.put("reusability", entry.implementationFacts().reusability());
+            record.put("adapterCandidate", entry.implementationFacts().adapterCandidate());
             entries.add(record);
         }
         summary.put("admissible", entries);

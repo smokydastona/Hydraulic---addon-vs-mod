@@ -24,6 +24,7 @@ public record AddonCorpusEntry(
     @NotNull AddonCapabilities capabilities,
     @NotNull AddonEvidence evidence,
     @NotNull AddonConfidence confidence,
+    @NotNull AddonImplementationFacts implementationFacts,
     @NotNull AddonProvenance provenance
 ) {
     /**
@@ -182,6 +183,23 @@ public record AddonCorpusEntry(
         @NotNull List<String> strongIndicators,
         @NotNull List<String> weakIndicators,
         @NotNull List<String> gaps
+    ) {
+    }
+
+    /**
+     * Implementation details used to rank reusable compatibility patterns and adapters.
+     */
+    public record AddonImplementationFacts(
+        @NotNull String implementationPattern,
+        @NotNull List<String> limitations,
+        @NotNull List<String> performanceCharacteristics,
+        @NotNull List<String> persistenceMethods,
+        @NotNull List<String> runtimeHooks,
+        @NotNull List<String> transferSemantics,
+        @NotNull List<String> uiMethods,
+        @NotNull List<String> dependencies,
+        @NotNull String reusability,
+        @NotNull String adapterCandidate
     ) {
     }
 

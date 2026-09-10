@@ -6,8 +6,9 @@ import org.slf4j.Logger;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -50,13 +51,20 @@ public final class AddonCorpusLoader {
     @NotNull
     public AddonCorpusIndex loadIndex() {
         Path indexPath = this.corpusRoot.resolve(CORPUS_INDEX);
+        Path manifestPath = this.corpusRoot.resolve(CORPUS_MANIFEST);
         if (!Files.isRegularFile(indexPath)) {
             this.logger.debug("No corpus index found at {}, returning empty index", indexPath);
             return AddonCorpusIndex.empty();
         }
 
-        try (var reader = Files.newBufferedReader(indexPath)) {
+        try (var reader = Files.newBufferedReader(indexPath);
+             var manifestReader = Files.newBufferedReader(manifestPath)) {
             AddonCorpusIndex loaded = org.geysermc.hydraulic.Constants.GSON.fromJson(reader, AddonCorpusIndex.class);
+            CorpusManifest manifest = org.geysermc.hydraulic.Constants.GSON.fromJson(manifestReader, CorpusManifest.class);
+            if (loaded == null || manifest == null || !manifest.matches(loaded, Files.readString(indexPath))) {
+                this.logger.warn("Rejected corpus snapshot at {} because its manifest does not match", this.corpusRoot);
+                return AddonCorpusIndex.empty();
+            }
             this.index = loaded;
             this.logger.info("Loaded corpus index (entries={}, version={})", loaded.entries().size(), loaded.corpusVersion());
             return loaded;
@@ -83,7 +91,15 @@ public final class AddonCorpusLoader {
         }
 
         try (var reader = Files.newBufferedReader(entryPath)) {
-            return org.geysermc.hydraulic.Constants.GSON.fromJson(reader, AddonCorpusEntry.class);
+            AddonCorpusEntry loaded = org.geysermc.hydraulic.Constants.GSON.fromJson(reader, AddonCorpusEntry.class);
+            if (loaded == null
+                || loaded.implementationFacts() == null
+                || !corpusId.equals(loaded.identity().corpusId())
+                || !indexed.bedrockIdentifier().equals(loaded.identity().bedrockIdentifier())) {
+                this.logger.warn("Rejected corpus entry {} because its identity does not match the index", corpusId);
+                return null;
+            }
+            return loaded;
         } catch (Exception e) {
             this.logger.error("Failed to load corpus entry from {} for corpusId {}", entryPath, corpusId, e);
             return null;
@@ -112,11 +128,18 @@ public final class AddonCorpusLoader {
      */
     public void storeIndex(@NotNull AddonCorpusIndex index) {
         Path indexPath = this.corpusRoot.resolve(CORPUS_INDEX);
+        Path manifestPath = this.corpusRoot.resolve(CORPUS_MANIFEST);
         try {
             Files.createDirectories(indexPath.getParent());
-            try (var writer = Files.newBufferedWriter(indexPath)) {
-                org.geysermc.hydraulic.Constants.GSON.toJson(index, writer);
-            }
+            String serializedIndex = org.geysermc.hydraulic.Constants.GSON.toJson(index);
+            Files.writeString(indexPath, serializedIndex, StandardCharsets.UTF_8);
+            CorpusManifest manifest = new CorpusManifest(
+                index.corpusVersion(),
+                index.algorithm(),
+                index.entries().size(),
+                sha256(serializedIndex)
+            );
+            Files.writeString(manifestPath, org.geysermc.hydraulic.Constants.GSON.toJson(manifest), StandardCharsets.UTF_8);
             this.index = index;
             this.logger.info("Stored corpus index (entries={}, version={})", index.entries().size(), index.corpusVersion());
         } catch (Exception e) {
@@ -162,5 +185,28 @@ public final class AddonCorpusLoader {
     @NotNull
     public AddonCorpusIndex index() {
         return this.index;
+    }
+
+    private static String sha256(@NotNull String value) throws Exception {
+        byte[] digest = MessageDigest.getInstance("SHA-256").digest(value.getBytes(StandardCharsets.UTF_8));
+        StringBuilder result = new StringBuilder(digest.length * 2);
+        for (byte current : digest) {
+            result.append(String.format("%02x", current));
+        }
+        return result.toString();
+    }
+
+    private record CorpusManifest(
+        String corpusVersion,
+        String algorithm,
+        int entryCount,
+        String indexSha256
+    ) {
+        private boolean matches(@NotNull AddonCorpusIndex index, @NotNull String serializedIndex) throws Exception {
+            return this.corpusVersion.equals(index.corpusVersion())
+                && this.algorithm.equals(index.algorithm())
+                && this.entryCount == index.entries().size()
+                && this.indexSha256.equals(sha256(serializedIndex));
+        }
     }
 }
