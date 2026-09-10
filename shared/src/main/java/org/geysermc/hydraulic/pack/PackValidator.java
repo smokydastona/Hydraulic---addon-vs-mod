@@ -260,7 +260,7 @@ final class PackValidator {
         }
 
         List<String> missingEntries = textureExpectations.requiredArchiveEntries().stream()
-            .filter(expected -> !archiveTextureEntries.containsKey(expected))
+            .filter(expected -> !hasRequiredTextureOutput(expected, archiveTextureEntries))
             .toList();
         for (String missingEntry : missingEntries) {
             errors.add(new PackValidationReport.ValidationMessage(
@@ -274,7 +274,7 @@ final class PackValidator {
         }
 
         List<String> unreferencedEntries = archiveTextureEntries.keySet().stream()
-            .filter(entry -> !textureExpectations.requiredArchiveEntries().contains(entry))
+            .filter(entry -> !isRequiredTextureOutput(entry, textureExpectations.requiredArchiveEntries()))
             .toList();
         for (String unreferencedEntry : unreferencedEntries) {
             warnings.add(new PackValidationReport.ValidationMessage(
@@ -286,6 +286,30 @@ final class PackValidator {
         if (!unreferencedEntries.isEmpty()) {
             manualActions.add("Review texture dependency tracking for this mod; unreferenced generated textures indicate pruning is incomplete.");
         }
+    }
+
+    private static boolean hasRequiredTextureOutput(@NotNull String expected, @NotNull Map<String, String> archiveTextureEntries) {
+        return archiveTextureEntries.containsKey(expected)
+            || equipmentTransformOutput(expected).map(archiveTextureEntries::containsKey).orElse(false);
+    }
+
+    private static boolean isRequiredTextureOutput(@NotNull String entry, @NotNull Set<String> requiredEntries) {
+        if (requiredEntries.contains(entry)) {
+            return true;
+        }
+        return requiredEntries.stream()
+            .map(PackValidator::equipmentTransformOutput)
+            .flatMap(java.util.Optional::stream)
+            .anyMatch(entry::equals);
+    }
+
+    @NotNull
+    private static java.util.Optional<String> equipmentTransformOutput(@NotNull String expected) {
+        java.util.regex.Matcher matcher = java.util.regex.Pattern.compile("textures/entity/([^/]+)/equipment/[^/]+/([^/]+)\\.png").matcher(expected);
+        if (!matcher.matches()) {
+            return java.util.Optional.empty();
+        }
+        return java.util.Optional.of("textures/models/" + matcher.group(1) + "/armor/" + matcher.group(2) + "_1.png");
     }
 
     @NotNull

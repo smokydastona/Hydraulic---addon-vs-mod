@@ -104,6 +104,26 @@ class PackValidatorTest {
         assertTrue(validation.warnings().stream().anyMatch(message -> message.code().equals("pack.texture.unreferenced_output")));
     }
 
+    @Test
+    void acceptsConverterTransformedEquipmentTextureOutput() throws IOException {
+        Path pack = this.tempDir.resolve("equipment-texture.mcpack");
+        writeZip(pack,
+            entry("manifest.json", """
+                {"header":{"name":"Example","uuid":"123e4567-e89b-12d3-a456-426614174000","version":[1,0,0]},"modules":[{"type":"resources","uuid":"123e4567-e89b-12d3-a456-426614174001","version":[1,0,0]}]}
+                """),
+            entry("textures/models/create/armor/copper_1.png", "png")
+        );
+
+        PackValidationReport.ModValidation validation = new PackValidator().validate(
+            pack,
+            PackValidator.TextureExpectations.ofArchiveEntries(java.util.List.of("textures/entity/create/equipment/humanoid/copper.png"))
+        );
+
+        assertTrue(validation.valid());
+        assertFalse(validation.errors().stream().anyMatch(message -> message.code().equals("pack.texture.required_missing")));
+        assertFalse(validation.warnings().stream().anyMatch(message -> message.code().equals("pack.texture.unreferenced_output")));
+    }
+
     private static void writeZip(Path output, ZipContent... contents) throws IOException {
         try (ZipOutputStream stream = new ZipOutputStream(Files.newOutputStream(output))) {
             for (ZipContent content : contents) {
