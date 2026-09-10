@@ -38,11 +38,33 @@ tasks.test {
 
 val mergedConfigurateInterfaceMappings = layout.projectDirectory.file("src/main/resources/org/spongepowered/configurate/interfaces/interface_mappings.properties")
 
+fun writeMergedConfigurateInterfaceMappings(outputDir: File) {
+    outputDir.mkdirs()
+    copy {
+        from(mergedConfigurateInterfaceMappings)
+        into(outputDir)
+    }
+}
+
+tasks.compileJava {
+    doLast {
+        writeMergedConfigurateInterfaceMappings(
+            layout.buildDirectory.dir("classes/java/main/org/spongepowered/configurate/interfaces").get().asFile
+        )
+    }
+}
+
 tasks.processResources {
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
-    from(mergedConfigurateInterfaceMappings)
+    from(mergedConfigurateInterfaceMappings) {
+        into("org/spongepowered/configurate/interfaces")
+    }
 }
 
 tasks.jar {
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    exclude("org/spongepowered/configurate/interfaces/interface_mappings.properties")
+    from(mergedConfigurateInterfaceMappings) {
+        into("org/spongepowered/configurate/interfaces")
+    }
 }
