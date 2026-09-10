@@ -113,8 +113,8 @@ final class IndexedModelProvider implements ModelStitcher.Provider {
                 JsonElement json = JsonParser.parseReader(reader);
                 return ModelSerializer.INSTANCE.deserializeFromJson(json, key, PackFormat.UNKNOWN);
             }
-        } catch (IOException e) {
-            this.logger.error("Failed to load vanilla model {} from {}", key, this.vanillaPackPath, e);
+        } catch (IOException | RuntimeException e) {
+            this.logger.warn("Skipping malformed vanilla model {} from {}", key, this.vanillaPackPath, e);
             return null;
         }
     }

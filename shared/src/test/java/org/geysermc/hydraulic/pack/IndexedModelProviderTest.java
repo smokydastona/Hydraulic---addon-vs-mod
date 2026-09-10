@@ -11,6 +11,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -51,6 +53,33 @@ class IndexedModelProviderTest {
         assertEquals(3, metrics.evictions());
         assertEquals(1, metrics.size());
         assertEquals(2, metrics.indexedModels());
+    }
+
+    @Test
+    void isolatesMalformedVanillaModelsAndNegativeCachesTheFailure() throws IOException {
+        Path vanillaPack = this.tempDir.resolve("vanilla.zip");
+        try (ZipOutputStream output = new ZipOutputStream(Files.newOutputStream(vanillaPack))) {
+            output.putNextEntry(new ZipEntry("assets/minecraft/models/block/invalid_rotation.json"));
+            output.write("""
+                {
+                  "elements": [
+                    {
+                      "from": [0, 0, 0],
+                      "to": [16, 16, 16],
+                      "rotation": { "origin": [8, 8, 8], "axis": "x", "angle": 67.5 }
+                    }
+                  ]
+                }
+                """.getBytes());
+            output.closeEntry();
+        }
+
+        IndexedModelProvider provider = new IndexedModelProvider(LoggerFactory.getLogger("IndexedModelProviderTest"), Map.of(), vanillaPack, 4);
+
+        assertNull(provider.model(Key.key("minecraft", "block/invalid_rotation")));
+        assertNull(provider.model(Key.key("minecraft", "block/invalid_rotation")));
+        assertEquals(1, provider.cacheMetrics().misses());
+        assertEquals(1, provider.cacheMetrics().hits());
     }
 
     private Path writeModel(String relativePath, String parent, String layer0) throws IOException {
