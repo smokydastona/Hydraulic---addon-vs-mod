@@ -47,7 +47,7 @@ public final class TransferBridgeFactory {
         }
         RuntimeInventoryAdapter adapter = RuntimeInventoryAdapter.from(runtimeInventory);
         if (adapter == null) {
-            return new MetadataBackedItemTransferBridge(plan);
+            return null;
         }
         return new RuntimeBackedItemTransferBridge(plan, adapter);
     }
@@ -77,7 +77,7 @@ public final class TransferBridgeFactory {
         }
         RuntimeFluidAdapter adapter = RuntimeFluidAdapter.from(runtimeTank);
         if (adapter == null) {
-            return new MetadataBackedFluidTransferBridge(plan);
+            return null;
         }
         return new RuntimeBackedFluidTransferBridge(plan, adapter);
     }
@@ -107,7 +107,7 @@ public final class TransferBridgeFactory {
         }
         RuntimeEnergyAdapter adapter = RuntimeEnergyAdapter.from(runtimeStorage);
         if (adapter == null) {
-            return new MetadataBackedEnergyTransferBridge(plan);
+            return null;
         }
         return new RuntimeBackedEnergyTransferBridge(plan, adapter);
     }
@@ -232,6 +232,10 @@ public final class TransferBridgeFactory {
             if (runtimeTarget instanceof RuntimeInventoryAdapter adapter) {
                 return adapter;
             }
+            if (!hasMethod(runtimeTarget, "insertItem", "insert", "addItem")
+                && !hasMethod(runtimeTarget, "extractItem", "extract", "takeItem")) {
+                return null;
+            }
             return new ReflectiveRuntimeInventoryAdapter(runtimeTarget);
         }
     }
@@ -252,6 +256,10 @@ public final class TransferBridgeFactory {
             if (runtimeTarget instanceof RuntimeFluidAdapter adapter) {
                 return adapter;
             }
+            if (!hasMethod(runtimeTarget, "fill", "insertFluid")
+                && !hasMethod(runtimeTarget, "drain", "extractFluid")) {
+                return null;
+            }
             return new ReflectiveRuntimeFluidAdapter(runtimeTarget);
         }
     }
@@ -270,6 +278,10 @@ public final class TransferBridgeFactory {
             }
             if (runtimeTarget instanceof RuntimeEnergyAdapter adapter) {
                 return adapter;
+            }
+            if (!hasMethod(runtimeTarget, "receiveEnergy")
+                && !hasMethod(runtimeTarget, "extractEnergy")) {
+                return null;
             }
             return new ReflectiveRuntimeEnergyAdapter(runtimeTarget);
         }

@@ -14,10 +14,23 @@ import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class TransferBridgeRuntimeTest {
+    @Test
+    void unsupportedRuntimeTargetsDoNotBecomeSilentNoOpBridges() {
+        CompiledCompatibilityPlan itemPlan = runtimePlan(RuntimeBridgeKind.ITEM_TRANSFER, Map.of("can_insert", "true"));
+        CompiledCompatibilityPlan fluidPlan = runtimePlan(RuntimeBridgeKind.FLUID_TRANSFER, Map.of("can_insert_fluid", "true"));
+        CompiledCompatibilityPlan energyPlan = runtimePlan(RuntimeBridgeKind.ENERGY_TRANSFER, Map.of("can_receive_energy", "true"));
+        Object unsupported = new Object();
+
+        assertNull(TransferBridgeFactory.createItemTransfer(itemPlan, unsupported));
+        assertNull(TransferBridgeFactory.createFluidTransfer(fluidPlan, unsupported));
+        assertNull(TransferBridgeFactory.createEnergyTransfer(energyPlan, unsupported));
+    }
+
     @Test
     void itemBridgeUsesActualRuntimeInventorySemantics() {
         TestInventory inventory = new TestInventory();

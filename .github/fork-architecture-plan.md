@@ -921,8 +921,9 @@ Also add explicit degradation actions for implementation planning and reporting:
 - `APPROXIMATE`
 - `SIMPLIFY`
 - `SCRIPT`
-- `STUB`
 - `OMIT`
+
+If diagnostics need to describe an intentionally non-executable generated object, use the phrase `diagnostic-only stub`; it must never be emitted as an implementation or support action.
 
 These do not replace support results. They explain how Hydraulic degraded behavior.
 
