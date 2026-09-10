@@ -411,6 +411,8 @@ pack-validation-report.json
 
 These are useful both for debugging and for identifying where compatibility work is still missing.
 
+Pack validation also reports Bedrock compatibility warnings for archive paths at or above 80 characters. These warnings do not invalidate the pack, but the generated path should be shortened before distributing it because some Bedrock platforms have path-length limits.
+
 The compatibility report can show:
 
 * discovered content

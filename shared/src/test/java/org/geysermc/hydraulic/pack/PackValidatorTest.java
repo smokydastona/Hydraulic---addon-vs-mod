@@ -142,6 +142,24 @@ class PackValidatorTest {
         assertTrue(validation.valid());
     }
 
+    @Test
+    void reportsBedrockWarningsForLongArchivePaths() throws IOException {
+        Path pack = this.tempDir.resolve("long-path.mcpack");
+        String longPath = "textures/blocks/example/" + "nested/".repeat(9) + "stone.png";
+        writeZip(pack,
+            entry("manifest.json", """
+                {"header":{"name":"Example","uuid":"123e4567-e89b-12d3-a456-426614174000","version":[1,0,0]},"modules":[{"type":"resources","uuid":"123e4567-e89b-12d3-a456-426614174001","version":[1,0,0]}]}
+                """),
+            entry(longPath, "png")
+        );
+
+        PackValidationReport.ModValidation validation = new PackValidator().validate(pack);
+
+        assertTrue(validation.valid());
+        assertTrue(validation.warnings().stream().anyMatch(message -> message.code().equals("pack.path.long")));
+        assertTrue(validation.manualActions().stream().anyMatch(action -> action.contains("80 characters")));
+    }
+
     private static void writeZip(Path output, ZipContent... contents) throws IOException {
         try (ZipOutputStream stream = new ZipOutputStream(Files.newOutputStream(output))) {
             for (ZipContent content : contents) {

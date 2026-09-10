@@ -27,6 +27,8 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 
 final class PackValidator {
+    private static final int BEDROCK_PATH_WARNING_LENGTH = 80;
+
     @NotNull
     PackValidationReport.ModValidation validate(@NotNull Path packPath) {
         return this.validate(packPath, TextureExpectations.empty());
@@ -96,6 +98,7 @@ final class PackValidator {
             Enumeration<? extends ZipEntry> entries = zip.entries();
             while (entries.hasMoreElements()) {
                 ZipEntry entry = entries.nextElement();
+                validateEntryPath(entry, warnings, manualActions);
                 if (entry.isDirectory() || !entry.getName().endsWith(".json")) {
                     continue;
                 }
@@ -132,6 +135,24 @@ final class PackValidator {
             warnings,
             List.copyOf(manualActions)
         );
+    }
+
+    private static void validateEntryPath(
+        @NotNull ZipEntry entry,
+        @NotNull List<PackValidationReport.ValidationMessage> warnings,
+        @NotNull Set<String> manualActions
+    ) {
+        String entryName = entry.getName();
+        if (entryName.length() < BEDROCK_PATH_WARNING_LENGTH) {
+            return;
+        }
+
+        warnings.add(new PackValidationReport.ValidationMessage(
+            "pack.path.long",
+            "Generated pack contains a path at or above the Bedrock compatibility warning threshold.",
+            entryName
+        ));
+        manualActions.add("Shorten generated pack paths at or above 80 characters to avoid compatibility problems on some Bedrock platforms.");
     }
 
     @NotNull
