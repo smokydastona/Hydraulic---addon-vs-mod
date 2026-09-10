@@ -1806,6 +1806,31 @@ beyond open-menu (`ENTITY_INTERACTION`/`ENTITY_BEHAVIOR`), a `custom_recipe` fix
 exercise `SyncPlanner` coalescing and produce an observable `SyncBatch`/`RuntimeTraceId` in the exported
 handoff envelope. This backlog is intentionally not implemented in the same pass as the tasks/scripts above.
 
+**`item_transfer_machine` shipped and live-verified (2026-09-10).** `test/.../machine/ItemTransferMachineBlock`
++ `ItemTransferMachineBlockEntity` expose real `getContainerSize`/`getItem`/`insertItem`/`extractItem`
+methods using `TransferBridgeFactory.ItemStackView` directly (the `test` module now has a `compileOnly`
+dependency on `shared` for this), which `TransferBridgeFactory`'s reflective `RuntimeInventoryAdapter`
+picks up without any Hydraulic-specific interface implementation. A companion metadata patch
+(`hydraulic_test_mod.item_transfer_machine.json`, installed by the generalized, multi-file
+`HydraulicTestMetadataBootstrap`) declares `machine.inventory.enabled`, `transfer.item.can_insert`, and
+`transfer.item.can_extract`. Verified against a live `:fabric:runServer` run: `compatibility-report.json`
+compiles `runtimeRequirements = [block_behavior_bridge, machine_inventory_bridge, item_transfer_bridge]`
+for `hydraulic_test_mod:item_transfer_machine`, meaning `TransferBridgeFactory.createItemTransfer(plan,
+blockEntity)` will construct a real, `executable() == true` bridge once a live block entity is queried.
+**Important, verified nuance:** the static `compatibility-report.json` still marks this object
+`overallLevel = VISUAL_ONLY` / `overallScore = 0` with `critical_failure = true` ("machine processing or
+inventory runtime is unavailable"), because the compiled critical-capability policy additionally requires
+a `has_processing` fact before it will call a "machine" object non-critical-failing — this fixture only
+declares inventory/transfer facts, not a processing/recipe contract. This is the compatibility engine
+working exactly as documented ("Hard runtime rule: no machine may be marked EXECUTABLE merely because it
+can execute an item transaction"), not a bug: the runtime-dispatch layer and the static compatibility-score
+layer are two different, intentionally separate gates. A real Fabric-datagen texture/model
+(`textures/block/item_transfer_machine.png`, reused from `golden_barrel.png`) was required to clear a
+separate `block.asset.missing` finding — `:test:runDatagen` must be run at least once after adding a new
+block before `:fabric:runServer`, since `:test:jar` does not transitively trigger datagen on its own.
+
+### Test fixture backlog remaining (not yet implemented)
+
 ### Exit criteria
 - The Fabric dev server can be built, started, and attached to for breakpoint debugging entirely from
   VS Code tasks/launch configurations.

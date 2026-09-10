@@ -1,0 +1,22 @@
+{
+  "patches": [
+    {
+      "target": "hydraulic_test_mod:item_transfer_machine",
+      "content_type": "block",
+      "patch": {
+        "machine": {
+          "inventory": {
+            "enabled": true,
+            "type": "generic"
+          }
+        },
+        "transfer": {
+          "item": {
+            "can_insert": true,
+            "can_extract": true
+          }
+        }
+      }
+    }
+  ]
+}

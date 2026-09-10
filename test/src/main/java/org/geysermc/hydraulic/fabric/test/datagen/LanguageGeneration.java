@@ -30,5 +30,6 @@ public class LanguageGeneration extends FabricLanguageProvider {
         translationBuilder.add(ModItems.IRAURI_INGOT, "Irauri Ingot");
 
         translationBuilder.add(ModBlocks.GOLDEN_BARREL, "Golden Barrel");
+        translationBuilder.add(ModBlocks.ITEM_TRANSFER_MACHINE, "Item Transfer Machine");
     }
 }

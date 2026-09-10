@@ -13,8 +13,11 @@ import java.nio.file.StandardCopyOption;
 
 final class HydraulicTestMetadataBootstrap {
     private static final Logger LOGGER = LoggerFactory.getLogger(HydraulicTestMetadataBootstrap.class);
-    private static final String RESOURCE_PATH = "/hydraulic/metadata/hydraulic_test_mod.golden_barrel.json";
-    private static final String FILE_NAME = "hydraulic_test_mod.golden_barrel.json";
+    private static final String RESOURCE_DIRECTORY = "/hydraulic/metadata/";
+    private static final String[] BUNDLED_METADATA_FILES = {
+        "hydraulic_test_mod.golden_barrel.json",
+        "hydraulic_test_mod.item_transfer_machine.json"
+    };
 
     private HydraulicTestMetadataBootstrap() {
     }
@@ -31,13 +34,15 @@ final class HydraulicTestMetadataBootstrap {
         Path metadataDirectory = configDirectory.resolve("hydraulic").resolve("metadata");
         Files.createDirectories(metadataDirectory);
 
-        Path destination = metadataDirectory.resolve(FILE_NAME);
-        try (InputStream inputStream = HydraulicTestMetadataBootstrap.class.getResourceAsStream(RESOURCE_PATH)) {
-            if (inputStream == null) {
-                throw new IOException("Missing bundled metadata resource " + RESOURCE_PATH);
-            }
+        for (String fileName : BUNDLED_METADATA_FILES) {
+            Path destination = metadataDirectory.resolve(fileName);
+            try (InputStream inputStream = HydraulicTestMetadataBootstrap.class.getResourceAsStream(RESOURCE_DIRECTORY + fileName)) {
+                if (inputStream == null) {
+                    throw new IOException("Missing bundled metadata resource " + RESOURCE_DIRECTORY + fileName);
+                }
 
-            Files.copy(inputStream, destination, StandardCopyOption.REPLACE_EXISTING);
+                Files.copy(inputStream, destination, StandardCopyOption.REPLACE_EXISTING);
+            }
         }
     }
 }
