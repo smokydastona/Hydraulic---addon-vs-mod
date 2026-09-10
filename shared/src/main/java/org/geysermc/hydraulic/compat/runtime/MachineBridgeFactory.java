@@ -151,6 +151,23 @@ public final class MachineBridgeFactory {
     }
 
     @Nullable
+    public static MixedResourceMachineProcessingBridge createMixedProcessing(
+        @Nullable CompiledCompatibilityPlan plan,
+        @Nullable TransferBridgeFactory.ItemTransferBridge items,
+        @Nullable TransferBridgeFactory.FluidTransferBridge fluids,
+        @Nullable TransferBridgeFactory.EnergyTransferBridge energy
+    ) {
+        if (plan == null) {
+            return null;
+        }
+        List<MixedResourceMachineProcessingBridge.MixedMachineRecipe> recipes = compileMixedRecipes(plan.inventoryFacts(), plan.slotRoles());
+        if (recipes.isEmpty()) {
+            return null;
+        }
+        return createMixedProcessing(plan, items, fluids, energy, recipes);
+    }
+
+    @Nullable
     public static MachineProcessingBridge createProcessing(
         @Nullable CompiledCompatibilityPlan plan,
         @Nullable TransferBridgeFactory.ItemTransferBridge inventory
@@ -238,6 +255,171 @@ public final class MachineBridgeFactory {
             }
         }
         return List.copyOf(recipes);
+    }
+
+    @NotNull
+    private static List<MixedResourceMachineProcessingBridge.MixedMachineRecipe> compileMixedRecipes(
+        @NotNull Map<String, String> facts,
+        @NotNull Map<SlotRole, List<Integer>> slotRoles
+    ) {
+        List<MixedResourceMachineProcessingBridge.MixedMachineRecipe> recipes = new ArrayList<>();
+        for (int index = 0; ; index++) {
+            String prefix = "machine.processing.recipe." + index + ".";
+            if (!hasRecipeFacts(facts, prefix)) {
+                break;
+            }
+            try {
+                MixedResourceMachineProcessingBridge.MixedMachineRecipe recipe = compileMixedRecipe(facts, slotRoles, prefix);
+                if (recipe == null) {
+                    return List.of();
+                }
+                recipes.add(recipe);
+            } catch (IllegalArgumentException ignored) {
+                return List.of();
+            }
+        }
+        return List.copyOf(recipes);
+    }
+
+    @Nullable
+    private static MixedResourceMachineProcessingBridge.MixedMachineRecipe compileMixedRecipe(
+        @NotNull Map<String, String> facts,
+        @NotNull Map<SlotRole, List<Integer>> slotRoles,
+        @NotNull String prefix
+    ) {
+        Integer duration = integerFact(facts, prefix + "duration");
+        if (duration == null || duration == 0) {
+            return null;
+        }
+
+        List<MixedResourceMachineProcessingBridge.ItemSlotStack> itemInputs = compileItemStacks(facts, prefix + "item_input.", slotRoles.get(SlotRole.INPUT));
+        List<MixedResourceMachineProcessingBridge.ItemSlotStack> itemOutputs = compileItemStacks(facts, prefix + "item_output.", slotRoles.get(SlotRole.OUTPUT));
+        if (itemInputs == null || itemOutputs == null) {
+            return null;
+        }
+
+        MixedResourceMachineProcessingBridge.ItemSlotStack legacyInput = compileLegacyItemStack(facts, prefix, "input", "input_count", "input_slot", firstSlot(slotRoles.get(SlotRole.INPUT)));
+        if (legacyInput != null) {
+            itemInputs = append(itemInputs, legacyInput);
+        }
+        MixedResourceMachineProcessingBridge.ItemSlotStack legacyOutput = compileLegacyItemStack(facts, prefix, "output", "output_count", "output_slot", firstSlot(slotRoles.get(SlotRole.OUTPUT)));
+        if (legacyOutput != null) {
+            itemOutputs = append(itemOutputs, legacyOutput);
+        }
+
+        List<MixedResourceMachineProcessingBridge.FluidTankStack> fluidInputs = compileFluidStacks(facts, prefix + "fluid_input.");
+        List<MixedResourceMachineProcessingBridge.FluidTankStack> fluidOutputs = compileFluidStacks(facts, prefix + "fluid_output.");
+        if (fluidInputs == null || fluidOutputs == null) {
+            return null;
+        }
+
+        Integer energyInput = integerFact(facts, prefix + "energy_input");
+        Integer energyOutput = integerFact(facts, prefix + "energy_output");
+        return new MixedResourceMachineProcessingBridge.MixedMachineRecipe(
+            itemInputs,
+            fluidInputs,
+            energyInput == null ? 0 : energyInput,
+            itemOutputs,
+            fluidOutputs,
+            energyOutput == null ? 0 : energyOutput,
+            facts.get(prefix + "energy_side"),
+            duration
+        );
+    }
+
+    private static boolean hasRecipeFacts(@NotNull Map<String, String> facts, @NotNull String prefix) {
+        return facts.keySet().stream().anyMatch(key -> key.startsWith(prefix));
+    }
+
+    @Nullable
+    private static List<MixedResourceMachineProcessingBridge.ItemSlotStack> compileItemStacks(
+        @NotNull Map<String, String> facts,
+        @NotNull String prefix,
+        @Nullable List<Integer> defaultSlots
+    ) {
+        List<MixedResourceMachineProcessingBridge.ItemSlotStack> stacks = new ArrayList<>();
+        for (int index = 0; ; index++) {
+            String stackPrefix = prefix + index + ".";
+            String item = facts.get(stackPrefix + "item");
+            if (item == null) {
+                break;
+            }
+            Integer count = integerFact(facts, stackPrefix + "count");
+            Integer slot = integerFact(facts, stackPrefix + "slot");
+            if (slot == null && defaultSlots != null && index < defaultSlots.size()) {
+                slot = defaultSlots.get(index);
+            }
+            if (count == null || count == 0 || slot == null) {
+                return null;
+            }
+            stacks.add(new MixedResourceMachineProcessingBridge.ItemSlotStack(
+                slot,
+                new TransferBridgeFactory.ItemStackView(item, count),
+                facts.get(stackPrefix + "side")
+            ));
+        }
+        return List.copyOf(stacks);
+    }
+
+    @Nullable
+    private static MixedResourceMachineProcessingBridge.ItemSlotStack compileLegacyItemStack(
+        @NotNull Map<String, String> facts,
+        @NotNull String prefix,
+        @NotNull String itemKey,
+        @NotNull String countKey,
+        @NotNull String slotKey,
+        @Nullable Integer defaultSlot
+    ) {
+        String item = facts.get(prefix + itemKey);
+        if (item == null) {
+            return null;
+        }
+        Integer count = integerFact(facts, prefix + countKey);
+        Integer slot = integerFact(facts, prefix + slotKey);
+        if (slot == null) {
+            slot = defaultSlot;
+        }
+        if (count == null || count == 0 || slot == null) {
+            throw new IllegalArgumentException("Malformed machine item recipe facts");
+        }
+        return new MixedResourceMachineProcessingBridge.ItemSlotStack(
+            slot,
+            new TransferBridgeFactory.ItemStackView(item, count),
+            facts.get(prefix + itemKey + "_side")
+        );
+    }
+
+    @Nullable
+    private static List<MixedResourceMachineProcessingBridge.FluidTankStack> compileFluidStacks(
+        @NotNull Map<String, String> facts,
+        @NotNull String prefix
+    ) {
+        List<MixedResourceMachineProcessingBridge.FluidTankStack> stacks = new ArrayList<>();
+        for (int index = 0; ; index++) {
+            String stackPrefix = prefix + index + ".";
+            String fluid = facts.get(stackPrefix + "fluid");
+            if (fluid == null) {
+                break;
+            }
+            Integer amount = integerFact(facts, stackPrefix + "amount");
+            Integer tank = integerFact(facts, stackPrefix + "tank");
+            if (amount == null || amount == 0 || tank == null) {
+                return null;
+            }
+            stacks.add(new MixedResourceMachineProcessingBridge.FluidTankStack(
+                tank,
+                new TransferBridgeFactory.FluidStackView(fluid, amount),
+                facts.get(stackPrefix + "side")
+            ));
+        }
+        return List.copyOf(stacks);
+    }
+
+    @NotNull
+    private static <T> List<T> append(@NotNull List<T> values, @NotNull T value) {
+        List<T> copy = new ArrayList<>(values);
+        copy.add(value);
+        return List.copyOf(copy);
     }
 
     /**

@@ -29,6 +29,13 @@ class BehaviorFactExtractorTest {
                 Map.entry("machine.processing.recipe.0.input_count", "1"),
                 Map.entry("machine.processing.recipe.0.output", "minecraft:iron_ingot"),
                 Map.entry("machine.processing.recipe.0.output_count", "1"),
+                Map.entry("machine.processing.recipe.0.fluid_input.0.fluid", "minecraft:water"),
+                Map.entry("machine.processing.recipe.0.fluid_input.0.amount", "500"),
+                Map.entry("machine.processing.recipe.0.fluid_input.0.tank", "0"),
+                Map.entry("machine.processing.recipe.0.energy_input", "50"),
+                Map.entry("machine.processing.recipe.0.fluid_output.0.fluid", "minecraft:steam"),
+                Map.entry("machine.processing.recipe.0.fluid_output.0.amount", "250"),
+                Map.entry("machine.processing.recipe.0.fluid_output.0.tank", "1"),
                 Map.entry("machine.processing.recipe.0.duration", "20"),
                 Map.entry("transfer.item.can_insert", "true"),
                 Map.entry("transfer.fluid.can_extract", "true"),
@@ -49,6 +56,9 @@ class BehaviorFactExtractorTest {
         assertEquals("0", facts.get("machine.input_slot"));
         assertEquals("1", facts.get("machine.output_slot"));
         assertEquals("minecraft:stone", facts.get("machine.processing.recipe.0.input"));
+        assertEquals("minecraft:water", facts.get("machine.processing.recipe.0.fluid_input.0.fluid"));
+        assertEquals("50", facts.get("machine.processing.recipe.0.energy_input"));
+        assertEquals("minecraft:steam", facts.get("machine.processing.recipe.0.fluid_output.0.fluid"));
         assertEquals("20", facts.get("machine.processing.recipe.0.duration"));
         assertEquals("true", facts.get("can_insert"));
         assertEquals("true", facts.get("can_extract_fluid"));

@@ -79,6 +79,47 @@ class MixedResourceMachineProcessingBridgeTest {
         assertEquals(7, delivered.size());
     }
 
+    @Test
+    void compilesMixedResourceRecipesFromCompatibilityPlanFacts() {
+        TestItemBridge items = TestItemBridge.ready();
+        TestFluidBridge fluids = TestFluidBridge.ready();
+        TestEnergyBridge energy = new TestEnergyBridge(100, 1000);
+        DirtyStateTracker dirty = new DirtyStateTracker();
+        MixedResourceMachineProcessingBridge processing = MachineBridgeFactory.createMixedProcessing(
+            plan(recipeFacts()),
+            items,
+            fluids,
+            energy
+        );
+
+        assertNotNull(processing);
+        assertEquals(1, processing.duration(MACHINE));
+        assertTrue(processing.tick(MACHINE));
+        assertTrue(processing.tick(MACHINE, dirty));
+
+        assertEquals(1, items.slot(0).count());
+        assertEquals(1, items.slot(1).count());
+        assertEquals("minecraft:iron_ingot", items.slot(2).itemId());
+        assertEquals("minecraft:copper_ingot", items.slot(3).itemId());
+        assertEquals(500, fluids.tank(0).amount());
+        assertEquals(250, fluids.tank(1).amount());
+        assertEquals(50, energy.energy);
+        assertEquals(7, dirty.drain().changes().size());
+    }
+
+    @Test
+    void malformedMixedResourceRecipeFactsFailClosed() {
+        Map<String, String> malformed = new java.util.LinkedHashMap<>(recipeFacts());
+        malformed.remove("machine.processing.recipe.0.fluid_output.0.tank");
+
+        assertNull(MachineBridgeFactory.createMixedProcessing(
+            plan(malformed),
+            TestItemBridge.ready(),
+            TestFluidBridge.ready(),
+            new TestEnergyBridge(100, 1000)
+        ));
+    }
+
     private static MixedResourceMachineProcessingBridge.MixedMachineRecipe recipe() {
         return new MixedResourceMachineProcessingBridge.MixedMachineRecipe(
             List.of(
@@ -99,6 +140,10 @@ class MixedResourceMachineProcessingBridgeTest {
     }
 
     private static CompiledCompatibilityPlan plan() {
+        return plan(Map.of("has_processing", "true", "has_inventory", "true"));
+    }
+
+    private static CompiledCompatibilityPlan plan(Map<String, String> facts) {
         return new CompiledCompatibilityPlan(
             "hydraulic",
             "block",
@@ -111,7 +156,7 @@ class MixedResourceMachineProcessingBridgeTest {
             List.of(),
             List.of(),
             List.of(RuntimeBridgeKind.MACHINE_BEHAVIOR, RuntimeBridgeKind.MACHINE_INVENTORY),
-            Map.of("has_processing", "true", "has_inventory", "true"),
+            facts,
             true,
             null,
             true,
@@ -131,6 +176,33 @@ class MixedResourceMachineProcessingBridgeTest {
             false,
             SupportLevel.ADAPTED,
             "mixed_machine"
+        );
+    }
+
+    private static Map<String, String> recipeFacts() {
+        return Map.ofEntries(
+            Map.entry("has_processing", "true"),
+            Map.entry("has_inventory", "true"),
+            Map.entry("machine.processing.recipe.0.item_input.0.item", "minecraft:stone"),
+            Map.entry("machine.processing.recipe.0.item_input.0.count", "1"),
+            Map.entry("machine.processing.recipe.0.item_input.0.slot", "0"),
+            Map.entry("machine.processing.recipe.0.item_input.1.item", "minecraft:coal"),
+            Map.entry("machine.processing.recipe.0.item_input.1.count", "1"),
+            Map.entry("machine.processing.recipe.0.item_input.1.slot", "1"),
+            Map.entry("machine.processing.recipe.0.fluid_input.0.fluid", "minecraft:water"),
+            Map.entry("machine.processing.recipe.0.fluid_input.0.amount", "500"),
+            Map.entry("machine.processing.recipe.0.fluid_input.0.tank", "0"),
+            Map.entry("machine.processing.recipe.0.energy_input", "50"),
+            Map.entry("machine.processing.recipe.0.item_output.0.item", "minecraft:iron_ingot"),
+            Map.entry("machine.processing.recipe.0.item_output.0.count", "1"),
+            Map.entry("machine.processing.recipe.0.item_output.0.slot", "2"),
+            Map.entry("machine.processing.recipe.0.item_output.1.item", "minecraft:copper_ingot"),
+            Map.entry("machine.processing.recipe.0.item_output.1.count", "1"),
+            Map.entry("machine.processing.recipe.0.item_output.1.slot", "3"),
+            Map.entry("machine.processing.recipe.0.fluid_output.0.fluid", "minecraft:steam"),
+            Map.entry("machine.processing.recipe.0.fluid_output.0.amount", "250"),
+            Map.entry("machine.processing.recipe.0.fluid_output.0.tank", "1"),
+            Map.entry("machine.processing.recipe.0.duration", "1")
         );
     }
 
