@@ -8,6 +8,7 @@ import net.kyori.adventure.key.Key;
 import org.apache.commons.lang3.StringUtils;
 import org.geysermc.hydraulic.Constants;
 import org.geysermc.pack.converter.type.texture.TextureConverter;
+import org.geysermc.pack.converter.util.JsonMappings;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.concurrent.atomic.AtomicLong;
@@ -65,8 +66,11 @@ final class TextureResolutionCache {
     @NotNull
     private static String resolveModelOutputUncached(@NotNull String modId, @NotNull String value) {
         String normalizedValue = normalizeTextureValue(value);
-        String directory = StringUtils.substringBefore(normalizedValue, "/");
-        String remaining = StringUtils.substringAfter(normalizedValue, "/");
+        String mappedValue = JsonMappings.getMapping("textures").map(normalizedValue).stream()
+            .findFirst()
+            .orElse(normalizedValue);
+        String directory = StringUtils.substringBefore(mappedValue, "/");
+        String remaining = StringUtils.substringAfter(mappedValue, "/");
         String finalDir = TextureConverter.DIRECTORY_LOCATIONS.getOrDefault(directory, directory) + "/" + modId;
         return String.format(Constants.BEDROCK_TEXTURE_LOCATION, finalDir + "/" + remaining);
     }

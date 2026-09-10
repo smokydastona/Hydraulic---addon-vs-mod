@@ -23,4 +23,18 @@ class TextureResolutionCacheTest {
         assertEquals(3, metrics.evictions());
         assertEquals(2, metrics.size());
     }
+
+    @Test
+    void usesConverterMappingForHumanoidArmorTextures() {
+        TextureResolutionCache cache = new TextureResolutionCache();
+
+        assertEquals(
+            "textures/models/create/armor/copper_1.png",
+            cache.resolveModelOutput("create", Key.key("create", "entity/equipment/humanoid/copper"))
+        );
+        assertEquals(
+            "textures/entity/create/equipment/humanoid/cardboard.png",
+            cache.resolveModelOutput("create", Key.key("create", "entity/equipment/humanoid/cardboard"))
+        );
+    }
 }
