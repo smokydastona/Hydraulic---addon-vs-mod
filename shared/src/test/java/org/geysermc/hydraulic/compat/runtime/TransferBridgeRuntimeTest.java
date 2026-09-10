@@ -255,6 +255,34 @@ class TransferBridgeRuntimeTest {
     }
 
     @Test
+    void machineProcessingRecordsCommittedInventoryChanges() {
+        Identifier machine = Identifier.fromNamespaceAndPath("hydraulic", "test_machine");
+        TestInventory inventory = new TestInventory();
+        CompiledCompatibilityPlan plan = runtimePlan(
+            List.of(RuntimeBridgeKind.ITEM_TRANSFER, RuntimeBridgeKind.MACHINE_BEHAVIOR, RuntimeBridgeKind.MACHINE_INVENTORY),
+            Map.of("can_insert", "true", "can_extract", "true", "has_processing", "true", "has_inventory", "true")
+        );
+        TransferBridgeFactory.ItemTransferBridge transfer = TransferBridgeFactory.createItemTransfer(plan, inventory);
+        MachineProcessingBridge processing = MachineBridgeFactory.createProcessing(
+            plan,
+            transfer,
+            0,
+            1,
+            List.of(new MachineProcessingBridge.MachineRecipe(
+                new TransferBridgeFactory.ItemStackView("minecraft:stone", 1),
+                new TransferBridgeFactory.ItemStackView("minecraft:iron_ingot", 1),
+                1
+            ))
+        );
+        DirtyStateTracker dirty = new DirtyStateTracker();
+
+        assertTrue(processing.tick(machine));
+        assertTrue(processing.tick(machine, dirty));
+
+        assertEquals(2, dirty.drain().changes().size());
+    }
+
+    @Test
     void inventoryAccessReadsRealRuntimeInventoryState() {
         Identifier machine = Identifier.fromNamespaceAndPath("hydraulic", "test_machine");
         CompiledCompatibilityPlan plan = runtimePlan(

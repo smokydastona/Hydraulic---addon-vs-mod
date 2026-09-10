@@ -51,6 +51,10 @@ public final class MachineProcessingBridge {
     }
 
     public boolean tick(@NotNull Identifier blockIdentifier) {
+        return tick(blockIdentifier, null);
+    }
+
+    public boolean tick(@NotNull Identifier blockIdentifier, @Nullable DirtyStateTracker dirtyStateTracker) {
         MachineRecipe recipe = findRecipe(blockIdentifier);
         if (recipe == null) {
             reset();
@@ -74,23 +78,20 @@ public final class MachineProcessingBridge {
         }
 
         TransferBridgeFactory.ItemStackView output = this.inventory.itemAt(blockIdentifier, this.outputSlot);
-        if (!canAcceptOutput(blockIdentifier, output, recipe.output())
-            || !this.inventory.extractResult(blockIdentifier, recipe.input(), this.inputSlot, null, true).successful()
-            || !this.inventory.insertResult(blockIdentifier, recipe.output(), this.outputSlot, null, true).successful()) {
+        if (!canAcceptOutput(blockIdentifier, output, recipe.output())) {
             return false;
         }
 
-        TransferBridgeFactory.OperationResult extracted = this.inventory.extractResult(blockIdentifier, recipe.input(), this.inputSlot, null, false);
-        if (!extracted.successful() || extracted.moved() != recipe.input().count()) {
+        TransferResult result = new ItemTransferTransaction(this.inventory)
+            .add(new TransferRequest(blockIdentifier, TransferDirection.EXTRACT, recipe.input(), this.inputSlot, null))
+            .add(new TransferRequest(blockIdentifier, TransferDirection.INSERT, recipe.output(), this.outputSlot, null))
+            .execute();
+        if (!result.committed()) {
             reset();
             return false;
         }
-
-        TransferBridgeFactory.OperationResult inserted = this.inventory.insertResult(blockIdentifier, recipe.output(), this.outputSlot, null, false);
-        if (!inserted.successful() || inserted.moved() != recipe.output().count()) {
-            this.inventory.insert(blockIdentifier, recipe.input(), this.inputSlot, null, false);
-            reset();
-            return false;
+        if (dirtyStateTracker != null) {
+            dirtyStateTracker.record(result.stateChanges());
         }
 
         reset();
