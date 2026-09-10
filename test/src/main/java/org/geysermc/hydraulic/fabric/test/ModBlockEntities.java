@@ -7,6 +7,7 @@ import net.minecraft.resources.Identifier;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import org.geysermc.hydraulic.fabric.test.machine.ItemTransferMachineBlockEntity;
+import org.geysermc.hydraulic.fabric.test.machine.ProcessingMachineBlockEntity;
 
 import java.util.Set;
 
@@ -16,6 +17,13 @@ public final class ModBlockEntities {
         BuiltInRegistries.BLOCK_ENTITY_TYPE,
         ITEM_TRANSFER_MACHINE_KEY,
         new BlockEntityType<>(ItemTransferMachineBlockEntity::new, Set.of(ModBlocks.ITEM_TRANSFER_MACHINE))
+    );
+
+    public static final ResourceKey<BlockEntityType<?>> PROCESSING_MACHINE_KEY = keyOf("processing_machine");
+    public static final BlockEntityType<ProcessingMachineBlockEntity> PROCESSING_MACHINE = Registry.register(
+        BuiltInRegistries.BLOCK_ENTITY_TYPE,
+        PROCESSING_MACHINE_KEY,
+        new BlockEntityType<>(ProcessingMachineBlockEntity::new, Set.of(ModBlocks.PROCESSING_MACHINE))
     );
 
     private ModBlockEntities() {

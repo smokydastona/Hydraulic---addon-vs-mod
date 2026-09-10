@@ -1830,6 +1830,41 @@ separate `block.asset.missing` finding — `:test:runDatagen` must be run at lea
 block before `:fabric:runServer`, since `:test:jar` does not transitively trigger datagen on its own.
 
 ### Test fixture backlog remaining (not yet implemented)
+`fluid_machine`, `energy_machine`, `mixed_resource_machine`, `menu_machine`, richer `entity_interaction`,
+`custom_recipe` (datagen-driven), and `synchronization_test` remain open, in that order, per the
+established pattern above (real reflective block entity + metadata patch + live-verified compatibility
+report inspection).
+
+**`processing_machine` shipped and live-verified (2026-09-10), closing the semantic-classification item from
+the immediate-next-slice review.** Rather than retrofitting `has_processing` onto `item_transfer_machine`
+(which is a plain storage box with no recipe semantics — adding the fact there would have been exactly the
+score-gaming the architecture plan prohibits), a second, genuinely-processing fixture was added:
+`test/.../machine/ProcessingMachineBlock` + `ProcessingMachineBlockEntity` (2 slots: input/output) declare a
+real `machine.processing.recipe.0.*` contract (cobblestone → stone, 40-tick duration) and the block's real
+`getTicker()` drives the actual production `MachineBridgeFactory.createProcessing(plan, itemTransferBridge)`
+→ `MachineProcessingBridge.tick(blockIdentifier)` every server tick — not a bespoke simulation. Verified via
+a live `:fabric:runServer` run with no crashes: `compatibility-report.json` now compiles
+`runtimeRequirements = [block_behavior_bridge, machine_behavior_bridge, machine_inventory_bridge,
+item_transfer_bridge]` (note the new `machine_behavior_bridge`, absent for `item_transfer_machine`), and
+`inventoryFacts.has_processing = "true"`.
+
+**Critical, verified architecture finding (not a bug in the fixture, a real gap in the compatibility
+scoring layer):** `processing_machine`'s `overallLevel` still reports `VISUAL_ONLY` with
+`critical_failure = true`, identically to the non-processing fixture. Root cause, traced in
+`BlockAnalyzer.java`: `behaviorRequired` is set to `true` whenever ANY patch declares an operation prefixed
+`machine.`, `transfer.`, `behavior.`, or `interaction.` — this immediately forces the `behavior` SupportResult
+to `UNSUPPORTED`, which `AnalyzerSupport.hasCriticalFailure` then treats as an automatic critical failure
+whenever `has_processing` or `has_inventory` is also true. There is currently **no code path that upgrades
+the `behavior` SupportResult based on an actual compiled/executable adapter binding** (unlike `presentation`,
+`state_data`, etc., which do react to patch/mapping evidence). This means, as of this commit, **no block that
+declares any `machine.*`/`transfer.*` capability can ever score above `VISUAL_ONLY` in the static
+compatibility report**, regardless of how complete its real runtime bridge is. This is a legitimate,
+previously-undocumented Phase 3/5 gap — `BlockAnalyzer`'s `behavior` SupportResult needs an
+adapter-execution-aware upgrade path (e.g. checking `plan.supportsAdapterFeature(...)` /
+`plan.runtimeBridgeKinds()` completeness against the declared facts) before compatibility scoring can ever
+reflect the real, executable state of a machine bridge. Do not attempt to "fix" this by further tweaking
+fixture metadata; it requires a `BlockAnalyzer`/`AnalyzerSupport.hasCriticalFailure` change, which is
+out of scope for fixture work and belongs in Phase 3.
 
 ### Exit criteria
 - The Fabric dev server can be built, started, and attached to for breakpoint debugging entirely from

@@ -16,7 +16,8 @@ final class HydraulicTestMetadataBootstrap {
     private static final String RESOURCE_DIRECTORY = "/hydraulic/metadata/";
     private static final String[] BUNDLED_METADATA_FILES = {
         "hydraulic_test_mod.golden_barrel.json",
-        "hydraulic_test_mod.item_transfer_machine.json"
+        "hydraulic_test_mod.item_transfer_machine.json",
+        "hydraulic_test_mod.processing_machine.json"
     };
 
     private HydraulicTestMetadataBootstrap() {

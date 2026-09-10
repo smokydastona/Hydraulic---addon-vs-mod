@@ -78,6 +78,7 @@ dependencies {
     implementation(libs.fabric.loader)
     api(libs.fabric.api)
     compileOnly(project(":shared"))
+    compileOnly(libs.geyser.api)
 
     testImplementation("org.junit.jupiter:junit-jupiter:5.12.2")
     testCompileOnly(project(":shared"))

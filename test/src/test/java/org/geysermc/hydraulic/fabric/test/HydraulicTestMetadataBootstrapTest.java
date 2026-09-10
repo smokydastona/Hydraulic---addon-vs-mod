@@ -36,4 +36,17 @@ class HydraulicTestMetadataBootstrapTest {
         String resourceContent = Files.readString(Path.of("src/main/resources/hydraulic/metadata/hydraulic_test_mod.item_transfer_machine.json"));
         assertEquals(resourceContent, content);
     }
+
+    @Test
+    void installsProcessingMachineMetadataIntoHydraulicConfigDirectory(@TempDir Path tempDir) throws IOException {
+        HydraulicTestMetadataBootstrap.installBundledMetadata(tempDir);
+
+        Path installed = tempDir.resolve("hydraulic").resolve("metadata").resolve("hydraulic_test_mod.processing_machine.json");
+        assertTrue(Files.exists(installed));
+        String content = Files.readString(installed);
+        assertTrue(content.contains("\"hydraulic_test_mod:processing_machine\""));
+        assertTrue(content.contains("\"generic_smelting\""));
+        String resourceContent = Files.readString(Path.of("src/main/resources/hydraulic/metadata/hydraulic_test_mod.processing_machine.json"));
+        assertEquals(resourceContent, content);
+    }
 }

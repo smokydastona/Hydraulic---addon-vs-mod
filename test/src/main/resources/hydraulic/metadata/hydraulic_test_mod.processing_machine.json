@@ -1,0 +1,37 @@
+{
+  "patches": [
+    {
+      "target": "hydraulic_test_mod:processing_machine",
+      "content_type": "block",
+      "patch": {
+        "machine": {
+          "inventory": {
+            "enabled": true,
+            "type": "generic"
+          },
+          "processing": {
+            "enabled": true,
+            "type": "generic_smelting",
+            "recipe": {
+              "0": {
+                "input": "minecraft:cobblestone",
+                "input_count": 1,
+                "output": "minecraft:stone",
+                "output_count": 1,
+                "duration": 40
+              }
+            }
+          },
+          "input_slot": 0,
+          "output_slot": 1
+        },
+        "transfer": {
+          "item": {
+            "can_insert": true,
+            "can_extract": true
+          }
+        }
+      }
+    }
+  ]
+}

@@ -18,6 +18,7 @@ public class ModelGeneration extends FabricModelProvider {
     public void generateBlockStateModels(BlockModelGenerators blockModelGenerators) {
         blockModelGenerators.createTrivialCube(ModBlocks.GOLDEN_BARREL);
         blockModelGenerators.createTrivialCube(ModBlocks.ITEM_TRANSFER_MACHINE);
+        blockModelGenerators.createTrivialCube(ModBlocks.PROCESSING_MACHINE);
     }
 
     @Override
