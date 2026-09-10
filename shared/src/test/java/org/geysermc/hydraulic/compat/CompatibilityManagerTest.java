@@ -114,6 +114,13 @@ class CompatibilityManagerTest {
         assertNotNull(contracts);
         assertEquals(1, contracts.mods().get("examplemod").size());
         assertEquals("example:test_block", contracts.mods().get("examplemod").getFirst().javaIdentifier());
+
+        AdapterOpportunityReport opportunities;
+        try (var reader = Files.newBufferedReader(tempDir.resolve("reports/adapter-opportunity-report.json"))) {
+            opportunities = Constants.GSON.fromJson(reader, AdapterOpportunityReport.class);
+        }
+        assertNotNull(opportunities);
+        assertTrue(opportunities.opportunities().stream().anyMatch(opportunity -> opportunity.target().equals("state_translation")));
     }
 
     @Test

@@ -407,6 +407,7 @@ content-inventory.json
 compatibility-report.json
 compatibility-summary.json
 compatibility-contracts.json
+adapter-opportunity-report.json
 performance-report.json
 pack-validation-report.json
 ```

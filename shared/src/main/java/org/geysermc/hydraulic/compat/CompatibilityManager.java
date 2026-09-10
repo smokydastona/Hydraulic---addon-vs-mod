@@ -86,6 +86,7 @@ public final class CompatibilityManager {
         this.writeJson(this.dataPath.resolve("reports/compatibility-report.json"), report);
         this.writeJson(this.dataPath.resolve("reports/compatibility-summary.json"), CompatibilitySummary.from(report));
         this.writeJson(this.dataPath.resolve("reports/compatibility-contracts.json"), CompatibilityContractReport.from(report));
+        this.writeJson(this.dataPath.resolve("reports/adapter-opportunity-report.json"), AdapterOpportunityReport.from(report));
         return new CompatibilityRegistry(metadataIndex, new MappingResolver(metadataIndex), inventory, report);
     }
 
@@ -99,6 +100,7 @@ public final class CompatibilityManager {
         this.writeJson(this.dataPath.resolve("reports/compatibility-report.json"), report);
         this.writeJson(this.dataPath.resolve("reports/compatibility-summary.json"), CompatibilitySummary.from(report));
         this.writeJson(this.dataPath.resolve("reports/compatibility-contracts.json"), CompatibilityContractReport.from(report));
+        this.writeJson(this.dataPath.resolve("reports/adapter-opportunity-report.json"), AdapterOpportunityReport.from(report));
     }
 
     @NotNull
