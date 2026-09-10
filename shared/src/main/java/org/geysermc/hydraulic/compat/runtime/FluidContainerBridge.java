@@ -58,7 +58,7 @@ public final class FluidContainerBridge {
         if (!container.canAccept(fluidId)) {
             return 0;
         }
-        int requested = Math.min(this.containerCapacity - container.amount(), this.containerCapacity);
+        int requested = Math.min(container.remainingCapacity(), this.containerCapacity);
         if (requested <= 0) {
             return 0;
         }
@@ -94,6 +94,10 @@ public final class FluidContainerBridge {
 
         public int amount() {
             return this.amount;
+        }
+
+        public int remainingCapacity() {
+            return this.capacity - this.amount;
         }
 
         public boolean isEmpty() {
