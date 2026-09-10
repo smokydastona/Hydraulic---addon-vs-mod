@@ -6,6 +6,7 @@ import com.google.common.collect.MultimapBuilder;
 import net.minecraft.SharedConstants;
 import net.minecraft.server.Bootstrap;
 import org.geysermc.hydraulic.compat.adapter.AdapterFeature;
+import org.geysermc.hydraulic.compat.corpus.AddonCorpusEntry;
 import org.geysermc.hydraulic.compat.model.CompatibilityObject;
 import org.geysermc.hydraulic.compat.model.SupportLevel;
 import org.geysermc.hydraulic.Constants;
@@ -23,6 +24,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -100,6 +102,52 @@ class CompatibilityManagerTest {
         assertTrue(profile.supportResults().containsKey("interaction"));
         assertEquals(SupportLevel.UNSUPPORTED, profile.overallLevel());
         assertTrue(profile.overallScore() >= 0);
+    }
+
+    @Test
+    void addsAdmissibleCorpusEvidenceToCompatibilityReport(@TempDir Path tempDir) {
+        ContentInventory.ModContentInventory inventory = new ContentInventory.ModContentInventory(
+            "examplemod",
+            "example",
+            "Example Mod",
+            "1.0.0",
+            List.of(tempDir.toString()),
+            new org.geysermc.hydraulic.compat.model.ModFingerprint("examplemod", "example", "1.0.0", "unknown", "test", 1, 1, 1, 0, 0, 1, 1, false, true, false, true, true, true, false, false),
+            Map.of("items", 1),
+            Map.of("items", List.of("example:test_item")),
+            Map.of(),
+            Map.of(),
+            Map.of(),
+            Map.of(),
+            Map.of(),
+            Map.of()
+        );
+
+        AddonCorpusEntry admissible = corpusEntry("admissible", true);
+        AddonCorpusEntry denied = corpusEntry("denied", false);
+        CompatibilityReport report = new CompatibilityManager(LoggerFactory.getLogger("CompatibilityManagerTest"), tempDir, List.of(admissible, denied))
+            .buildReport(new ContentInventory(Map.of("examplemod", inventory)), MetadataIndex.empty());
+
+        assertEquals(List.of("admissible"), report.corpusEvidence().get("examplemod").stream()
+            .map(CompatibilityReport.CorpusMatch::corpusId)
+            .toList());
+    }
+
+    private static AddonCorpusEntry corpusEntry(String id, boolean admissible) {
+        return new AddonCorpusEntry(
+            new AddonCorpusEntry.AddonIdentity(id, "example:" + id, "author", id, "test"),
+            new AddonCorpusEntry.AddonSource(AddonCorpusEntry.SourceType.GITHUB, "https://github.com/example/" + id, "https://github.com/example/" + id, null, null),
+            new AddonCorpusEntry.AddonLicense("MIT", null, null, admissible, admissible, admissible, false),
+            new AddonCorpusEntry.AddonAdmissibility(admissible, admissible ? AddonCorpusEntry.AdmissibilityReason.FULLY_PERMISSIVE : AddonCorpusEntry.AdmissibilityReason.DENIED, null, List.of()),
+            new AddonCorpusEntry.AddonVersions("1.0.0", Set.of("1.21.0"), "1.21.0", "1.21.0", List.of("1.0.0")),
+            new AddonCorpusEntry.AddonBehaviorPack(true, "1.21.0", Set.of(), Set.of(), Set.of(), Set.of(), Set.of(), Set.of(), Map.of()),
+            new AddonCorpusEntry.AddonResourcePack(true, "1.21.0", Set.of(), Set.of(), Set.of(), Set.of(), Set.of(), Set.of(), Map.of()),
+            new AddonCorpusEntry.AddonCapabilities(Set.of(), Set.of(), Set.of("item"), Set.of(), Set.of(), Set.of(), Set.of(), Map.of()),
+            new AddonCorpusEntry.AddonEvidence(List.of("manifest"), List.of(), List.of(), List.of(), List.of(), Map.of()),
+            new AddonCorpusEntry.AddonConfidence(0.9D, "test", List.of(), List.of(), List.of()),
+            new AddonCorpusEntry.AddonImplementationFacts("machine", List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), "high", "generic-machine"),
+            new AddonCorpusEntry.AddonProvenance("test", 1L, null, null, "v2.0.0", List.of())
+        );
     }
 
         @Test

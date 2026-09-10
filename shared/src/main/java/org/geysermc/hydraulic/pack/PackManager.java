@@ -529,7 +529,7 @@ public class PackManager {
     private void initializeCompatibilityRegistry(@NotNull ArtifactCache.StartupCompatibilityKey cacheKey) {
         Path dataPath = this.hydraulic.dataFolder(Constants.MOD_ID);
         Path metadataPath = dataPath.resolve("metadata");
-        this.compatibilityManager = new CompatibilityManager(LOGGER, dataPath);
+        this.compatibilityManager = new CompatibilityManager(LOGGER, dataPath, this.corpusLoader.loadAdmissibleEntries());
         ArtifactCache.CompatibilitySnapshot cached = this.artifactCache.loadCompatibilitySnapshot(cacheKey);
         if (cached != null) {
             this.compatibilityCacheHits++;
@@ -730,7 +730,7 @@ public class PackManager {
             fingerprints.put(entry.getKey(), entry.getValue().fingerprint().stableValue());
         }
         String metadataFingerprint = PackUtil.metadataFingerprint(this.metadataIndex);
-        String engineFingerprint = PackUtil.compatibilityEngineFingerprint();
+        String engineFingerprint = PackUtil.compatibilityEngineFingerprint() + ":corpus=" + this.corpusLoader.fingerprint();
         AdapterCatalog adapterCatalog = this.adapterCatalogCache.loadCatalog();
         String adapterCatalogFingerprint = adapterCatalog != null ? adapterCatalog.fingerprint() : PackUtil.adapterCatalogFingerprint();
         return new ArtifactCache.StartupCompatibilityKey(PackUtil.startupCompatibilityFingerprint(metadataFingerprint, fingerprints, engineFingerprint, adapterCatalogFingerprint));
@@ -747,7 +747,7 @@ public class PackManager {
         return new ArtifactCache.CompatibilityManifest(
             cacheKey,
             PackUtil.metadataFingerprint(this.metadataIndex),
-            PackUtil.compatibilityEngineFingerprint(),
+            PackUtil.compatibilityEngineFingerprint() + ":corpus=" + this.corpusLoader.fingerprint(),
             adapterCatalogFingerprint,
             fingerprints.size(),
             fingerprints

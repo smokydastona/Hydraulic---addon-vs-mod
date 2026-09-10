@@ -117,6 +117,29 @@ class AddonCorpusLoaderTest {
     }
 
     @Test
+    void changesFingerprintWhenLocalCorpusIndexChanges() {
+        AddonCorpusLoader loader = new AddonCorpusLoader(LoggerFactory.getLogger("CorpusLoaderTest"), this.tempDir);
+        loader.ensureLayout();
+
+        loader.storeIndex(new AddonCorpusIndex(
+            "v2.0.0",
+            "HYDRAULIC_CORPUS_INDEX_V2",
+            Map.of(),
+            new AddonCorpusIndex.CorpusMetadata(0, 0, 0, 1L)
+        ));
+        String first = loader.fingerprint();
+
+        loader.storeIndex(new AddonCorpusIndex(
+            "v2.0.0",
+            "HYDRAULIC_CORPUS_INDEX_V2",
+            Map.of(),
+            new AddonCorpusIndex.CorpusMetadata(0, 0, 0, 2L)
+        ));
+
+        assertTrue(!first.equals(loader.fingerprint()));
+    }
+
+    @Test
     void rejectsSemanticallyInvalidEntry() throws Exception {
         AddonCorpusLoader loader = new AddonCorpusLoader(LoggerFactory.getLogger("CorpusLoaderTest"), this.tempDir);
         loader.ensureLayout();

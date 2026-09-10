@@ -14,6 +14,8 @@ import org.geysermc.hydraulic.compat.analysis.FluidAnalyzer;
 import org.geysermc.hydraulic.compat.analysis.ItemAnalyzer;
 import org.geysermc.hydraulic.compat.analysis.MenuAnalyzer;
 import org.geysermc.hydraulic.compat.analysis.RecipeAnalyzer;
+import org.geysermc.hydraulic.compat.corpus.AddonCorpusEntry;
+import org.geysermc.hydraulic.compat.corpus.AddonCorpusMatcher;
 import org.geysermc.hydraulic.compat.mapping.ContentPatch;
 import org.geysermc.hydraulic.compat.model.CompatibilityFinding;
 import org.geysermc.hydraulic.compat.model.CompatibilityObject;
@@ -56,10 +58,16 @@ public final class CompatibilityManager {
 
     private final Logger logger;
     private final Path dataPath;
+    private final List<AddonCorpusEntry> corpusEntries;
 
     public CompatibilityManager(@NotNull Logger logger, @NotNull Path dataPath) {
+        this(logger, dataPath, List.of());
+    }
+
+    public CompatibilityManager(@NotNull Logger logger, @NotNull Path dataPath, @NotNull List<AddonCorpusEntry> corpusEntries) {
         this.logger = logger;
         this.dataPath = dataPath;
+        this.corpusEntries = List.copyOf(corpusEntries);
     }
 
     @NotNull
@@ -199,6 +207,7 @@ public final class CompatibilityManager {
     @NotNull
     CompatibilityReport buildReport(@NotNull ContentInventory inventory, @NotNull MetadataIndex metadataIndex) {
         Map<String, CompatibilityProfile> profiles = new LinkedHashMap<>();
+        Map<String, List<CompatibilityReport.CorpusMatch>> corpusEvidence = new LinkedHashMap<>();
         List<CompatibilityFinding> metadataFindings = metadataIndex.validationIssues().stream().map(this::toFinding).toList();
         for (ContentInventory.ModContentInventory modInventory : inventory.mods().values()) {
             List<CompatibilityObject> objects = this.analyzeObjects(modInventory, metadataIndex);
@@ -206,6 +215,11 @@ public final class CompatibilityManager {
             List<String> notes = new ArrayList<>();
             notes.add("Compatibility output now combines inventory-backed facts, analyzer heuristics, metadata mappings, and Metadata V2 patches.");
             notes.add("Behavior and runtime interaction domains remain conservative until dedicated bridges are implemented.");
+            List<CompatibilityReport.CorpusMatch> evidence = this.corpusEvidence(modInventory);
+            if (!evidence.isEmpty()) {
+                notes.add("Offline Bedrock corpus evidence was matched for reusable capability patterns; evidence is advisory and does not change runtime support decisions.");
+                corpusEvidence.put(modInventory.modId(), evidence);
+            }
 
             List<CompatibilityFinding> findings = new ArrayList<>(objects.stream().flatMap(object -> object.findings().stream()).toList());
             findings.addAll(metadataFindings.stream().filter(finding -> appliesToMod(finding, modInventory)).toList());
@@ -228,7 +242,36 @@ public final class CompatibilityManager {
             );
         }
 
-        return new CompatibilityReport(Instant.now().toString(), metadataIndex.summary(), metadataFindings, profiles);
+        return new CompatibilityReport(Instant.now().toString(), metadataIndex.summary(), metadataFindings, profiles, Map.of(), corpusEvidence);
+    }
+
+    @NotNull
+    private List<CompatibilityReport.CorpusMatch> corpusEvidence(@NotNull ContentInventory.ModContentInventory inventory) {
+        Set<String> capabilities = new LinkedHashSet<>();
+        if (inventory.registryCounts().getOrDefault("items", 0) > 0) {
+            capabilities.add("item");
+        }
+        if (inventory.registryCounts().getOrDefault("fluids", 0) > 0) {
+            capabilities.add("fluid");
+        }
+        if (inventory.registryCounts().getOrDefault("block_entities", 0) > 0 || inventory.registryCounts().getOrDefault("menus", 0) > 0) {
+            capabilities.add("storage");
+            capabilities.add("machine");
+        }
+        if (inventory.registryCounts().getOrDefault("entities", 0) > 0) {
+            capabilities.add("automation");
+        }
+
+        List<CompatibilityReport.CorpusMatch> matches = new ArrayList<>();
+        for (String capability : capabilities) {
+            Set<String> patterns = capability.equals("machine")
+                ? Set.of("generic-machine", "processing", "storage")
+                : Set.of(capability);
+            for (AddonCorpusMatcher.Match match : AddonCorpusMatcher.rank(this.corpusEntries, capability, patterns).stream().limit(3).toList()) {
+                matches.add(CompatibilityReport.CorpusMatch.from(capability, match));
+            }
+        }
+        return List.copyOf(matches);
     }
 
     @NotNull

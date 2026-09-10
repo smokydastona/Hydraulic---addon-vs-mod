@@ -192,6 +192,20 @@ public final class AddonCorpusLoader {
         return this.index;
     }
 
+    /**
+     * Returns the manifest-equivalent identity of the loaded local corpus index.
+     * The value changes whenever corpus entries, admissibility, or index metadata changes.
+     */
+    @NotNull
+    public String fingerprint() {
+        try {
+            return sha256(org.geysermc.hydraulic.Constants.GSON.toJson(this.index));
+        } catch (Exception e) {
+            this.logger.warn("Failed to fingerprint the loaded corpus index", e);
+            return "empty";
+        }
+    }
+
     private static String sha256(@NotNull String value) throws Exception {
         byte[] digest = MessageDigest.getInstance("SHA-256").digest(value.getBytes(StandardCharsets.UTF_8));
         StringBuilder result = new StringBuilder(digest.length * 2);

@@ -1,5 +1,6 @@
 package org.geysermc.hydraulic.compat;
 
+import org.geysermc.hydraulic.compat.corpus.AddonCorpusMatcher;
 import org.geysermc.hydraulic.compat.model.CompatibilityFinding;
 import org.geysermc.hydraulic.compat.model.CompatibilityObject;
 import org.geysermc.hydraulic.metadata.MetadataIndex;
@@ -16,6 +17,7 @@ public final class CompatibilityReport {
     private final MetadataIndex.Summary metadata;
     private final List<CompatibilityFinding> metadataFindings;
     private final Map<String, CompatibilityProfile> mods;
+    private final Map<String, List<CorpusMatch>> corpusEvidence;
     private final Map<String, PackValidationSummary> packValidation;
 
     public CompatibilityReport(
@@ -24,7 +26,7 @@ public final class CompatibilityReport {
         @NotNull List<CompatibilityFinding> metadataFindings,
         @NotNull Map<String, CompatibilityProfile> mods
     ) {
-        this(generatedAt, metadata, metadataFindings, mods, Map.of());
+        this(generatedAt, metadata, metadataFindings, mods, Map.of(), Map.of());
     }
 
     public CompatibilityReport(
@@ -34,10 +36,26 @@ public final class CompatibilityReport {
         @NotNull Map<String, CompatibilityProfile> mods,
         @NotNull Map<String, PackValidationSummary> packValidation
     ) {
+        this(generatedAt, metadata, metadataFindings, mods, packValidation, Map.of());
+    }
+
+    public CompatibilityReport(
+        @NotNull String generatedAt,
+        @NotNull MetadataIndex.Summary metadata,
+        @NotNull List<CompatibilityFinding> metadataFindings,
+        @NotNull Map<String, CompatibilityProfile> mods,
+        @NotNull Map<String, PackValidationSummary> packValidation,
+        @NotNull Map<String, List<CorpusMatch>> corpusEvidence
+    ) {
         this.generatedAt = generatedAt;
         this.metadata = metadata;
         this.metadataFindings = List.copyOf(metadataFindings);
         this.mods = Collections.unmodifiableMap(new LinkedHashMap<>(mods));
+        Map<String, List<CorpusMatch>> copiedEvidence = new LinkedHashMap<>();
+        for (Map.Entry<String, List<CorpusMatch>> entry : corpusEvidence.entrySet()) {
+            copiedEvidence.put(entry.getKey(), List.copyOf(entry.getValue()));
+        }
+        this.corpusEvidence = Collections.unmodifiableMap(copiedEvidence);
         this.packValidation = Collections.unmodifiableMap(new LinkedHashMap<>(packValidation));
     }
 
@@ -66,6 +84,11 @@ public final class CompatibilityReport {
         return this.mods;
     }
 
+    @NotNull
+    public Map<String, List<CorpusMatch>> corpusEvidence() {
+        return this.corpusEvidence;
+    }
+
     @Nullable
     public CompatibilityProfile profile(@NotNull String modId) {
         return this.mods.get(modId);
@@ -90,7 +113,19 @@ public final class CompatibilityReport {
 
     @NotNull
     public CompatibilityReport withPackValidation(@NotNull Map<String, PackValidationSummary> packValidation) {
-        return new CompatibilityReport(this.generatedAt, this.metadata, this.metadataFindings, this.mods, packValidation);
+        return new CompatibilityReport(this.generatedAt, this.metadata, this.metadataFindings, this.mods, packValidation, this.corpusEvidence);
+    }
+
+    public record CorpusMatch(
+        @NotNull String capability,
+        @NotNull String corpusId,
+        double score,
+        int capabilityMatches,
+        int patternMatches
+    ) {
+        public static CorpusMatch from(@NotNull String capability, @NotNull AddonCorpusMatcher.Match match) {
+            return new CorpusMatch(capability, match.entry().identity().corpusId(), match.score(), match.capabilityMatches(), match.patternMatches());
+        }
     }
 
     /**
