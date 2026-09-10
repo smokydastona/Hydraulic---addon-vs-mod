@@ -260,3 +260,9 @@ gradle-app.setting
 *.hprof
 
 # End of https://www.toptal.com/developers/gitignore/api/git,java,gradle,eclipse,netbeans,jetbrains+all,visualstudiocode
+
+### Hydraulic local dev tooling ###
+# User-supplied Bedrock Dedicated Server binary/world for the optional Test B harness task;
+# never fetched or committed by tooling (requires manual EULA-accepted download).
+/dev/
+

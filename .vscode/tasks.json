@@ -1,0 +1,191 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Hydraulic: Build (Fabric)",
+      "type": "shell",
+      "command": "./gradlew.bat",
+      "args": [":fabric:build", "-x", "test"],
+      "group": { "kind": "build", "isDefault": true },
+      "problemMatcher": ["$gradle"],
+      "detail": "Compiles the Fabric module (Hydraulic + embedded Geyser + test companion mod)."
+    },
+    {
+      "label": "Hydraulic: Start Dev Server (Fabric)",
+      "type": "shell",
+      "command": "./gradlew.bat",
+      "args": [":fabric:runServer", "--console=plain"],
+      "isBackground": true,
+      "presentation": { "reveal": "always", "panel": "dedicated", "group": "hydraulic-server" },
+      "problemMatcher": {
+        "pattern": { "regexp": "^$" },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": "Task :fabric:runServer",
+          "endsPattern": "Done \\("
+        }
+      },
+      "detail": "Real Test A path: Fabric dev server + Hydraulic + embedded Geyser (Bedrock UDP 19132, Java TCP 25565). Do not run 'Hydraulic: Run Runtime Pipeline Tests' concurrently - Loom's runServer blocks the invoking Gradle process and a second gradlew invocation can block on the project lock until this server stops."
+    },
+    {
+      "label": "Hydraulic: Start Dev Server (Fabric, Debug)",
+      "type": "shell",
+      "command": "./gradlew.bat",
+      "args": [":fabric:runServer", "--console=plain", "--debug-jvm"],
+      "isBackground": true,
+      "presentation": { "reveal": "always", "panel": "dedicated", "group": "hydraulic-server" },
+      "problemMatcher": {
+        "pattern": { "regexp": "^$" },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": "Task :fabric:runServer",
+          "endsPattern": "Listening for transport dt_socket"
+        }
+      },
+      "detail": "Same as 'Start Dev Server (Fabric)' but opens JDWP port 5005 and pauses startup for 'Attach: Fabric Dev Server'."
+    },
+    {
+      "label": "Hydraulic: Start Dev Server (NeoForge) [experimental]",
+      "type": "shell",
+      "command": "./gradlew.bat",
+      "args": [":neoforge:runServer", "--console=plain"],
+      "isBackground": true,
+      "presentation": { "reveal": "always", "panel": "dedicated", "group": "hydraulic-server" },
+      "problemMatcher": {
+        "pattern": { "regexp": "^$" },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": "Task :neoforge:runServer",
+          "endsPattern": "Done \\("
+        }
+      },
+      "detail": "EXPERIMENTAL/best-effort: neoforge/build.gradle.kts has a known '// TODO fix neoforge runServer task' comment. Not part of the default compound task."
+    },
+    {
+      "label": "Bedrock: Start BDS (optional)",
+      "type": "shell",
+      "command": "powershell.exe",
+      "args": [
+        "-NoProfile",
+        "-ExecutionPolicy", "Bypass",
+        "-File", "${workspaceFolder}/scripts/start-bds.ps1"
+      ],
+      "isBackground": true,
+      "presentation": { "reveal": "always", "panel": "dedicated", "group": "bedrock-bds" },
+      "problemMatcher": {
+        "pattern": { "regexp": "^$" },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": ".",
+          "endsPattern": "Server started|not found at dev/bedrock"
+        }
+      },
+      "detail": "Test B (optional, independent of Phlodgate validation): runs dev/bedrock/bedrock_server.exe on port 19133 if present, else prints setup instructions and exits cleanly."
+    },
+    {
+      "label": "Hydraulic: Run Runtime Pipeline Tests",
+      "type": "shell",
+      "command": "./gradlew.bat",
+      "args": [":shared:test", "--tests", "org.geysermc.hydraulic.compat.runtime.*"],
+      "group": "test",
+      "problemMatcher": ["$gradle"],
+      "detail": "Component-level tests with a mocked Geyser boundary (SyncPlannerTest, GeyserSyncTransportTest, TransferBridgeRuntimeTest, RuntimeDispatchTableTest, CompatibilityRuntimeDiagnosticsTest, etc.) - NOT a live client trace. Do not run while a dev server gradlew invocation is still active. Running this and 'Run Pack Validation Tests' as two separate gradlew invocations clobbers each other's JUnit XML in shared/build/test-results/test; use 'Run All Focused Integration Tests' if you need both."
+    },
+    {
+      "label": "Hydraulic: Run Pack Validation Tests",
+      "type": "shell",
+      "command": "./gradlew.bat",
+      "args": [":shared:test", "--tests", "org.geysermc.hydraulic.pack.*"],
+      "group": "test",
+      "problemMatcher": ["$gradle"],
+      "detail": "Runs PackValidatorTest, PackValidationTrackerTest, and neighboring pack unit tests. Do not run while a dev server gradlew invocation is still active. Running this and 'Run Runtime Pipeline Tests' as two separate gradlew invocations clobbers each other's JUnit XML in shared/build/test-results/test; use 'Run All Focused Integration Tests' if you need both."
+    },
+    {
+      "label": "Hydraulic: Run All Focused Integration Tests",
+      "type": "shell",
+      "command": "./gradlew.bat",
+      "args": [
+        ":shared:test",
+        "--tests", "org.geysermc.hydraulic.compat.runtime.*",
+        "--tests", "org.geysermc.hydraulic.pack.*"
+      ],
+      "group": "test",
+      "problemMatcher": ["$gradle"],
+      "detail": "Runs both focused test filters in a single :shared:test invocation. Gradle clears shared/build/test-results/test on each run, so this must stay one invocation rather than two sequential/parallel gradlew calls, or one filter's JUnit XML wipes the other's. Requires no live dev server."
+    },
+    {
+      "label": "Hydraulic: Validate Runtime Artifacts",
+      "type": "shell",
+      "command": "powershell.exe",
+      "args": [
+        "-NoProfile",
+        "-ExecutionPolicy", "Bypass",
+        "-File", "${workspaceFolder}/scripts/validate-runtime-artifacts.ps1"
+      ],
+      "problemMatcher": [],
+      "detail": "Read-only check that CompatibilityHandoffQueue/Exporter wrote at least one envelope to fabric/run/config/hydraulic/cache/handoff-queue/exports. Safe to run while the dev server is active."
+    },
+    {
+      "label": "Hydraulic: Validate Generated Packs",
+      "type": "shell",
+      "command": "powershell.exe",
+      "args": [
+        "-NoProfile",
+        "-ExecutionPolicy", "Bypass",
+        "-File", "${workspaceFolder}/scripts/validate-generated-packs.ps1"
+      ],
+      "problemMatcher": [],
+      "detail": "Read-only check of fabric/run/config/hydraulic/reports/pack-validation-report.json's perMod validity. Safe to run while the dev server is active."
+    },
+    {
+      "label": "Hydraulic: Write Integration Test Report",
+      "type": "shell",
+      "command": "powershell.exe",
+      "args": [
+        "-NoProfile",
+        "-ExecutionPolicy", "Bypass",
+        "-File", "${workspaceFolder}/scripts/write-integration-report.ps1"
+      ],
+      "problemMatcher": [],
+      "detail": "Aggregates JUnit results + latest handoff envelope + pack validation into config/hydraulic/reports/integration-test-report.json. bedrockClientCheck is always left PENDING_MANUAL_CLIENT_CHECK."
+    },
+    {
+      "label": "Hydraulic: Print Manual Bedrock Check",
+      "type": "shell",
+      "command": "powershell.exe",
+      "args": [
+        "-NoProfile",
+        "-ExecutionPolicy", "Bypass",
+        "-File", "${workspaceFolder}/scripts/print-manual-bedrock-check.ps1"
+      ],
+      "problemMatcher": [],
+      "detail": "Prints the required manual Bedrock-client verification steps; CLIENT_OBSERVED is never automated."
+    },
+    {
+      "label": "Bedrock: Register Phlodgate Server (deep link)",
+      "type": "shell",
+      "command": "powershell.exe",
+      "args": [
+        "-NoProfile",
+        "-ExecutionPolicy", "Bypass",
+        "-File", "${workspaceFolder}/scripts/register-bedrock-server.ps1"
+      ],
+      "problemMatcher": [],
+      "detail": "Best-effort minecraft:// deep link to register 127.0.0.1:19132 with the installed Bedrock client. Manual fallback: add the server in-game if this does not work."
+    },
+    {
+      "label": "Phlodgate: Launch Full Integration Test",
+      "dependsOrder": "sequence",
+      "dependsOn": [
+        "Hydraulic: Build (Fabric)",
+        "Hydraulic: Start Dev Server (Fabric)",
+        "Hydraulic: Validate Runtime Artifacts",
+        "Hydraulic: Validate Generated Packs",
+        "Hydraulic: Write Integration Test Report",
+        "Hydraulic: Print Manual Bedrock Check"
+      ],
+      "problemMatcher": [],
+      "detail": "Build -> start Fabric dev server -> validate artifacts/packs -> write report -> print manual Bedrock client check. Run 'Hydraulic: Run All Focused Integration Tests' separately, before starting or after stopping the dev server."
+    }
+  ]
+}

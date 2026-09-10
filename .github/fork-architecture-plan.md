@@ -1721,6 +1721,101 @@ Delivered:
 
 This baseline is real and should be preserved.
 
+## Phase 0.5: Local Integration Harness (VS Code)
+Priority: high, non-blocking for Phases 1-8
+
+This phase does not introduce another runtime architecture. It gives the fork a repeatable, local way
+to prove the architecture that already exists, using `.vscode` orchestration around the real Gradle/Loom
+tasks, the real compatibility runtime classes, and the real handoff/report artifacts already emitted by
+`PackManager`. No new production runtime or trace classes are introduced by this phase.
+
+### Grounded facts (verified against the live repo, not assumed)
+- `SyncDeliveryStatus` (`shared/src/main/java/org/geysermc/hydraulic/compat/runtime/SyncDeliveryStatus.java`)
+  already carries `PLANNED, ENCODED, QUEUED, SENT, APPLIED, ENCODING_FAILED, TRANSPORT_FAILED,
+  TARGET_UNAVAILABLE, STALE_STATE, UNSUPPORTED` — this is the closest real analog to the
+  `EXECUTABLE -> SYNCHRONIZED -> TRANSPORT_HANDOFF_VERIFIED` progression described above; `SENT`/`APPLIED`
+  is the real transport-handoff-verified signal.
+- `RuntimeBridgeKind`, `RuntimeTraceId`, `StateChangeSet`, and `SyncBatch` already exist in the same package.
+  No `RuntimeTrace`, `transportHandoff`, or `clientObserved` identifier exists anywhere in the codebase.
+  `CLIENT_OBSERVED` is therefore not, and must not become, an automated status — it stays a manual,
+  human-attested field, matching the runtime-traceability rule above that `TRANSPORT_HANDOFF_VERIFIED`
+  and `CLIENT_OBSERVED` must never be collapsed into one claim.
+- `CompatibilityHandoffQueue`/`CompatibilityHandoffExporter` already write `HandoffEnvelope` JSON to
+  `hydraulic.dataFolder("hydraulic").resolve("cache")/handoff-queue/exports/*.json` (see
+  `PackManager.java`), i.e. `fabric/run/config/hydraulic/cache/handoff-queue/exports/*.json` in this dev
+  workspace. `PackValidationTracker` already writes `config/hydraulic/reports/pack-validation-report.json`
+  with a `perMod` map of `{valid, errors[], warnings[], manualActions[]}`. These are the real runtime
+  artifacts the harness validates — no new report format is invented for compatibility data.
+- Existing unit tests (`SyncPlannerTest`, `GeyserSyncTransportTest`, `TransferBridgeRuntimeTest`,
+  `RuntimeDispatchTableTest`, `CompatibilityRuntimeDiagnosticsTest`, and neighboring classes under
+  `shared/src/test/java/org/geysermc/hydraulic/compat/runtime/`) already assert individual pipeline stages
+  with a mocked Geyser session boundary. They are component-level tests, not a live end-to-end Bedrock
+  client trace, and must never be reported as one.
+- `test/src/main/java/org/geysermc/hydraulic/fabric/test/` currently has one simple block (`ModBlocks`),
+  nine tool/armor items (`ModItems`), one entity that opens a menu (`ModEntities`/`BarrelTestEntity`), one
+  simple container (`ModMenus`/`BarrelMenu`), and one fluid plus bucket (`ModFluids`). It has no directional
+  block, no data-bearing block entity, no item/fluid/energy transfer machine, no menu with synced
+  properties, no richer entity interaction, no custom recipe, and no dedicated synchronization-stress
+  fixture — see the fixture backlog below.
+- `gradle.properties` sets `org.gradle.daemon=false`. Loom's `runServer` task blocks the invoking Gradle
+  process for the lifetime of the dev server (`JavaExec` does not return until the server stops). A second
+  `./gradlew` invocation started while `runServer` is still running can block on the Gradle project lock
+  until the server is stopped. The harness must never auto-chain a `gradlew` test task after starting the
+  dev server in the same task sequence; read-only PowerShell scripts (no `gradlew` invocation) are safe to
+  run concurrently with a live server, and are used for artifact/pack validation for exactly this reason.
+- Verified by actually running both focused test tasks: `:shared:test` clears `shared/build/test-results/test`
+  on every invocation, so running the runtime-pipeline and pack-validation filters as two separate `gradlew`
+  calls silently deletes the first call's JUnit XML before the aggregator script can read it. The harness
+  therefore runs both `--tests` filters in one `:shared:test` invocation instead of two sequential/parallel ones.
+
+### Harness tasks (implemented in `.vscode/tasks.json`)
+- `Hydraulic: Build (Fabric)` / `Hydraulic: Start Dev Server (Fabric)` / `Hydraulic: Start Dev Server
+  (Fabric, Debug)` — build and run the real Fabric dev server (`:fabric:runServer`), with a debug variant
+  that opens JDWP port 5005 for `.vscode/launch.json`'s `Attach: Fabric Dev Server` configuration.
+- `Hydraulic: Start Dev Server (NeoForge) [experimental]` — present because the NeoForge module exists in
+  the tree, explicitly labeled experimental/best-effort, excluded from the default compound task.
+- `Bedrock: Start BDS (optional)` — runs a user-supplied `dev/bedrock/bedrock_server.exe` on port 19133 if
+  present, otherwise prints setup instructions and exits 0. This is Test B (Bedrock addon/script runtime
+  validation) and is architecturally unrelated to validating Phlodgate itself (Test A).
+- `Hydraulic: Run Runtime Pipeline Tests` / `Hydraulic: Run Pack Validation Tests` / `Hydraulic: Run All
+  Focused Integration Tests` — run the real, existing JUnit suites above through `:shared:test --tests`
+  filters. Must not be run while a dev server `gradlew` invocation is still active (see Gradle-lock note).
+- `Hydraulic: Validate Runtime Artifacts` / `Hydraulic: Validate Generated Packs` / `Hydraulic: Write
+  Integration Test Report` — read-only PowerShell scripts under `scripts/` that inspect the real handoff
+  export and pack-validation artifacts and write a harness-only
+  `config/hydraulic/reports/integration-test-report.json` summary. The `bedrockClientCheck` field is always
+  written as `PENDING_MANUAL_CLIENT_CHECK`; it is never auto-derived from `SyncDeliveryStatus` or packet
+  encoding alone.
+- `Phlodgate: Launch Full Integration Test` — build, start the Fabric dev server, then run the read-only
+  artifact/pack/report scripts and print a manual-step banner instructing the operator to connect the real
+  Minecraft Bedrock Windows client to `127.0.0.1:19132`, perform the target action, and manually confirm the
+  resulting trace before editing `bedrockClientCheck`.
+- `Bedrock: Register Phlodgate Server (deep link)` — best-effort `minecraft://?addExternalServer=...` helper,
+  documented as unreliable/manual-fallback since VS Code cannot control the Bedrock UWP client itself.
+
+### Test fixture backlog (separate, larger implementation lane)
+Expand `test/src/main/java/org/geysermc/hydraulic/fabric/test/` with fixtures mapped to real
+`RuntimeBridgeKind` values so each new object exercises a specific, named bridge instead of an invented
+category: `directional_block` (`BLOCK_PLACEMENT`/`BLOCK_BEHAVIOR`), a data-bearing `block_entity`
+(`BLOCK_ENTITY_DATA`/`BLOCK_ENTITY_BEHAVIOR`), an `inventory_machine`/`item_transfer_machine`
+(`MACHINE_INVENTORY`/`ITEM_TRANSFER`), a `fluid_machine` (`FLUID_TRANSFER`), an `energy_machine`
+(`ENERGY_TRANSFER`), a `mixed_resource_machine` combining all three plus `MACHINE_BEHAVIOR`, a
+`menu_machine` with synced properties (`MENU_CONTAINER`/`MENU_BEHAVIOR`), a richer `entity_interaction`
+beyond open-menu (`ENTITY_INTERACTION`/`ENTITY_BEHAVIOR`), a `custom_recipe` fixture exercising
+`DataGeneration.java`, and a `synchronization_test` fixture that deliberately mutates state fast enough to
+exercise `SyncPlanner` coalescing and produce an observable `SyncBatch`/`RuntimeTraceId` in the exported
+handoff envelope. This backlog is intentionally not implemented in the same pass as the tasks/scripts above.
+
+### Exit criteria
+- The Fabric dev server can be built, started, and attached to for breakpoint debugging entirely from
+  VS Code tasks/launch configurations.
+- Runtime pipeline and pack validation tests can be run as a focused, independent check without requiring a
+  live dev server.
+- After a dev server run, the handoff export and pack-validation artifacts can be validated and summarized
+  without re-deriving compatibility logic in a new runtime class.
+- The only claim of Bedrock client-observed behavior is a manual, human-attested report field — never an
+  automated inference from server-side encoding or delivery status.
+
 ## Phase 1: Universal Index And Fingerprints
 Priority: highest
 
