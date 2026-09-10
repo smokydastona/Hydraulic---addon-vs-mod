@@ -77,7 +77,7 @@ public final class AddonCorpusLoader {
         }
 
         Path entryPath = this.resolveEntryPath(indexed.storageLocation(), corpusId);
-        if (!Files.isRegularFile(entryPath)) {
+        if (entryPath == null || !Files.isRegularFile(entryPath)) {
             this.logger.warn("Corpus entry file not found at {} for corpusId {}", entryPath, corpusId);
             return null;
         }
@@ -130,6 +130,10 @@ public final class AddonCorpusLoader {
     public void storeEntry(@NotNull AddonCorpusEntry entry, @NotNull String storageLocation) {
         String corpusId = entry.identity().corpusId();
         Path entryPath = this.resolveEntryPath(storageLocation, corpusId);
+        if (entryPath == null) {
+            this.logger.error("Rejected corpus entry path for corpusId {} and storage location {}", corpusId, storageLocation);
+            return;
+        }
         try {
             Files.createDirectories(entryPath.getParent());
             try (var writer = Files.newBufferedWriter(entryPath)) {
@@ -142,8 +146,14 @@ public final class AddonCorpusLoader {
     }
 
     @NotNull
+    @Nullable
     private Path resolveEntryPath(@NotNull String storageLocation, @NotNull String corpusId) {
-        return this.corpusRoot.resolve(storageLocation).resolve(corpusId + ".json");
+        if (storageLocation.isBlank() || corpusId.isBlank() || corpusId.contains("..") || corpusId.contains("/") || corpusId.contains("\\")) {
+            return null;
+        }
+        Path root = this.corpusRoot.toAbsolutePath().normalize();
+        Path resolved = root.resolve(storageLocation).resolve(corpusId + ".json").normalize();
+        return resolved.startsWith(root) ? resolved : null;
     }
 
     /**

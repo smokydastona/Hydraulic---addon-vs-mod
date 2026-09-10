@@ -12,6 +12,7 @@ import java.util.Set;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertNull;
 
 class AddonCorpusLoaderTest {
     @TempDir
@@ -49,6 +50,24 @@ class AddonCorpusLoaderTest {
         assertNotNull(loadedEntry);
         assertEquals("example:machine", loadedEntry.identity().bedrockIdentifier());
         assertTrue(Files.isRegularFile(this.tempDir.resolve("corpus/curated/example-addon.json")));
+    }
+
+    @Test
+    void rejectsCorpusEntryPathTraversal() throws Exception {
+        AddonCorpusLoader loader = new AddonCorpusLoader(LoggerFactory.getLogger("CorpusLoaderTest"), this.tempDir);
+        loader.ensureLayout();
+        AddonCorpusIndex index = new AddonCorpusIndex(
+            "v1.0.0",
+            "HYDRAULIC_CORPUS_INDEX_V1",
+            Map.of("../outside", new AddonCorpusIndex.IndexedEntry(
+                "../outside", "example:machine", "../", true, "FULLY_PERMISSIVE", 0.9D, System.currentTimeMillis()
+            )),
+            new AddonCorpusIndex.CorpusMetadata(1, 1, 0, System.currentTimeMillis())
+        );
+        loader.storeIndex(index);
+
+        assertNull(loader.loadEntry("../outside"));
+        assertTrue(!Files.exists(this.tempDir.resolve("outside.json")));
     }
 
     private static AddonCorpusEntry sampleEntry(String corpusId) {
