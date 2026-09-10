@@ -6,6 +6,7 @@ import org.slf4j.LoggerFactory;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -113,6 +114,40 @@ class AddonCorpusLoaderTest {
 
         AddonCorpusLoader reloaded = new AddonCorpusLoader(LoggerFactory.getLogger("CorpusLoaderTest"), this.tempDir);
         assertTrue(reloaded.loadIndex().entries().isEmpty());
+    }
+
+    @Test
+    void rejectsSemanticallyInvalidEntry() throws Exception {
+        AddonCorpusLoader loader = new AddonCorpusLoader(LoggerFactory.getLogger("CorpusLoaderTest"), this.tempDir);
+        loader.ensureLayout();
+        AddonCorpusIndex index = new AddonCorpusIndex(
+            "v2.0.0", "HYDRAULIC_CORPUS_INDEX_V2",
+            Map.of("example-addon", new AddonCorpusIndex.IndexedEntry(
+                "example-addon", "example:machine", "curated", true, "FULLY_PERMISSIVE", 0.9D, System.currentTimeMillis()
+            )),
+            new AddonCorpusIndex.CorpusMetadata(1, 1, 0, System.currentTimeMillis())
+        );
+        loader.storeIndex(index);
+        AddonCorpusEntry valid = sampleEntry("example-addon");
+        AddonCorpusEntry invalid = new AddonCorpusEntry(
+            valid.identity(),
+            new AddonCorpusEntry.AddonSource(AddonCorpusEntry.SourceType.GITHUB, "http://github.com/example/addon", valid.source().repositoryUrl(), null, null),
+            valid.license(),
+            valid.admissibility(),
+            valid.versions(),
+            valid.behaviorPack(),
+            valid.resourcePack(),
+            valid.capabilities(),
+            valid.evidence(),
+            new AddonCorpusEntry.AddonConfidence(1.5D, "test", List.of(), List.of(), List.of()),
+            valid.implementationFacts(),
+            valid.provenance()
+        );
+        loader.storeEntry(invalid, "curated");
+
+        AddonCorpusLoader reloaded = new AddonCorpusLoader(LoggerFactory.getLogger("CorpusLoaderTest"), this.tempDir);
+        reloaded.loadIndex();
+        assertNull(reloaded.loadEntry("example-addon"));
     }
 
     private static AddonCorpusEntry sampleEntry(String corpusId) {

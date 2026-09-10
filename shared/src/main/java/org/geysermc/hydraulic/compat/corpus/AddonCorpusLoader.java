@@ -99,6 +99,11 @@ public final class AddonCorpusLoader {
                 this.logger.warn("Rejected corpus entry {} because its identity does not match the index", corpusId);
                 return null;
             }
+            List<String> validationErrors = AddonCorpusValidator.validate(loaded);
+            if (!validationErrors.isEmpty()) {
+                this.logger.warn("Rejected corpus entry {} because validation failed: {}", corpusId, validationErrors);
+                return null;
+            }
             return loaded;
         } catch (Exception e) {
             this.logger.error("Failed to load corpus entry from {} for corpusId {}", entryPath, corpusId, e);
