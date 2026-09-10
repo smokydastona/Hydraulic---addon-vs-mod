@@ -4,6 +4,8 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParseException;
 import com.google.gson.JsonParser;
+import org.geysermc.pack.converter.util.JsonMappings;
+import org.geysermc.pack.converter.type.texture.TextureConverter;
 import org.jetbrains.annotations.NotNull;
 
 import java.io.IOException;
@@ -305,11 +307,30 @@ final class PackValidator {
 
     @NotNull
     private static java.util.Optional<String> equipmentTransformOutput(@NotNull String expected) {
-        java.util.regex.Matcher matcher = java.util.regex.Pattern.compile("textures/entity/([^/]+)/equipment/[^/]+/([^/]+)\\.png").matcher(expected);
-        if (!matcher.matches()) {
+        String normalized = normalizePath(expected);
+        String entityPrefix = "textures/entity/";
+        if (!normalized.startsWith(entityPrefix) || !normalized.endsWith(".png")) {
             return java.util.Optional.empty();
         }
-        return java.util.Optional.of("textures/models/" + matcher.group(1) + "/armor/" + matcher.group(2) + "_1.png");
+        String namespacedPath = normalized.substring(entityPrefix.length(), normalized.length() - ".png".length());
+        int namespaceSeparator = namespacedPath.indexOf('/');
+        if (namespaceSeparator < 0) {
+            return java.util.Optional.empty();
+        }
+        String namespace = namespacedPath.substring(0, namespaceSeparator);
+        String source = "entity/" + namespacedPath.substring(namespaceSeparator + 1);
+        if (!source.startsWith("entity/equipment/")) {
+            return java.util.Optional.empty();
+        }
+        List<String> mapped = JsonMappings.getMapping("textures").map(source);
+        if (mapped.isEmpty()) {
+            return java.util.Optional.empty();
+        }
+        String mappedValue = mapped.getFirst();
+        String mappedDirectory = mappedValue.substring(0, mappedValue.indexOf('/'));
+        String mappedRemaining = mappedValue.substring(mappedValue.indexOf('/') + 1);
+        String outputDirectory = TextureConverter.DIRECTORY_LOCATIONS.getOrDefault(mappedDirectory, mappedDirectory);
+        return java.util.Optional.of(normalizePath("textures/" + outputDirectory + "/" + namespace + "/" + mappedRemaining + ".png"));
     }
 
     @NotNull
