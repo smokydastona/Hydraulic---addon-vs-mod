@@ -270,6 +270,7 @@ public final class ArtifactCache {
                 Map.of(),
                 Map.of(),
                 fingerprint,
+                Map.of(),
                 hasAssetFiles,
                 List.of(),
                 List.of(),

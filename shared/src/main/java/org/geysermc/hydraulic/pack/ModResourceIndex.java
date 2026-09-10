@@ -25,7 +25,7 @@ import java.util.Set;
 import java.util.stream.Stream;
 
 public final class ModResourceIndex {
-    private static final String FINGERPRINT_ALGORITHM = "HYDRAULIC_INDEX_V1";
+    private static final String FINGERPRINT_ALGORITHM = "HYDRAULIC_INDEX_V2";
 
     private final Set<String> namespaces;
     private final Map<Identifier, Path> blockStates;
@@ -38,6 +38,7 @@ public final class ModResourceIndex {
     private final Map<Identifier, Set<Key>> equipmentDependencies;
     private final Map<String, Set<String>> assetEntries;
     private final ResourceFingerprint fingerprint;
+    private final Map<String, ResourceFingerprint> fingerprintsByKind;
     private final boolean hasAssetFiles;
     private final List<ScanRoot> scanRoots;
     private final List<FileStamp> fileStamps;
@@ -56,6 +57,7 @@ public final class ModResourceIndex {
         @NotNull Map<Identifier, Set<Key>> equipmentDependencies,
         @NotNull Map<String, Set<String>> assetEntries,
         @NotNull ResourceFingerprint fingerprint,
+        @NotNull Map<String, ResourceFingerprint> fingerprintsByKind,
         boolean hasAssetFiles,
         @NotNull List<ScanRoot> scanRoots,
         @NotNull List<FileStamp> fileStamps,
@@ -72,6 +74,7 @@ public final class ModResourceIndex {
         this.equipmentDependencies = copyDependencyMap(equipmentDependencies);
         this.assetEntries = copyAssetEntries(assetEntries);
         this.fingerprint = fingerprint;
+        this.fingerprintsByKind = Map.copyOf(new LinkedHashMap<>(fingerprintsByKind));
         this.hasAssetFiles = hasAssetFiles;
         this.scanRoots = List.copyOf(scanRoots);
         this.fileStamps = List.copyOf(fileStamps);
@@ -95,6 +98,10 @@ public final class ModResourceIndex {
         List<FileStamp> fileStamps = new ArrayList<>();
         List<DirectoryStamp> directoryStamps = new ArrayList<>();
         Hasher fingerprintHasher = Hashing.sha256().newHasher();
+        Map<String, Hasher> kindHashers = new LinkedHashMap<>();
+        Map<String, Integer> kindFileCounts = new LinkedHashMap<>();
+        Map<String, Long> kindSizes = new LinkedHashMap<>();
+        Map<String, Long> kindLatestModified = new LinkedHashMap<>();
         int indexedFileCount = 0;
         long indexedTotalSizeBytes = 0;
         long latestModifiedEpochMillis = 0;
@@ -126,6 +133,7 @@ public final class ModResourceIndex {
                         fingerprintHasher.putString(metadata.stablePath(), java.nio.charset.StandardCharsets.UTF_8);
                         fingerprintHasher.putLong(metadata.size());
                         fingerprintHasher.putLong(metadata.lastModifiedEpochMillis());
+                        updateKindFingerprint(kindHashers, kindFileCounts, kindSizes, kindLatestModified, resourceKind(assets, path), metadata);
                         indexedFileCount++;
                         indexedTotalSizeBytes += metadata.size();
                         latestModifiedEpochMillis = Math.max(latestModifiedEpochMillis, metadata.lastModifiedEpochMillis());
@@ -161,6 +169,7 @@ public final class ModResourceIndex {
                     fingerprintHasher.putString(metadata.stablePath(), java.nio.charset.StandardCharsets.UTF_8);
                     fingerprintHasher.putLong(metadata.size());
                     fingerprintHasher.putLong(metadata.lastModifiedEpochMillis());
+                    updateKindFingerprint(kindHashers, kindFileCounts, kindSizes, kindLatestModified, resourceKind(data, path), metadata);
                     indexedFileCount++;
                     indexedTotalSizeBytes += metadata.size();
                     latestModifiedEpochMillis = Math.max(latestModifiedEpochMillis, metadata.lastModifiedEpochMillis());
@@ -183,6 +192,7 @@ public final class ModResourceIndex {
             equipmentDependencies,
             assetEntries,
             new ResourceFingerprint(FINGERPRINT_ALGORITHM, indexedFileCount, indexedTotalSizeBytes, latestModifiedEpochMillis, fingerprintHasher.hash().toString()),
+            finishKindFingerprints(kindHashers, kindFileCounts, kindSizes, kindLatestModified),
             hasAssetFiles,
             scanRoots,
             fileStamps,
@@ -204,6 +214,7 @@ public final class ModResourceIndex {
             toIdentifierKeySetMap(snapshot.equipmentDependencies()),
             snapshot.assetEntries(),
             snapshot.fingerprint(),
+            snapshot.fingerprintsByKind(),
             snapshot.hasAssetFiles(),
             snapshot.scanRoots(),
             snapshot.fileStamps(),
@@ -278,6 +289,7 @@ public final class ModResourceIndex {
             stringifyDependencyMap(this.equipmentDependencies),
             this.assetEntries,
             this.fingerprint,
+            this.fingerprintsByKind,
             this.hasAssetFiles,
             this.scanRoots,
             this.fileStamps,
@@ -288,6 +300,16 @@ public final class ModResourceIndex {
     @NotNull
     public ResourceFingerprint fingerprint() {
         return this.fingerprint;
+    }
+
+    @NotNull
+    public Map<String, ResourceFingerprint> fingerprintsByKind() {
+        return this.fingerprintsByKind;
+    }
+
+    @Nullable
+    public ResourceFingerprint fingerprint(@NotNull String kind) {
+        return this.fingerprintsByKind.get(kind);
     }
 
     @NotNull
@@ -523,6 +545,53 @@ public final class ModResourceIndex {
     }
 
     @NotNull
+    private static String resourceKind(@NotNull Path root, @NotNull Path file) {
+        Path relative = root.relativize(file);
+        if (relative.getNameCount() < 2) {
+            return "unknown";
+        }
+        return relative.getName(1).toString();
+    }
+
+    private static void updateKindFingerprint(
+        @NotNull Map<String, Hasher> hashers,
+        @NotNull Map<String, Integer> fileCounts,
+        @NotNull Map<String, Long> sizes,
+        @NotNull Map<String, Long> latestModified,
+        @NotNull String kind,
+        @NotNull FileMetadata metadata
+    ) {
+        hashers.computeIfAbsent(kind, ignored -> Hashing.sha256().newHasher())
+            .putString(metadata.stablePath(), java.nio.charset.StandardCharsets.UTF_8)
+            .putLong(metadata.size())
+            .putLong(metadata.lastModifiedEpochMillis());
+        fileCounts.merge(kind, 1, Integer::sum);
+        sizes.merge(kind, metadata.size(), Long::sum);
+        latestModified.merge(kind, metadata.lastModifiedEpochMillis(), Math::max);
+    }
+
+    @NotNull
+    private static Map<String, ResourceFingerprint> finishKindFingerprints(
+        @NotNull Map<String, Hasher> hashers,
+        @NotNull Map<String, Integer> fileCounts,
+        @NotNull Map<String, Long> sizes,
+        @NotNull Map<String, Long> latestModified
+    ) {
+        Map<String, ResourceFingerprint> fingerprints = new LinkedHashMap<>();
+        for (Map.Entry<String, Hasher> entry : hashers.entrySet()) {
+            String kind = entry.getKey();
+            fingerprints.put(kind, new ResourceFingerprint(
+                FINGERPRINT_ALGORITHM + ":" + kind,
+                fileCounts.getOrDefault(kind, 0),
+                sizes.getOrDefault(kind, 0L),
+                latestModified.getOrDefault(kind, 0L),
+                entry.getValue().hash().toString()
+            ));
+        }
+        return Map.copyOf(fingerprints);
+    }
+
+    @NotNull
     private static Map<String, Set<String>> copyAssetEntries(@NotNull Map<String, Set<String>> assetEntries) {
         Map<String, Set<String>> copy = new LinkedHashMap<>();
         for (Map.Entry<String, Set<String>> entry : assetEntries.entrySet()) {
@@ -643,6 +712,7 @@ public final class ModResourceIndex {
         @NotNull Map<String, Set<String>> equipmentDependencies,
         @NotNull Map<String, Set<String>> assetEntries,
         @NotNull ResourceFingerprint fingerprint,
+        @NotNull Map<String, ResourceFingerprint> fingerprintsByKind,
         boolean hasAssetFiles,
         @NotNull List<ScanRoot> scanRoots,
         @NotNull List<FileStamp> fileStamps,
@@ -659,6 +729,7 @@ public final class ModResourceIndex {
             modelDependencies = modelDependencies == null ? Map.of() : copyAssetEntries(modelDependencies);
             equipmentDependencies = equipmentDependencies == null ? Map.of() : copyAssetEntries(equipmentDependencies);
             assetEntries = assetEntries == null ? Map.of() : copyAssetEntries(assetEntries);
+            fingerprintsByKind = fingerprintsByKind == null ? Map.of() : Map.copyOf(new LinkedHashMap<>(fingerprintsByKind));
             scanRoots = scanRoots == null ? List.of() : List.copyOf(scanRoots);
             fileStamps = fileStamps == null ? List.of() : List.copyOf(fileStamps);
             directoryStamps = directoryStamps == null ? List.of() : List.copyOf(directoryStamps);

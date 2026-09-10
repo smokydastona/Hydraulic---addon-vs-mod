@@ -90,6 +90,12 @@ class ModResourceIndexTest {
         assertEquals(10, index.fingerprint().fileCount());
         assertTrue(index.fingerprint().totalSizeBytes() > 0);
         assertTrue(!index.fingerprint().digest().isEmpty());
+        assertEquals(1, index.fingerprint("blockstates").fileCount());
+        assertEquals(2, index.fingerprint("models").fileCount());
+        assertEquals(1, index.fingerprint("textures").fileCount());
+        assertEquals(1, index.fingerprint("recipes").fileCount());
+        assertEquals(1, index.fingerprint("tags").fileCount());
+        assertEquals(1, index.fingerprint("loot_tables").fileCount());
     }
 
         @Test
