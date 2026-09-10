@@ -7,6 +7,8 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
+import java.util.ArrayList;
+import java.util.Map;
 
 /**
  * Factory for creating machine behavior and inventory bridges based on compiled compatibility plans.
@@ -84,6 +86,66 @@ public final class MachineBridgeFactory {
             return null;
         }
         return new MachineProcessingBridge(plan, inventory, inputSlot, outputSlot, recipes);
+    }
+
+    @Nullable
+    public static MachineProcessingBridge createProcessing(
+        @Nullable CompiledCompatibilityPlan plan,
+        @Nullable TransferBridgeFactory.ItemTransferBridge inventory
+    ) {
+        if (plan == null) {
+            return null;
+        }
+        Integer inputSlot = integerFact(plan.inventoryFacts(), "machine.input_slot");
+        Integer outputSlot = integerFact(plan.inventoryFacts(), "machine.output_slot");
+        List<MachineProcessingBridge.MachineRecipe> recipes = compileRecipes(plan.inventoryFacts());
+        if (inputSlot == null || outputSlot == null || recipes.isEmpty()) {
+            return null;
+        }
+        return createProcessing(plan, inventory, inputSlot, outputSlot, recipes);
+    }
+
+    @Nullable
+    private static Integer integerFact(@NotNull Map<String, String> facts, @NotNull String key) {
+        String value = facts.get(key);
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        try {
+            int parsed = Integer.parseInt(value);
+            return parsed < 0 ? null : parsed;
+        } catch (NumberFormatException ignored) {
+            return null;
+        }
+    }
+
+    @NotNull
+    private static List<MachineProcessingBridge.MachineRecipe> compileRecipes(@NotNull Map<String, String> facts) {
+        List<MachineProcessingBridge.MachineRecipe> recipes = new ArrayList<>();
+        for (int index = 0; ; index++) {
+            String prefix = "machine.processing.recipe." + index + ".";
+            String input = facts.get(prefix + "input");
+            if (input == null) {
+                break;
+            }
+            String output = facts.get(prefix + "output");
+            Integer inputCount = integerFact(facts, prefix + "input_count");
+            Integer outputCount = integerFact(facts, prefix + "output_count");
+            Integer duration = integerFact(facts, prefix + "duration");
+            if (output == null || inputCount == null || inputCount == 0 || outputCount == null || outputCount == 0 || duration == null || duration == 0) {
+                return List.of();
+            }
+            try {
+                recipes.add(new MachineProcessingBridge.MachineRecipe(
+                    new TransferBridgeFactory.ItemStackView(input, inputCount),
+                    new TransferBridgeFactory.ItemStackView(output, outputCount),
+                    duration
+                ));
+            } catch (IllegalArgumentException ignored) {
+                return List.of();
+            }
+        }
+        return List.copyOf(recipes);
     }
 
     /**

@@ -65,6 +65,14 @@ public final class BehaviorFactExtractor {
         putIfPresent(facts, "can_receive_energy", patch.operation("transfer.energy.can_receive"));
         putIfPresent(facts, "can_provide_energy", patch.operation("transfer.energy.can_provide"));
         putIfPresent(facts, "energy_type", patch.operation("transfer.energy.type"));
+
+        putIfPresent(facts, "machine.input_slot", patch.operation("machine.inventory.input_slot"));
+        putIfPresent(facts, "machine.output_slot", patch.operation("machine.inventory.output_slot"));
+        for (Map.Entry<String, String> operation : patch.operations().entrySet()) {
+            if (operation.getKey().startsWith("machine.processing.recipe.")) {
+                putIfPresent(facts, operation.getKey(), operation.getValue());
+            }
+        }
     }
 
     private static void putIfPresent(@NotNull Map<String, String> facts, @NotNull String key, @NotNull String value) {

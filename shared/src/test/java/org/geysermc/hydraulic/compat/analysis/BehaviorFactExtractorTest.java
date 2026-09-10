@@ -18,15 +18,22 @@ class BehaviorFactExtractorTest {
         ContentPatch patch = new ContentPatch(
             Identifier.fromNamespaceAndPath("create", "mechanical_press"),
             "block",
-            Map.of(
-                "machine.processing.enabled", "true",
-                "machine.processing.type", "pressing",
-                "machine.inventory.enabled", "true",
-                "machine.inventory.layout", "3x3",
-                "transfer.item.can_insert", "true",
-                "transfer.fluid.can_extract", "true",
-                "transfer.energy.can_receive", "true",
-                "transfer.energy.type", "forge_energy"
+            Map.ofEntries(
+                Map.entry("machine.processing.enabled", "true"),
+                Map.entry("machine.processing.type", "pressing"),
+                Map.entry("machine.inventory.enabled", "true"),
+                Map.entry("machine.inventory.layout", "3x3"),
+                Map.entry("machine.inventory.input_slot", "0"),
+                Map.entry("machine.inventory.output_slot", "1"),
+                Map.entry("machine.processing.recipe.0.input", "minecraft:stone"),
+                Map.entry("machine.processing.recipe.0.input_count", "1"),
+                Map.entry("machine.processing.recipe.0.output", "minecraft:iron_ingot"),
+                Map.entry("machine.processing.recipe.0.output_count", "1"),
+                Map.entry("machine.processing.recipe.0.duration", "20"),
+                Map.entry("transfer.item.can_insert", "true"),
+                Map.entry("transfer.fluid.can_extract", "true"),
+                Map.entry("transfer.energy.can_receive", "true"),
+                Map.entry("transfer.energy.type", "forge_energy")
             ),
             MappingOwnership.USER,
             "create.json",
@@ -39,6 +46,10 @@ class BehaviorFactExtractorTest {
         assertEquals("pressing", facts.get("processing_type"));
         assertEquals("true", facts.get("has_inventory"));
         assertEquals("3x3", facts.get("inventory_layout"));
+        assertEquals("0", facts.get("machine.input_slot"));
+        assertEquals("1", facts.get("machine.output_slot"));
+        assertEquals("minecraft:stone", facts.get("machine.processing.recipe.0.input"));
+        assertEquals("20", facts.get("machine.processing.recipe.0.duration"));
         assertEquals("true", facts.get("can_insert"));
         assertEquals("true", facts.get("can_extract_fluid"));
         assertEquals("true", facts.get("can_receive_energy"));

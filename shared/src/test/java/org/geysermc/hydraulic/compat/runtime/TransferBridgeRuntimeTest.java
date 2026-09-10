@@ -162,6 +162,58 @@ class TransferBridgeRuntimeTest {
     }
 
     @Test
+    void machineProcessingCompilesRecipesFromPlanFacts() {
+        Identifier machine = Identifier.fromNamespaceAndPath("hydraulic", "test_machine");
+        TestInventory inventory = new TestInventory();
+        CompiledCompatibilityPlan plan = runtimePlan(
+            List.of(RuntimeBridgeKind.ITEM_TRANSFER, RuntimeBridgeKind.MACHINE_BEHAVIOR, RuntimeBridgeKind.MACHINE_INVENTORY),
+            Map.ofEntries(
+                Map.entry("can_insert", "true"),
+                Map.entry("can_extract", "true"),
+                Map.entry("has_processing", "true"),
+                Map.entry("has_inventory", "true"),
+                Map.entry("machine.input_slot", "0"),
+                Map.entry("machine.output_slot", "1"),
+                Map.entry("machine.processing.recipe.0.input", "minecraft:stone"),
+                Map.entry("machine.processing.recipe.0.input_count", "1"),
+                Map.entry("machine.processing.recipe.0.output", "minecraft:iron_ingot"),
+                Map.entry("machine.processing.recipe.0.output_count", "1"),
+                Map.entry("machine.processing.recipe.0.duration", "1")
+            )
+        );
+        TransferBridgeFactory.ItemTransferBridge transfer = TransferBridgeFactory.createItemTransfer(plan, inventory);
+
+        MachineProcessingBridge processing = MachineBridgeFactory.createProcessing(plan, transfer);
+
+        assertNotNull(processing);
+        assertEquals(1, processing.duration(machine));
+        assertTrue(processing.tick(machine));
+        assertTrue(processing.tick(machine));
+        assertEquals("minecraft:iron_ingot", transfer.itemAt(machine, 1).itemId());
+        assertTrue(transfer.operationMetrics().snapshot().attempts() >= 4);
+    }
+
+    @Test
+    void malformedMachineRecipeFactsFailClosed() {
+        CompiledCompatibilityPlan plan = runtimePlan(
+            List.of(RuntimeBridgeKind.ITEM_TRANSFER, RuntimeBridgeKind.MACHINE_BEHAVIOR, RuntimeBridgeKind.MACHINE_INVENTORY),
+            Map.of(
+                "can_insert", "true",
+                "can_extract", "true",
+                "has_processing", "true",
+                "has_inventory", "true",
+                "machine.input_slot", "0",
+                "machine.output_slot", "1",
+                "machine.processing.recipe.0.input", "minecraft:stone",
+                "machine.processing.recipe.0.output", "minecraft:iron_ingot",
+                "machine.processing.recipe.0.duration", "invalid"
+            )
+        );
+
+        assertNull(MachineBridgeFactory.createProcessing(plan, TransferBridgeFactory.createItemTransfer(plan, new TestInventory())));
+    }
+
+    @Test
     void machineProcessingRequiresInventoryAndProcessingCapabilities() {
         CompiledCompatibilityPlan plan = runtimePlan(
             List.of(RuntimeBridgeKind.ITEM_TRANSFER),

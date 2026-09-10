@@ -174,6 +174,26 @@ Metadata can currently describe things such as:
 
 Metadata V2 also supports patch-style changes for supported runtime data.
 
+Machine processing can be compiled from patch facts when the runtime object exposes executable item transfer operations:
+
+```json
+{
+       "patch": {
+              "machine.processing.enabled": "true",
+              "machine.inventory.enabled": "true",
+              "machine.inventory.input_slot": "0",
+              "machine.inventory.output_slot": "1",
+              "machine.processing.recipe.0.input": "minecraft:stone",
+              "machine.processing.recipe.0.input_count": "1",
+              "machine.processing.recipe.0.output": "minecraft:iron_ingot",
+              "machine.processing.recipe.0.output_count": "1",
+              "machine.processing.recipe.0.duration": "20"
+       }
+}
+```
+
+Malformed recipe facts fail closed and do not create a machine processing bridge.
+
 Metadata is loaded from:
 
 ```text
