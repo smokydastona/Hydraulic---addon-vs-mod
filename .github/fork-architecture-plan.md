@@ -201,6 +201,84 @@ The compatibility layer stays above the current Hydraulic conversion pipeline, b
 - Bound memory, not just thread count.
 - Prove optimization claims with artifacts and measurements.
 
+## Canonical Capability Contract
+
+Every compatibility reference, analyzer result, and runtime bridge must map to
+the same capability vocabulary. A capability result must include its support
+level, evidence, limitations, persistence method, runtime hooks, and confidence.
+
+| Capability | Required semantics |
+| --- | --- |
+| `BLOCK_ENTITY_DATA` | State identity, serialization, synchronization, persistence, and safe patching |
+| `MACHINE_INVENTORY` | Slot roles, capacity, sided access, filters, insertion, extraction, and simulation |
+| `ITEM_TRANSFER` | Stack identity, count limits, insert/extract, simulation, sided access, and failure behavior |
+| `FLUID_RUNTIME` | Fluid identity, block/item representation, tanks, capacity, and translation |
+| `FLUID_TRANSFER` | Fill, drain, simulation, capacity, sided access, and cross-fluid rejection |
+| `ENERGY_TRANSFER` | Capacity, receive/extract, rates, simulation, sided access, and persistence |
+| `MENU_CONTAINER` | Slot semantics, transactions, menu type, interaction, and fallback behavior |
+| `AUTOMATION_ACCESS` | Pipes, conveyors, routing, filtering, sided transfer, and network membership |
+| `MACHINE_PROCESSING` | Recipes, inputs, outputs, catalysts, progress, energy/fluid consumption, and state |
+| `PRESENTATION` | Models, textures, animations, geometry, particles, sounds, and state visuals |
+| `NETWORK_SYNC` | Custom packets, clientbound state, serverbound interaction, and synchronization risk |
+
+Use the support vocabulary `NATIVE`, `AUTOMATIC`, `ADAPTED`, `APPROXIMATED`,
+`VISUAL_ONLY`, and `UNSUPPORTED`. A score must never override a missing
+critical capability, and visual conversion must never imply gameplay support.
+
+## Java Normalization And Bedrock Feasibility
+
+Forge capabilities, Fabric Transfer APIs, and mod-specific APIs are inputs to
+one normalized model. The normalizer must preserve simulation semantics,
+sided access, slot and tank identity, capacity, filtering, and failure
+isolation. Reflection or metadata may discover a capability, but a compiled
+runtime plan must not advertise executable behavior without a concrete
+operation.
+
+Primary normalization references are Forge `IItemHandler`, `IFluidHandler`,
+and `IEnergyStorage`, Fabric item and fluid transfer abstractions, Botarium,
+and the existing Hydraulic typed bridge contracts.
+
+Bedrock feasibility must be evaluated in this order:
+
+```text
+native Bedrock API
+  -> supported Script API
+  -> proven generic emulation
+  -> approximation with explicit degradation
+  -> unsupported
+```
+
+Generated resource packs remain first-class. Behavior packs and scripts are
+optional supplements, while Java server state remains authoritative. Prefer
+current parameterized or flattened custom-component patterns over obsolete
+static designs; generated runtime state should use typed identifiers and
+fields rather than late string interpretation.
+
+## Capability-Slice Priorities And Acceptance
+
+Implement capability breadth in this order:
+
+1. Item transfer and inventory: slot semantics, insertion, extraction, simulation, side restrictions, filters, stack handling, full-inventory behavior, and transaction boundaries.
+2. Fluid transfer: normalized stacks and tanks, fill/drain, identity checks, capacity, side restrictions, container representation, and machine I/O. A bucket icon fallback is presentation only.
+3. Machine execution: inputs, consumption, requirements, progress, outputs, output capacity, reset behavior, and persisted state. Generic processing precedes mod-specific adapters.
+4. Energy: source, network, storage, rates, sided access, consumption, simulation, and persistence. An energy bar alone is insufficient.
+5. Menus, interaction, and block entities: slot roles, menu archetypes, transactions, state, synchronization, and explicit fallback behavior.
+6. Automation and interoperability: routing, filtering, pipes or conveyors, network membership, cross-addon communication, and typed synchronization.
+
+Each capability slice is complete only when it has:
+
+1. A typed normalized contract and validation rules.
+2. A compiled runtime-plan projection.
+3. A production call path or an explicit reportable unsupported result.
+4. Unit tests for normal, simulation, boundary, malformed, and failure cases.
+5. Integration coverage at the nearest Fabric/Geyser seam when applicable.
+6. Persistence and cache-invalidation coverage when state or corpus evidence changes.
+7. Report evidence distinguishing visual, interaction, behavior, and network support.
+8. Provenance, version constraints, and licensing/admissibility documentation.
+
+No phase is complete because an interface exists. No adapter may report success
+for an operation it cannot execute.
+
 ## Bedrock Addon Corpus Strategy
 
 The Bedrock addon corpus is part of the long-term compatibility substrate, but it is not a replacement for the universal index, metadata override layer, or compiled runtime plan.
@@ -272,6 +350,81 @@ config/hydraulic/
 - Start with deterministic extraction from manifests, pack structure, Script API usage, GameTest usage, custom components, UI files, recipes, and declared content.
 - Keep heuristic classification explicit, scored, and reversible.
 - Rank common reusable patterns such as storage, machines, transfer, fluids, energy, automation, UI, and networking before investing in mod-specific adapters.
+
+### Capability Research Matrix
+
+| Capability | Research targets |
+| --- | --- |
+| `BLOCK_ENTITY_DATA` | Block runtime and persistence references; large open-source addons |
+| `MACHINE_INVENTORY` | Block inventory APIs; industrial, machine, and item-transfer projects |
+| `ITEM_TRANSFER` | Item pipes, storage transfer, inventory manipulation, and Java transfer APIs |
+| `FLUID_RUNTIME` | Fluid systems, tanks, liquid machines, and bucket/block representations |
+| `FLUID_TRANSFER` | Fluid handlers, pipes, tanks, fill/drain, and identity semantics |
+| `ENERGY_TRANSFER` | Energy storage, power networks, generators, batteries, and transfer APIs |
+| `MENU_CONTAINER` | Inventory APIs, UI frameworks, storage, and furniture addons |
+| `AUTOMATION_ACCESS` | Machines, pipes, conveyors, routing, filtering, and interoperability frameworks |
+| Generated packs | Regolith, Bedrock Examples, Bedrock Boost, and addon registries |
+| Runtime components | Custom components, ADK-LIB, component registries, and Script API samples |
+| Persistent state | Dynamic properties, database projects, and persistent block or machine data |
+| Cross-addon communication | Bedrock-Core discovery, replicated state, typed RPC, UI, and network layers |
+
+### Expanded Research Catalogue
+
+The catalogue is a discovery backlog, not permission to copy or redistribute
+third-party code or assets. Sources must be evaluated for version, license,
+provenance, implementation pattern, and limitations before they influence
+Hydraulic.
+
+- **Official runtime and API:** Mojang Bedrock Samples, Microsoft Creator documentation, Microsoft custom-component samples, Script API documentation, TypeScript starters, and how-to or build-challenge samples. Use these for supported pack structure, scripting, components, events, persistence, and version constraints.
+- **Block runtime and inventory:** block and item component documentation, inventory components, component registries, Scripting V2, and Bedrock block samples. Extract concrete inventory access, slot manipulation, block interaction, and block-entity limits.
+- **Industrial and machine systems:** UtilityCraft, DoriosStudios projects, and public machine or processing-addon repositories. Extract machine identity, processing, upgrades, multiblocks, storage, automation, ports, and state synchronization.
+- **Energy systems:** energy, power, RF/FE, generator, battery, cable, and network projects. Verify source, network, storage, transfer, consumption, rate limiting, and persistence rather than merely an energy bar.
+- **Fluid systems:** fluid, tank, pipe, liquid-transfer, gas, and machine projects. Extract identity, capacity, fill/drain, sided access, container representation, machine interaction, and cross-fluid rejection.
+- **Item transfer and logistics:** item-transfer, pipe, transport, logistics, conveyor, hopper, filter, routing, and automation-network projects. Test insertion, extraction, filtering, routing, stack handling, and full-inventory behavior.
+- **Storage and persistence:** database, dynamic-property, world-storage, persistent block-data, and persistent machine-data projects. Extract durable keys, lifecycle, migration, bounded caching, synchronization, and corruption handling.
+- **Component and interoperability frameworks:** ADK LIB, Microsoft custom components, Bedrock-Core, BDS documentation, and community API projects. Use them for component registration, discovery, replicated state, typed RPC, UI, networking, and cross-addon boundaries.
+- **Build and generated-addon architecture:** Regolith, its filters and schemas, Bedrock Examples, Bedrock Boost, and addon registries. Study deterministic generation, schema validation, generated identifiers, packaging, and reproducible output.
+- **Large open-source addons:** Remon Furniture, Medieval Furniture Remastered, OriginsPE, ADK, UtilityCraft, DoriosLib, DoriosCore, and other inspectable libraries. Use them as architecture and regression cases, never as assumed dependencies.
+- **Java normalization references:** Forge Capabilities, Fabric Transfer API, Botarium, and equivalent inspectable abstractions for item, fluid, and energy semantics.
+
+### Corpus Extraction Template
+
+Every accepted source record must include:
+
+```text
+SOURCE
+LICENSE AND ADMISSIBILITY
+MINECRAFT VERSION
+SCRIPT API VERSION
+CAPABILITY
+IMPLEMENTATION PATTERN
+LIMITATIONS
+PERFORMANCE CHARACTERISTICS
+PERSISTENCE METHOD
+RUNTIME HOOKS
+TRANSFER SEMANTICS
+UI METHOD
+REUSABILITY
+PHLODGATE ADAPTER CANDIDATE
+EVIDENCE POINTERS
+CONFIDENCE
+```
+
+The engineering question for every record is whether Bedrock has a viable
+runtime seam for the Java capability and what strongest proven implementation
+pattern can be used. Search results and download pages alone are not evidence
+of support or reuse rights.
+
+### Prohibited Shortcuts
+
+- Do not copy or redistribute third-party code or assets without verified rights.
+- Do not treat free downloads, CurseForge pages, or search results as reuse permission.
+- Do not make raw corpus data a runtime dependency.
+- Do not make behavior-pack execution the foundation of Java-server behavior.
+- Do not advertise visual conversion as gameplay compatibility.
+- Do not add mod-specific adapters before generic normalized capability contracts are executable.
+- Do not hide missing critical behavior behind a weighted compatibility score.
+- Do not make unsupported, simulated, or diagnostic-only behavior indistinguishable in reports.
 
 ## Current State Summary
 
