@@ -215,6 +215,12 @@ public final class RuntimeDispatchTable {
     }
 
     @Nullable
+    public ItemTransferTransaction itemTransaction(@NotNull Identifier blockIdentifier, @NotNull Object runtimeInventory) {
+        TransferBridgeFactory.ItemTransferBridge bridge = this.itemTransfer(blockIdentifier, runtimeInventory);
+        return bridge == null ? null : new ItemTransferTransaction(bridge);
+    }
+
+    @Nullable
     public TransferBridgeFactory.FluidTransferBridge fluidTransfer(@NotNull Identifier blockIdentifier, @NotNull Object runtimeTank) {
         CompiledCompatibilityPlan plan = this.block(blockIdentifier);
         return plan == null ? null : TransferBridgeFactory.createFluidTransfer(plan, runtimeTank);

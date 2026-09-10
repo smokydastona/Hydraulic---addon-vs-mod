@@ -155,6 +155,41 @@ class TransferBridgeRuntimeTest {
     }
 
     @Test
+    void itemTransactionSimulatesAllOperationsBeforeMutation() {
+        Identifier machine = Identifier.fromNamespaceAndPath("hydraulic", "test_machine");
+        TestInventory inventory = new TestInventory();
+        CompiledCompatibilityPlan plan = runtimePlan(RuntimeBridgeKind.ITEM_TRANSFER, Map.of("can_insert", "true", "can_extract", "true", "inventory_type", "generic"));
+        TransferBridgeFactory.ItemTransferBridge transfer = TransferBridgeFactory.createItemTransfer(plan, inventory);
+        ItemTransferTransaction transaction = new ItemTransferTransaction(transfer)
+            .add(new TransferRequest(machine, TransferDirection.INSERT, new TransferBridgeFactory.ItemStackView("minecraft:iron_ingot", 1), 1, null))
+            .add(new TransferRequest(machine, TransferDirection.INSERT, new TransferBridgeFactory.ItemStackView("minecraft:diamond", 1), 1, null));
+
+        TransferResult result = transaction.execute();
+
+        assertFalse(result.committed());
+        assertEquals(0, result.moved());
+        assertTrue(transfer.itemAt(machine, 1).isEmpty());
+    }
+
+    @Test
+    void itemTransactionCommitsMultipleValidatedOperations() {
+        Identifier machine = Identifier.fromNamespaceAndPath("hydraulic", "test_machine");
+        TestInventory inventory = new TestInventory();
+        CompiledCompatibilityPlan plan = runtimePlan(RuntimeBridgeKind.ITEM_TRANSFER, Map.of("can_insert", "true", "can_extract", "true", "inventory_type", "generic"));
+        TransferBridgeFactory.ItemTransferBridge transfer = TransferBridgeFactory.createItemTransfer(plan, inventory);
+        ItemTransferTransaction transaction = new ItemTransferTransaction(transfer)
+            .add(new TransferRequest(machine, TransferDirection.INSERT, new TransferBridgeFactory.ItemStackView("minecraft:iron_ingot", 1), 1, null))
+            .add(new TransferRequest(machine, TransferDirection.EXTRACT, new TransferBridgeFactory.ItemStackView("minecraft:stone", 1), 0, null));
+
+        TransferResult result = transaction.execute();
+
+        assertTrue(result.committed());
+        assertEquals(2, result.moved());
+        assertEquals("minecraft:iron_ingot", transfer.itemAt(machine, 1).itemId());
+        assertTrue(transfer.itemAt(machine, 0).isEmpty());
+    }
+
+    @Test
     void automationBridgeDelegatesSidedOperationsAndCompiledFiltering() {
         Identifier machine = Identifier.fromNamespaceAndPath("hydraulic", "test_machine");
         CompiledCompatibilityPlan plan = runtimePlan(
