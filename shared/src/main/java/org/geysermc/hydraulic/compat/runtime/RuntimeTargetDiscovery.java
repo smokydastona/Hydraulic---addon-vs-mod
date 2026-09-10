@@ -1,6 +1,7 @@
 package org.geysermc.hydraulic.compat.runtime;
 
 import net.minecraft.resources.Identifier;
+import org.geysermc.geyser.session.GeyserSession;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -23,6 +24,14 @@ public final class RuntimeTargetDiscovery {
     RuntimeTargetDiscovery(@NotNull AutomationResolver automationResolver, @NotNull TargetSource targetSource) {
         this.automationResolver = automationResolver;
         this.targetSource = targetSource;
+    }
+
+    @NotNull
+    public static RuntimeTargetDiscovery forGeyserSession(
+        @NotNull RuntimeDispatchTable dispatchTable,
+        @NotNull GeyserSession session
+    ) {
+        return new RuntimeTargetDiscovery(dispatchTable, new GeyserSessionRuntimeTargetSource(session));
     }
 
     @NotNull
