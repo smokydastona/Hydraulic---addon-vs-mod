@@ -36,6 +36,15 @@ public final class MachineProcessingBridge {
         return this.progress;
     }
 
+    public boolean active() {
+        return this.activeRecipe != null;
+    }
+
+    public void reset() {
+        this.activeRecipe = null;
+        this.progress = 0;
+    }
+
     public int duration(@NotNull Identifier blockIdentifier) {
         MachineRecipe recipe = findRecipe(blockIdentifier);
         return recipe == null ? 0 : recipe.duration();
@@ -44,8 +53,7 @@ public final class MachineProcessingBridge {
     public boolean tick(@NotNull Identifier blockIdentifier) {
         MachineRecipe recipe = findRecipe(blockIdentifier);
         if (recipe == null) {
-            this.activeRecipe = null;
-            this.progress = 0;
+            reset();
             return false;
         }
 
@@ -56,8 +64,7 @@ public final class MachineProcessingBridge {
 
         TransferBridgeFactory.ItemStackView input = this.inventory.itemAt(blockIdentifier, this.inputSlot);
         if (input == null || !input.matches(recipe.input()) || input.count() < recipe.input().count()) {
-            this.activeRecipe = null;
-            this.progress = 0;
+            reset();
             return false;
         }
 
@@ -75,21 +82,18 @@ public final class MachineProcessingBridge {
 
         TransferBridgeFactory.OperationResult extracted = this.inventory.extractResult(blockIdentifier, recipe.input(), this.inputSlot, null, false);
         if (!extracted.successful() || extracted.moved() != recipe.input().count()) {
-            this.activeRecipe = null;
-            this.progress = 0;
+            reset();
             return false;
         }
 
         TransferBridgeFactory.OperationResult inserted = this.inventory.insertResult(blockIdentifier, recipe.output(), this.outputSlot, null, false);
         if (!inserted.successful() || inserted.moved() != recipe.output().count()) {
             this.inventory.insert(blockIdentifier, recipe.input(), this.inputSlot, null, false);
-            this.activeRecipe = null;
-            this.progress = 0;
+            reset();
             return false;
         }
 
-        this.activeRecipe = null;
-        this.progress = 0;
+        reset();
         return true;
     }
 

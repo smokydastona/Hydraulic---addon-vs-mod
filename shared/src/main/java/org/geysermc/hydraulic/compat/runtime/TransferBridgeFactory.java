@@ -708,13 +708,13 @@ public final class TransferBridgeFactory {
 
         @Override
         public int insertItem(@NotNull ItemStackView item, int slot, @Nullable String side, boolean simulate) {
-            Object result = invokeCompatible(target, new String[] {"insertItem", "insert", "addItem"}, slot, item, simulate);
+            Object result = invokeCompatible(target, new String[] {"insertItem", "insert", "addItem"}, slot, item, side, simulate);
             return asInt(result);
         }
 
         @Override
         public int extractItem(@NotNull ItemStackView item, int slot, @Nullable String side, boolean simulate) {
-            Object result = invokeCompatible(target, new String[] {"extractItem", "extract", "takeItem"}, slot, item, item.count(), simulate);
+            Object result = invokeCompatible(target, new String[] {"extractItem", "extract", "takeItem"}, slot, item, item.count(), side, simulate);
             return asInt(result);
         }
     }

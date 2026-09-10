@@ -129,6 +129,20 @@ class TransferBridgeRuntimeTest {
     }
 
     @Test
+    void itemBridgePreservesSidedAutomationOperations() {
+        Identifier machine = Identifier.fromNamespaceAndPath("hydraulic", "test_machine");
+        CompiledCompatibilityPlan plan = runtimePlan(RuntimeBridgeKind.ITEM_TRANSFER, Map.of("can_insert", "true", "can_extract", "true", "inventory_type", "sided"));
+        SidedInventory inventory = new SidedInventory();
+        TransferBridgeFactory.ItemTransferBridge bridge = TransferBridgeFactory.createItemTransfer(plan, inventory);
+
+        assertNotNull(bridge);
+        assertEquals(1, bridge.insert(machine, new TransferBridgeFactory.ItemStackView("minecraft:stone", 1), 0, "north", false));
+        assertEquals("north", inventory.lastSide);
+        assertEquals(1, bridge.extract(machine, new TransferBridgeFactory.ItemStackView("minecraft:stone", 1), 0, "south", false));
+        assertEquals("south", inventory.lastSide);
+    }
+
+    @Test
     void machineProcessingConsumesInputAndProducesOutputAfterDuration() {
         Identifier machine = Identifier.fromNamespaceAndPath("hydraulic", "test_machine");
         TestInventory inventory = new TestInventory();
@@ -150,12 +164,15 @@ class TransferBridgeRuntimeTest {
         );
 
         assertNotNull(processing);
+        assertFalse(processing.active());
         assertEquals(2, processing.duration(machine));
         assertTrue(processing.tick(machine));
+        assertTrue(processing.active());
         assertEquals(1, processing.progress());
         assertTrue(processing.tick(machine));
         assertEquals(2, processing.progress());
         assertTrue(processing.tick(machine));
+        assertFalse(processing.active());
         assertEquals(0, processing.progress());
         assertTrue(transfer.itemAt(machine, 0).isEmpty());
         assertEquals("minecraft:iron_ingot", transfer.itemAt(machine, 1).itemId());
@@ -293,8 +310,13 @@ class TransferBridgeRuntimeTest {
         );
 
         assertNotNull(processing);
+        assertFalse(processing.active());
         assertTrue(processing.tick(machine));
+        assertTrue(processing.active());
         assertEquals(1, processing.progress());
+        processing.reset();
+        assertFalse(processing.active());
+        assertEquals(0, processing.progress());
         transfer.extract(machine, new TransferBridgeFactory.ItemStackView("minecraft:stone", 1), 0, null, false);
         transfer.insert(machine, new TransferBridgeFactory.ItemStackView("minecraft:iron_ingot", 1), 0, null, false);
 
@@ -477,6 +499,24 @@ class TransferBridgeRuntimeTest {
                 slots[slot] = new TransferBridgeFactory.ItemStackView("minecraft:air", 0);
             }
             return extracted;
+        }
+    }
+
+    private static final class SidedInventory {
+        private String lastSide;
+
+        public int getContainerSize() {
+            return 1;
+        }
+
+        public int insertItem(int slot, TransferBridgeFactory.ItemStackView item, String side, boolean simulate) {
+            this.lastSide = side;
+            return "north".equals(side) ? item.count() : 0;
+        }
+
+        public int extractItem(int slot, TransferBridgeFactory.ItemStackView item, int maxCount, String side, boolean simulate) {
+            this.lastSide = side;
+            return "south".equals(side) ? maxCount : 0;
         }
     }
 
