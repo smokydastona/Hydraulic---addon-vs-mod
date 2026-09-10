@@ -1,6 +1,7 @@
 package org.geysermc.hydraulic.compat.model;
 
 import org.geysermc.hydraulic.compat.CompatibilityStatus;
+import org.geysermc.hydraulic.compat.ir.CompiledCompatibilityPlan;
 import org.geysermc.hydraulic.compat.runtime.RuntimeBridgeKind;
 import org.jetbrains.annotations.NotNull;
 
@@ -58,6 +59,69 @@ public record CompatibilityContract(
         );
     }
 
+    @NotNull
+    public static CompatibilityContract from(@NotNull CompiledCompatibilityPlan plan) {
+        Map<Domain, DomainContract> domains = new LinkedHashMap<>();
+        domains.put(Domain.CONTENT, domain(
+            plan.allowsCustomRegistration() ? SupportLevel.AUTOMATIC : SupportLevel.VISUAL_ONLY,
+            plan.allowsCustomRegistration() ? CompatibilityStatus.COMPLETE : CompatibilityStatus.PARTIAL,
+            plan.allowsCustomRegistration() ? List.of("registration") : List.of("registration"),
+            plan.allowsCustomRegistration() ? List.of() : List.of("custom_registration"),
+            "Compiled registration decision is authoritative for runtime consumers."
+        ));
+        if (plan.supportsBlockItemTextureFallback() || plan.supportsWearablePresentation() || plan.supportsAttachablePresentation()) {
+            domains.put(Domain.PRESENTATION, domain(
+                SupportLevel.AUTOMATIC,
+                CompatibilityStatus.COMPLETE,
+                List.of("generated_presentation"),
+                List.of(),
+                "Presentation is backed by compiled runtime flags."
+            ));
+        }
+        if (plan.supportsBlockPlacement() || plan.requiresMenuBridge()) {
+            domains.put(Domain.INTERACTION, domain(
+                plan.requiresMenuBridge() ? SupportLevel.ADAPTED : SupportLevel.AUTOMATIC,
+                plan.requiresMenuBridge() ? CompatibilityStatus.PARTIAL : CompatibilityStatus.COMPLETE,
+                List.of(plan.supportsBlockPlacement() ? "placement" : "menu_fallback"),
+                plan.requiresMenuBridge() ? List.of("menu_behavior") : List.of(),
+                "Interaction is limited to the compiled bridge capabilities."
+            ));
+        }
+        if (plan.behaviorLevel() != null) {
+            domains.put(Domain.BEHAVIOR, domain(
+                plan.behaviorLevel(),
+                plan.behaviorLevel() == SupportLevel.UNSUPPORTED ? CompatibilityStatus.NONE : CompatibilityStatus.PARTIAL,
+                List.of(),
+                plan.behaviorLevel() == SupportLevel.UNSUPPORTED ? List.of("behavior_runtime") : List.of(),
+                "Behavior status is taken from the compiled plan."
+            ));
+        }
+        boolean executable = plan.overallLevel() != SupportLevel.UNSUPPORTED
+            && plan.overallLevel() != SupportLevel.VISUAL_ONLY
+            && !"true".equals(plan.inventoryFacts().get("critical_failure"));
+        return new CompatibilityContract(
+            plan.contentType(),
+            plan.javaIdentifier(),
+            plan.overallLevel(),
+            plan.overallStatus(),
+            plan.overallScore(),
+            domains,
+            plan.runtimeBridgeKinds(),
+            executable
+        );
+    }
+
+    @NotNull
+    private static DomainContract domain(
+        @NotNull SupportLevel level,
+        @NotNull CompatibilityStatus status,
+        @NotNull List<String> supported,
+        @NotNull List<String> missing,
+        @NotNull String note
+    ) {
+        return new DomainContract(level, status, DomainContract.action(level), supported, missing, List.of(note));
+    }
+
     public enum Domain {
         CONTENT,
         PRESENTATION,
@@ -104,6 +168,11 @@ public record CompatibilityContract(
                 result.notes()
             );
         }
+
+        @NotNull
+        private static Action action(@NotNull SupportLevel level) {
+            return Action.from(level);
+        }
     }
 
     public enum Action {
@@ -115,7 +184,12 @@ public record CompatibilityContract(
 
         @NotNull
         private static Action from(@NotNull SupportResult result) {
-            return switch (result.level()) {
+            return from(result.level());
+        }
+
+        @NotNull
+        private static Action from(@NotNull SupportLevel level) {
+            return switch (level) {
                 case NATIVE, AUTOMATIC -> NATIVE;
                 case ADAPTED -> ADAPT;
                 case APPROXIMATED -> APPROXIMATE;

@@ -8,6 +8,7 @@ import org.geysermc.hydraulic.compat.model.Confidence;
 import org.geysermc.hydraulic.compat.model.SupportLevel;
 import org.geysermc.hydraulic.compat.runtime.BlockEntityPatchTemplate;
 import org.geysermc.hydraulic.compat.runtime.RuntimeBridgeKind;
+import org.geysermc.hydraulic.compat.model.CompatibilityContract;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -77,6 +78,11 @@ public record CompiledCompatibilityPlan(
 
     public boolean hasRuntimeBridges() {
         return !this.runtimeBridgeKinds.isEmpty();
+    }
+
+    @NotNull
+    public CompatibilityContract contract() {
+        return CompatibilityContract.from(this);
     }
 
     public @NotNull List<String> runtimeBridgeRequirementIds() {
