@@ -164,6 +164,26 @@ class TransferBridgeRuntimeTest {
         assertEquals(250, energyBridge.receiveEnergy(Identifier.fromNamespaceAndPath("hydraulic", "test_machine"), 250, "input", false));
     }
 
+    @Test
+    void fluidContainerBridgeTransfersNormalizedStateToTank() {
+        Identifier machine = Identifier.fromNamespaceAndPath("hydraulic", "test_machine");
+        TestTank tank = new TestTank();
+        CompiledCompatibilityPlan plan = runtimePlan(
+            RuntimeBridgeKind.FLUID_TRANSFER,
+            Map.of("can_insert_fluid", "true", "can_extract_fluid", "true", "tank_type", "generic")
+        );
+        TransferBridgeFactory.FluidTransferBridge transfer = TransferBridgeFactory.createFluidTransfer(plan, tank);
+        FluidContainerBridge bridge = new FluidContainerBridge(transfer, 0, 1000);
+        FluidContainerBridge.ContainerState container = new FluidContainerBridge.ContainerState(1000);
+
+        container.fill("minecraft:water", 250);
+
+        assertEquals(250, bridge.transferToTank(machine, container, "input", false));
+        assertTrue(container.isEmpty());
+        assertEquals(250, bridge.transferFromTank(machine, container, "minecraft:water", "output", false));
+        assertEquals(250, container.amount());
+    }
+
     private static CompiledCompatibilityPlan runtimePlan(RuntimeBridgeKind kind, Map<String, String> inventoryFacts) {
         return runtimePlan(List.of(kind), inventoryFacts);
     }

@@ -227,6 +227,20 @@ public final class RuntimeDispatchTable {
     }
 
     @Nullable
+    public FluidContainerBridge fluidContainer(
+        @NotNull Identifier blockIdentifier,
+        @NotNull Object runtimeTank,
+        int tankIndex,
+        int containerCapacity
+    ) {
+        CompiledCompatibilityPlan plan = this.block(blockIdentifier);
+        TransferBridgeFactory.FluidTransferBridge transfer = plan == null
+            ? null
+            : TransferBridgeFactory.createFluidTransfer(plan, runtimeTank);
+        return transfer == null ? null : new FluidContainerBridge(transfer, tankIndex, containerCapacity);
+    }
+
+    @Nullable
     public MachineBridgeFactory.MachineBehaviorBridge machineBehavior(@NotNull Identifier blockIdentifier) {
         CompiledCompatibilityPlan plan = this.block(blockIdentifier);
         return plan == null ? null : MachineBridgeFactory.createMachineBehavior(plan);
