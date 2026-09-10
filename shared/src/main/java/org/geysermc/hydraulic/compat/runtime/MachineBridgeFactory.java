@@ -6,6 +6,8 @@ import org.geysermc.hydraulic.compat.ir.CompiledCompatibilityPlan;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import java.util.List;
+
 /**
  * Factory for creating machine behavior and inventory bridges based on compiled compatibility plans.
  * This factory consumes typed RuntimeBridgeKind categories instead of freeform requirement strings.
@@ -62,6 +64,25 @@ public final class MachineBridgeFactory {
             return null;
         }
         return new MetadataBackedMachineInventoryBridge(plan);
+    }
+
+    @Nullable
+    public static MachineProcessingBridge createProcessing(
+        @Nullable CompiledCompatibilityPlan plan,
+        @Nullable TransferBridgeFactory.ItemTransferBridge inventory,
+        int inputSlot,
+        int outputSlot,
+        @NotNull List<MachineProcessingBridge.MachineRecipe> recipes
+    ) {
+        if (!BridgeAdapterSupport.supportsMachineBehavior(plan)
+            || !BridgeAdapterSupport.supportsMachineInventory(plan)
+            || inventory == null
+            || inputSlot < 0
+            || outputSlot < 0
+            || recipes.isEmpty()) {
+            return null;
+        }
+        return new MachineProcessingBridge(plan, inventory, inputSlot, outputSlot, recipes);
     }
 
     /**

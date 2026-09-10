@@ -52,6 +52,7 @@ class TransferBridgeRuntimeTest {
         assertNull(dispatchTable.energyTransfer(block, new Object()));
         assertNull(dispatchTable.machineBehavior(block));
         assertNull(dispatchTable.machineInventory(block));
+        assertNull(dispatchTable.machineProcessing(block, null, 0, 1, List.of()));
     }
 
     @Test
@@ -87,6 +88,60 @@ class TransferBridgeRuntimeTest {
     }
 
     @Test
+    void machineProcessingConsumesInputAndProducesOutputAfterDuration() {
+        Identifier machine = Identifier.fromNamespaceAndPath("hydraulic", "test_machine");
+        TestInventory inventory = new TestInventory();
+        CompiledCompatibilityPlan plan = runtimePlan(
+            List.of(RuntimeBridgeKind.ITEM_TRANSFER, RuntimeBridgeKind.MACHINE_BEHAVIOR, RuntimeBridgeKind.MACHINE_INVENTORY),
+            Map.of("can_insert", "true", "can_extract", "true", "inventory_type", "generic", "has_processing", "true", "has_inventory", "true")
+        );
+        TransferBridgeFactory.ItemTransferBridge transfer = TransferBridgeFactory.createItemTransfer(plan, inventory);
+        MachineProcessingBridge processing = MachineBridgeFactory.createProcessing(
+            plan,
+            transfer,
+            0,
+            1,
+            List.of(new MachineProcessingBridge.MachineRecipe(
+                new TransferBridgeFactory.ItemStackView("minecraft:stone", 1),
+                new TransferBridgeFactory.ItemStackView("minecraft:iron_ingot", 1),
+                2
+            ))
+        );
+
+        assertNotNull(processing);
+        assertEquals(2, processing.duration(machine));
+        assertTrue(processing.tick(machine));
+        assertEquals(1, processing.progress());
+        assertTrue(processing.tick(machine));
+        assertEquals(2, processing.progress());
+        assertTrue(processing.tick(machine));
+        assertEquals(0, processing.progress());
+        assertTrue(transfer.itemAt(machine, 0).isEmpty());
+        assertEquals("minecraft:iron_ingot", transfer.itemAt(machine, 1).itemId());
+    }
+
+    @Test
+    void machineProcessingRequiresInventoryAndProcessingCapabilities() {
+        CompiledCompatibilityPlan plan = runtimePlan(
+            List.of(RuntimeBridgeKind.ITEM_TRANSFER),
+            Map.of("can_insert", "true", "can_extract", "true")
+        );
+        TransferBridgeFactory.ItemTransferBridge transfer = TransferBridgeFactory.createItemTransfer(plan, new TestInventory());
+
+        assertNull(MachineBridgeFactory.createProcessing(
+            plan,
+            transfer,
+            0,
+            1,
+            List.of(new MachineProcessingBridge.MachineRecipe(
+                new TransferBridgeFactory.ItemStackView("minecraft:stone", 1),
+                new TransferBridgeFactory.ItemStackView("minecraft:iron_ingot", 1),
+                1
+            ))
+        ));
+    }
+
+    @Test
     void fluidAndEnergyBridgesExposeRealRuntimeCapabilities() {
         TestTank tank = new TestTank();
         TestEnergyStorage storage = new TestEnergyStorage();
@@ -110,6 +165,11 @@ class TransferBridgeRuntimeTest {
     }
 
     private static CompiledCompatibilityPlan runtimePlan(RuntimeBridgeKind kind, Map<String, String> inventoryFacts) {
+        return runtimePlan(List.of(kind), inventoryFacts);
+    }
+
+    private static CompiledCompatibilityPlan runtimePlan(List<RuntimeBridgeKind> kinds, Map<String, String> inventoryFacts) {
+        List<String> requirements = kinds.stream().map(RuntimeBridgeKind::requirementId).toList();
         return new CompiledCompatibilityPlan(
             "testmod",
             "block",
@@ -120,8 +180,8 @@ class TransferBridgeRuntimeTest {
             80,
             new Confidence(0.8D, "test"),
             List.of(new AdapterBinding("test.runtime_bridge", AdapterFeature.MENU_FALLBACK_TRANSLATION, "test")),
-            List.of(kind.requirementId()),
-            List.of(kind),
+            requirements,
+            kinds,
             inventoryFacts,
             false,
             null,

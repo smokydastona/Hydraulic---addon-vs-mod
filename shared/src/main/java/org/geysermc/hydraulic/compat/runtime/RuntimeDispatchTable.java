@@ -239,6 +239,18 @@ public final class RuntimeDispatchTable {
     }
 
     @Nullable
+    public MachineProcessingBridge machineProcessing(
+        @NotNull Identifier blockIdentifier,
+        @Nullable TransferBridgeFactory.ItemTransferBridge inventory,
+        int inputSlot,
+        int outputSlot,
+        @NotNull List<MachineProcessingBridge.MachineRecipe> recipes
+    ) {
+        CompiledCompatibilityPlan plan = this.block(blockIdentifier);
+        return MachineBridgeFactory.createProcessing(plan, inventory, inputSlot, outputSlot, recipes);
+    }
+
+    @Nullable
     public CompiledCompatibilityPlan plan(@NotNull String contentType, @NotNull String javaIdentifier) {
         CompiledCompatibilityPlan plan = this.plansByTypeAndIdentifier.get(key(contentType, javaIdentifier));
         this.recordLookup(contentType, plan != null);
