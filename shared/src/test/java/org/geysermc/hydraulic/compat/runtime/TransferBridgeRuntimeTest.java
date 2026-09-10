@@ -85,6 +85,7 @@ class TransferBridgeRuntimeTest {
         assertNull(dispatchTable.machineInventory(block));
         assertNull(dispatchTable.inventoryAccess(block, new Object()));
         assertNull(dispatchTable.automationAccess(block, new Object()));
+        assertNull(dispatchTable.resourceAutomationAccess(block, new Object(), new Object(), new Object()));
         assertNull(dispatchTable.machineProcessing(block, null, 0, 1, List.of()));
     }
 

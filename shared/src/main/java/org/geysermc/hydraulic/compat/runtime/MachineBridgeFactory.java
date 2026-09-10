@@ -95,6 +95,25 @@ public final class MachineBridgeFactory {
     }
 
     @Nullable
+    public static ResourceAutomationAccess createResourceAutomation(
+        @Nullable CompiledCompatibilityPlan plan,
+        @Nullable TransferBridgeFactory.ItemTransferBridge items,
+        @Nullable TransferBridgeFactory.FluidTransferBridge fluids,
+        @Nullable TransferBridgeFactory.EnergyTransferBridge energy
+    ) {
+        if (!BridgeAdapterSupport.supportsAutomation(plan)
+            || items == null && fluids == null && energy == null) {
+            return null;
+        }
+        if (items != null && !items.executable()
+            || fluids != null && !fluids.executable()
+            || energy != null && !energy.executable()) {
+            return null;
+        }
+        return new RuntimeResourceAutomationAccess(plan, items, fluids, energy);
+    }
+
+    @Nullable
     public static MachineProcessingBridge createProcessing(
         @Nullable CompiledCompatibilityPlan plan,
         @Nullable TransferBridgeFactory.ItemTransferBridge inventory,
@@ -285,6 +304,61 @@ public final class MachineBridgeFactory {
         @Nullable String filterType(@NotNull Identifier blockIdentifier);
         int insert(@NotNull Identifier blockIdentifier, @NotNull TransferBridgeFactory.ItemStackView item, int slot, @NotNull String side, boolean simulate);
         int extract(@NotNull Identifier blockIdentifier, @NotNull TransferBridgeFactory.ItemStackView item, int slot, @NotNull String side, boolean simulate);
+
+        @NotNull
+        default TransferResult transfer(@NotNull TransferRequest request) {
+            return TransferResult.rejected("automation transfer is not executable");
+        }
+
+        @NotNull
+        default TransferResult transfer(@NotNull TransferRequest request, @NotNull DirtyStateTracker dirtyStateTracker) {
+            TransferResult result = transfer(request);
+            if (result.committed()) {
+                dirtyStateTracker.record(result.stateChanges());
+            }
+            return result;
+        }
+    }
+
+    public interface ResourceAutomationAccess {
+        boolean supportsSidedItemInsertion(@NotNull Identifier blockIdentifier);
+        boolean supportsSidedItemExtraction(@NotNull Identifier blockIdentifier);
+        boolean supportsSidedFluidInsertion(@NotNull Identifier blockIdentifier);
+        boolean supportsSidedFluidExtraction(@NotNull Identifier blockIdentifier);
+        boolean supportsSidedEnergyReceive(@NotNull Identifier blockIdentifier);
+        boolean supportsSidedEnergyExtraction(@NotNull Identifier blockIdentifier);
+        @Nullable String filterType(@NotNull Identifier blockIdentifier);
+
+        @NotNull TransferResult transferItem(@NotNull TransferRequest request);
+        @NotNull TransferResult transferFluid(@NotNull FluidTransferRequest request);
+        @NotNull TransferResult transferEnergy(@NotNull EnergyTransferRequest request);
+
+        @NotNull
+        default TransferResult transferItem(@NotNull TransferRequest request, @NotNull DirtyStateTracker dirtyStateTracker) {
+            TransferResult result = transferItem(request);
+            if (result.committed()) {
+                dirtyStateTracker.record(result.stateChanges());
+            }
+            return result;
+        }
+
+        @NotNull
+        default TransferResult transferFluid(@NotNull FluidTransferRequest request, @NotNull DirtyStateTracker dirtyStateTracker) {
+            TransferResult result = transferFluid(request);
+            if (result.committed()) {
+                dirtyStateTracker.record(result.stateChanges());
+            }
+            return result;
+        }
+
+        @NotNull
+        default TransferResult transferEnergy(@NotNull EnergyTransferRequest request, @NotNull DirtyStateTracker dirtyStateTracker) {
+            TransferResult result = transferEnergy(request);
+            if (result.committed()) {
+                dirtyStateTracker.record(result.stateChanges());
+            }
+            return result;
+        }
     }
 
     private static final class RuntimeAutomationAccess implements AutomationAccess {
@@ -320,6 +394,94 @@ public final class MachineBridgeFactory {
         @Override
         public int extract(@NotNull Identifier blockIdentifier, @NotNull TransferBridgeFactory.ItemStackView item, int slot, @NotNull String side, boolean simulate) {
             return this.inventory.extract(blockIdentifier, item, slot, side, simulate);
+        }
+
+        @Override
+        @NotNull
+        public TransferResult transfer(@NotNull TransferRequest request) {
+            return new ItemTransferTransaction(this.inventory).add(request).execute();
+        }
+    }
+
+    private static final class RuntimeResourceAutomationAccess implements ResourceAutomationAccess {
+        private final CompiledCompatibilityPlan plan;
+        private final TransferBridgeFactory.ItemTransferBridge items;
+        private final TransferBridgeFactory.FluidTransferBridge fluids;
+        private final TransferBridgeFactory.EnergyTransferBridge energy;
+
+        private RuntimeResourceAutomationAccess(
+            @NotNull CompiledCompatibilityPlan plan,
+            @Nullable TransferBridgeFactory.ItemTransferBridge items,
+            @Nullable TransferBridgeFactory.FluidTransferBridge fluids,
+            @Nullable TransferBridgeFactory.EnergyTransferBridge energy
+        ) {
+            this.plan = plan;
+            this.items = items;
+            this.fluids = fluids;
+            this.energy = energy;
+        }
+
+        @Override
+        public boolean supportsSidedItemInsertion(@NotNull Identifier blockIdentifier) {
+            return Boolean.parseBoolean(this.plan.inventoryFacts().getOrDefault("sided_insert", "false")) && this.items != null;
+        }
+
+        @Override
+        public boolean supportsSidedItemExtraction(@NotNull Identifier blockIdentifier) {
+            return Boolean.parseBoolean(this.plan.inventoryFacts().getOrDefault("sided_extract", "false")) && this.items != null;
+        }
+
+        @Override
+        public boolean supportsSidedFluidInsertion(@NotNull Identifier blockIdentifier) {
+            return Boolean.parseBoolean(this.plan.inventoryFacts().getOrDefault("sided_insert_fluid", "false")) && this.fluids != null;
+        }
+
+        @Override
+        public boolean supportsSidedFluidExtraction(@NotNull Identifier blockIdentifier) {
+            return Boolean.parseBoolean(this.plan.inventoryFacts().getOrDefault("sided_extract_fluid", "false")) && this.fluids != null;
+        }
+
+        @Override
+        public boolean supportsSidedEnergyReceive(@NotNull Identifier blockIdentifier) {
+            return Boolean.parseBoolean(this.plan.inventoryFacts().getOrDefault("sided_receive_energy", "false")) && this.energy != null;
+        }
+
+        @Override
+        public boolean supportsSidedEnergyExtraction(@NotNull Identifier blockIdentifier) {
+            return Boolean.parseBoolean(this.plan.inventoryFacts().getOrDefault("sided_extract_energy", "false")) && this.energy != null;
+        }
+
+        @Override
+        @Nullable
+        public String filterType(@NotNull Identifier blockIdentifier) {
+            return this.plan.inventoryFacts().get("filtering");
+        }
+
+        @Override
+        @NotNull
+        public TransferResult transferItem(@NotNull TransferRequest request) {
+            if (this.items == null) {
+                return TransferResult.rejected("automation item transfer bridge is unavailable");
+            }
+            return new MultiResourceTransaction().addItem(this.items, request).execute();
+        }
+
+        @Override
+        @NotNull
+        public TransferResult transferFluid(@NotNull FluidTransferRequest request) {
+            if (this.fluids == null) {
+                return TransferResult.rejected("automation fluid transfer bridge is unavailable");
+            }
+            return new MultiResourceTransaction().addFluid(this.fluids, request).execute();
+        }
+
+        @Override
+        @NotNull
+        public TransferResult transferEnergy(@NotNull EnergyTransferRequest request) {
+            if (this.energy == null) {
+                return TransferResult.rejected("automation energy transfer bridge is unavailable");
+            }
+            return new MultiResourceTransaction().addEnergy(this.energy, request).execute();
         }
     }
 

@@ -289,6 +289,26 @@ public final class RuntimeDispatchTable {
     }
 
     @Nullable
+    public MachineBridgeFactory.ResourceAutomationAccess resourceAutomationAccess(
+        @NotNull Identifier blockIdentifier,
+        @Nullable Object runtimeInventory,
+        @Nullable Object runtimeTank,
+        @Nullable Object runtimeStorage
+    ) {
+        CompiledCompatibilityPlan plan = this.block(blockIdentifier);
+        TransferBridgeFactory.ItemTransferBridge itemTransfer = plan == null || runtimeInventory == null
+            ? null
+            : TransferBridgeFactory.createItemTransfer(plan, runtimeInventory);
+        TransferBridgeFactory.FluidTransferBridge fluidTransfer = plan == null || runtimeTank == null
+            ? null
+            : TransferBridgeFactory.createFluidTransfer(plan, runtimeTank);
+        TransferBridgeFactory.EnergyTransferBridge energyTransfer = plan == null || runtimeStorage == null
+            ? null
+            : TransferBridgeFactory.createEnergyTransfer(plan, runtimeStorage);
+        return MachineBridgeFactory.createResourceAutomation(plan, itemTransfer, fluidTransfer, energyTransfer);
+    }
+
+    @Nullable
     public MachineProcessingBridge machineProcessing(
         @NotNull Identifier blockIdentifier,
         @Nullable TransferBridgeFactory.ItemTransferBridge inventory,
