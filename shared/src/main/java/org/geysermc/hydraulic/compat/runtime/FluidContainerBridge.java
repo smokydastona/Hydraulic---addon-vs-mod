@@ -35,6 +35,10 @@ public final class FluidContainerBridge {
         if (container.isEmpty()) {
             return 0;
         }
+        TransferBridgeFactory.FluidStackView existing = this.tank.tankAt(blockIdentifier, this.tankIndex);
+        if (existing != null && !isEmpty(existing) && !container.fluidId().equals(existing.fluidId())) {
+            return 0;
+        }
         TransferBridgeFactory.OperationResult result = this.tank.insertFluidResult(
             blockIdentifier,
             new TransferBridgeFactory.FluidStackView(container.fluidId(), Math.min(container.amount(), this.containerCapacity)),
@@ -59,6 +63,10 @@ public final class FluidContainerBridge {
         if (!container.canAccept(fluidId)) {
             return 0;
         }
+        TransferBridgeFactory.FluidStackView existing = this.tank.tankAt(blockIdentifier, this.tankIndex);
+        if (existing == null || isEmpty(existing) || !fluidId.equals(existing.fluidId())) {
+            return 0;
+        }
         int requested = Math.min(container.remainingCapacity(), this.containerCapacity);
         if (requested <= 0) {
             return 0;
@@ -75,6 +83,10 @@ public final class FluidContainerBridge {
             container.add(fluidId, moved);
         }
         return moved;
+    }
+
+    private static boolean isEmpty(@NotNull TransferBridgeFactory.FluidStackView fluid) {
+        return fluid.amount() <= 0 || "minecraft:empty".equals(fluid.fluidId());
     }
 
     public static final class ContainerState {

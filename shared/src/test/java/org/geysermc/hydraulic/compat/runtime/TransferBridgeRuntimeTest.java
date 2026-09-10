@@ -472,6 +472,23 @@ class TransferBridgeRuntimeTest {
         assertEquals("minecraft:water", container.fluidId());
     }
 
+    @Test
+    void fluidContainerBridgeRejectsMismatchedTankFluid() {
+        Identifier machine = Identifier.fromNamespaceAndPath("hydraulic", "test_machine");
+        TestTank tank = new TestTank();
+        CompiledCompatibilityPlan plan = runtimePlan(
+            RuntimeBridgeKind.FLUID_TRANSFER,
+            Map.of("can_insert_fluid", "true", "can_extract_fluid", "true", "tank_type", "generic")
+        );
+        TransferBridgeFactory.FluidTransferBridge transfer = TransferBridgeFactory.createFluidTransfer(plan, tank);
+        FluidContainerBridge bridge = new FluidContainerBridge(transfer, 0, 1000);
+        FluidContainerBridge.ContainerState lava = new FluidContainerBridge.ContainerState(1000);
+        lava.fill("minecraft:lava", 250);
+
+        assertEquals(0, bridge.transferToTank(machine, lava, null, false));
+        assertEquals(0, bridge.transferFromTank(machine, new FluidContainerBridge.ContainerState(1000), "minecraft:lava", null, false));
+    }
+
     private static CompiledCompatibilityPlan runtimePlan(RuntimeBridgeKind kind, Map<String, String> inventoryFacts) {
         return runtimePlan(List.of(kind), inventoryFacts);
     }
@@ -579,6 +596,7 @@ class TransferBridgeRuntimeTest {
 
     private static final class TestTank {
         private int amount;
+        private String fluidId;
 
         public int getTanks() {
             return 1;
@@ -588,6 +606,10 @@ class TransferBridgeRuntimeTest {
             return 1000;
         }
 
+        public TransferBridgeFactory.FluidStackView getFluidInTank(int tank) {
+            return new TransferBridgeFactory.FluidStackView(fluidId == null ? "minecraft:empty" : fluidId, amount);
+        }
+
         public int fill(int tank, TransferBridgeFactory.FluidStackView fluid, boolean simulate) {
             if (!fluid.fluidId().equals("minecraft:water")) {
                 return 0;
@@ -595,15 +617,22 @@ class TransferBridgeRuntimeTest {
             int space = 1000 - amount;
             int inserted = Math.min(fluid.amount(), space);
             if (!simulate) {
+                fluidId = fluid.fluidId();
                 amount += inserted;
             }
             return inserted;
         }
 
         public int drain(int tank, int amount, boolean simulate) {
+            if (fluidId == null || !fluidId.equals("minecraft:water")) {
+                return 0;
+            }
             int extracted = Math.min(amount, this.amount);
             if (!simulate) {
                 this.amount -= extracted;
+                if (this.amount == 0) {
+                    this.fluidId = null;
+                }
             }
             return extracted;
         }
