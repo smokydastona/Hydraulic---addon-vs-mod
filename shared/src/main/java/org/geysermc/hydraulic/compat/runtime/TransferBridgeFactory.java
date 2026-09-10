@@ -34,10 +34,7 @@ public final class TransferBridgeFactory {
     @Nullable
     public static ItemTransferBridge createItemTransfer(@NotNull Identifier blockIdentifier, @NotNull CompatibilityRegistry compatibilityRegistry) {
         CompiledCompatibilityPlan plan = compatibilityRegistry.dispatchTable().block(blockIdentifier);
-        if (!BridgeAdapterSupport.supportsItemTransfer(plan)) {
-            return null;
-        }
-        return new MetadataBackedItemTransferBridge(plan);
+        return BridgeAdapterSupport.supportsItemTransfer(plan) ? new MetadataBackedItemTransferBridge(plan) : null;
     }
 
     @Nullable
@@ -64,10 +61,7 @@ public final class TransferBridgeFactory {
     @Nullable
     public static FluidTransferBridge createFluidTransfer(@NotNull Identifier blockIdentifier, @NotNull CompatibilityRegistry compatibilityRegistry) {
         CompiledCompatibilityPlan plan = compatibilityRegistry.dispatchTable().block(blockIdentifier);
-        if (!BridgeAdapterSupport.supportsFluidTransfer(plan)) {
-            return null;
-        }
-        return new MetadataBackedFluidTransferBridge(plan);
+        return BridgeAdapterSupport.supportsFluidTransfer(plan) ? new MetadataBackedFluidTransferBridge(plan) : null;
     }
 
     @Nullable
@@ -94,10 +88,7 @@ public final class TransferBridgeFactory {
     @Nullable
     public static EnergyTransferBridge createEnergyTransfer(@NotNull Identifier blockIdentifier, @NotNull CompatibilityRegistry compatibilityRegistry) {
         CompiledCompatibilityPlan plan = compatibilityRegistry.dispatchTable().block(blockIdentifier);
-        if (!BridgeAdapterSupport.supportsEnergyTransfer(plan)) {
-            return null;
-        }
-        return new MetadataBackedEnergyTransferBridge(plan);
+        return BridgeAdapterSupport.supportsEnergyTransfer(plan) ? new MetadataBackedEnergyTransferBridge(plan) : null;
     }
 
     @Nullable
@@ -122,6 +113,10 @@ public final class TransferBridgeFactory {
     }
 
     public interface ItemTransferBridge {
+        default boolean executable() {
+            return false;
+        }
+
         boolean canInsert(@NotNull Identifier blockIdentifier);
         boolean canExtract(@NotNull Identifier blockIdentifier);
         @Nullable String inventoryType(@NotNull Identifier blockIdentifier);
@@ -144,6 +139,10 @@ public final class TransferBridgeFactory {
     }
 
     public interface FluidTransferBridge {
+        default boolean executable() {
+            return false;
+        }
+
         boolean canInsertFluid(@NotNull Identifier blockIdentifier);
         boolean canExtractFluid(@NotNull Identifier blockIdentifier);
         @Nullable String tankType(@NotNull Identifier blockIdentifier);
@@ -170,6 +169,10 @@ public final class TransferBridgeFactory {
     }
 
     public interface EnergyTransferBridge {
+        default boolean executable() {
+            return false;
+        }
+
         boolean canReceiveEnergy(@NotNull Identifier blockIdentifier);
         boolean canProvideEnergy(@NotNull Identifier blockIdentifier);
         @Nullable String energyType(@NotNull Identifier blockIdentifier);
@@ -188,6 +191,78 @@ public final class TransferBridgeFactory {
 
         default int extractEnergy(@NotNull Identifier blockIdentifier, int amount, @Nullable String side, boolean simulate) {
             return 0;
+        }
+    }
+
+    private static final class MetadataBackedItemTransferBridge implements ItemTransferBridge {
+        private final CompiledCompatibilityPlan plan;
+
+        private MetadataBackedItemTransferBridge(@NotNull CompiledCompatibilityPlan plan) {
+            this.plan = plan;
+        }
+
+        @Override
+        public boolean canInsert(@NotNull Identifier blockIdentifier) {
+            return Boolean.parseBoolean(plan.inventoryFacts().getOrDefault("can_insert", "false"));
+        }
+
+        @Override
+        public boolean canExtract(@NotNull Identifier blockIdentifier) {
+            return Boolean.parseBoolean(plan.inventoryFacts().getOrDefault("can_extract", "false"));
+        }
+
+        @Override
+        @Nullable
+        public String inventoryType(@NotNull Identifier blockIdentifier) {
+            return plan.inventoryFacts().get("inventory_type");
+        }
+    }
+
+    private static final class MetadataBackedFluidTransferBridge implements FluidTransferBridge {
+        private final CompiledCompatibilityPlan plan;
+
+        private MetadataBackedFluidTransferBridge(@NotNull CompiledCompatibilityPlan plan) {
+            this.plan = plan;
+        }
+
+        @Override
+        public boolean canInsertFluid(@NotNull Identifier blockIdentifier) {
+            return Boolean.parseBoolean(plan.inventoryFacts().getOrDefault("can_insert_fluid", "false"));
+        }
+
+        @Override
+        public boolean canExtractFluid(@NotNull Identifier blockIdentifier) {
+            return Boolean.parseBoolean(plan.inventoryFacts().getOrDefault("can_extract_fluid", "false"));
+        }
+
+        @Override
+        @Nullable
+        public String tankType(@NotNull Identifier blockIdentifier) {
+            return plan.inventoryFacts().get("tank_type");
+        }
+    }
+
+    private static final class MetadataBackedEnergyTransferBridge implements EnergyTransferBridge {
+        private final CompiledCompatibilityPlan plan;
+
+        private MetadataBackedEnergyTransferBridge(@NotNull CompiledCompatibilityPlan plan) {
+            this.plan = plan;
+        }
+
+        @Override
+        public boolean canReceiveEnergy(@NotNull Identifier blockIdentifier) {
+            return Boolean.parseBoolean(plan.inventoryFacts().getOrDefault("can_receive_energy", "false"));
+        }
+
+        @Override
+        public boolean canProvideEnergy(@NotNull Identifier blockIdentifier) {
+            return Boolean.parseBoolean(plan.inventoryFacts().getOrDefault("can_provide_energy", "false"));
+        }
+
+        @Override
+        @Nullable
+        public String energyType(@NotNull Identifier blockIdentifier) {
+            return plan.inventoryFacts().get("energy_type");
         }
     }
 
@@ -306,30 +381,6 @@ public final class TransferBridgeFactory {
         }
     }
 
-    private static final class MetadataBackedItemTransferBridge implements ItemTransferBridge {
-        private final CompiledCompatibilityPlan plan;
-
-        private MetadataBackedItemTransferBridge(@NotNull CompiledCompatibilityPlan plan) {
-            this.plan = plan;
-        }
-
-        @Override
-        public boolean canInsert(@NotNull Identifier blockIdentifier) {
-            return plan.inventoryFacts().containsKey("can_insert") && Boolean.parseBoolean(plan.inventoryFacts().get("can_insert"));
-        }
-
-        @Override
-        public boolean canExtract(@NotNull Identifier blockIdentifier) {
-            return plan.inventoryFacts().containsKey("can_extract") && Boolean.parseBoolean(plan.inventoryFacts().get("can_extract"));
-        }
-
-        @Override
-        @Nullable
-        public String inventoryType(@NotNull Identifier blockIdentifier) {
-            return plan.inventoryFacts().get("inventory_type");
-        }
-    }
-
     private static final class RuntimeBackedItemTransferBridge implements ItemTransferBridge {
         private final CompiledCompatibilityPlan plan;
         private final RuntimeInventoryAdapter inventory;
@@ -337,6 +388,11 @@ public final class TransferBridgeFactory {
         private RuntimeBackedItemTransferBridge(@NotNull CompiledCompatibilityPlan plan, @NotNull RuntimeInventoryAdapter inventory) {
             this.plan = plan;
             this.inventory = inventory;
+        }
+
+        @Override
+        public boolean executable() {
+            return true;
         }
 
         @Override
@@ -376,30 +432,6 @@ public final class TransferBridgeFactory {
         }
     }
 
-    private static final class MetadataBackedFluidTransferBridge implements FluidTransferBridge {
-        private final CompiledCompatibilityPlan plan;
-
-        private MetadataBackedFluidTransferBridge(@NotNull CompiledCompatibilityPlan plan) {
-            this.plan = plan;
-        }
-
-        @Override
-        public boolean canInsertFluid(@NotNull Identifier blockIdentifier) {
-            return plan.inventoryFacts().containsKey("can_insert_fluid") && Boolean.parseBoolean(plan.inventoryFacts().get("can_insert_fluid"));
-        }
-
-        @Override
-        public boolean canExtractFluid(@NotNull Identifier blockIdentifier) {
-            return plan.inventoryFacts().containsKey("can_extract_fluid") && Boolean.parseBoolean(plan.inventoryFacts().get("can_extract_fluid"));
-        }
-
-        @Override
-        @Nullable
-        public String tankType(@NotNull Identifier blockIdentifier) {
-            return plan.inventoryFacts().get("tank_type");
-        }
-    }
-
     private static final class RuntimeBackedFluidTransferBridge implements FluidTransferBridge {
         private final CompiledCompatibilityPlan plan;
         private final RuntimeFluidAdapter runtime;
@@ -407,6 +439,11 @@ public final class TransferBridgeFactory {
         private RuntimeBackedFluidTransferBridge(@NotNull CompiledCompatibilityPlan plan, @NotNull RuntimeFluidAdapter runtime) {
             this.plan = plan;
             this.runtime = runtime;
+        }
+
+        @Override
+        public boolean executable() {
+            return true;
         }
 
         @Override
@@ -451,30 +488,6 @@ public final class TransferBridgeFactory {
         }
     }
 
-    private static final class MetadataBackedEnergyTransferBridge implements EnergyTransferBridge {
-        private final CompiledCompatibilityPlan plan;
-
-        private MetadataBackedEnergyTransferBridge(@NotNull CompiledCompatibilityPlan plan) {
-            this.plan = plan;
-        }
-
-        @Override
-        public boolean canReceiveEnergy(@NotNull Identifier blockIdentifier) {
-            return plan.inventoryFacts().containsKey("can_receive_energy") && Boolean.parseBoolean(plan.inventoryFacts().get("can_receive_energy"));
-        }
-
-        @Override
-        public boolean canProvideEnergy(@NotNull Identifier blockIdentifier) {
-            return plan.inventoryFacts().containsKey("can_provide_energy") && Boolean.parseBoolean(plan.inventoryFacts().get("can_provide_energy"));
-        }
-
-        @Override
-        @Nullable
-        public String energyType(@NotNull Identifier blockIdentifier) {
-            return plan.inventoryFacts().get("energy_type");
-        }
-    }
-
     private static final class RuntimeBackedEnergyTransferBridge implements EnergyTransferBridge {
         private final CompiledCompatibilityPlan plan;
         private final RuntimeEnergyAdapter runtime;
@@ -482,6 +495,11 @@ public final class TransferBridgeFactory {
         private RuntimeBackedEnergyTransferBridge(@NotNull CompiledCompatibilityPlan plan, @NotNull RuntimeEnergyAdapter runtime) {
             this.plan = plan;
             this.runtime = runtime;
+        }
+
+        @Override
+        public boolean executable() {
+            return true;
         }
 
         @Override

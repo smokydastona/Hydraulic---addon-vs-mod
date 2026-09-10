@@ -77,6 +77,7 @@ public final class MachineBridgeFactory {
         if (!BridgeAdapterSupport.supportsMachineBehavior(plan)
             || !BridgeAdapterSupport.supportsMachineInventory(plan)
             || inventory == null
+            || !inventory.executable()
             || inputSlot < 0
             || outputSlot < 0
             || recipes.isEmpty()) {

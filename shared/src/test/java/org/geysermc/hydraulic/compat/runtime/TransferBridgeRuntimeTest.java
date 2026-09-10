@@ -29,6 +29,23 @@ class TransferBridgeRuntimeTest {
         assertNull(TransferBridgeFactory.createItemTransfer(itemPlan, unsupported));
         assertNull(TransferBridgeFactory.createFluidTransfer(fluidPlan, unsupported));
         assertNull(TransferBridgeFactory.createEnergyTransfer(energyPlan, unsupported));
+
+        assertTrue(!new TransferBridgeFactory.ItemTransferBridge() {
+            @Override
+            public boolean canInsert(Identifier blockIdentifier) {
+                return true;
+            }
+
+            @Override
+            public boolean canExtract(Identifier blockIdentifier) {
+                return true;
+            }
+
+            @Override
+            public String inventoryType(Identifier blockIdentifier) {
+                return "metadata";
+            }
+        }.executable());
     }
 
     @Test
@@ -62,6 +79,7 @@ class TransferBridgeRuntimeTest {
         TransferBridgeFactory.ItemTransferBridge bridge = TransferBridgeFactory.createItemTransfer(plan, inventory);
 
         assertNotNull(bridge);
+        assertTrue(bridge.executable());
         assertTrue(bridge.canInsert(Identifier.fromNamespaceAndPath("hydraulic", "test_machine")));
         assertTrue(bridge.canExtract(Identifier.fromNamespaceAndPath("hydraulic", "test_machine")));
         assertEquals(2, bridge.slotCount(Identifier.fromNamespaceAndPath("hydraulic", "test_machine")));
@@ -139,6 +157,36 @@ class TransferBridgeRuntimeTest {
                 1
             ))
         ));
+
+        assertNull(MachineBridgeFactory.createProcessing(
+            runtimePlan(
+                List.of(RuntimeBridgeKind.ITEM_TRANSFER, RuntimeBridgeKind.MACHINE_BEHAVIOR, RuntimeBridgeKind.MACHINE_INVENTORY),
+                Map.of("can_insert", "true", "can_extract", "true", "has_processing", "true", "has_inventory", "true")
+            ),
+            new TransferBridgeFactory.ItemTransferBridge() {
+                @Override
+                public boolean canInsert(Identifier blockIdentifier) {
+                    return true;
+                }
+
+                @Override
+                public boolean canExtract(Identifier blockIdentifier) {
+                    return true;
+                }
+
+                @Override
+                public String inventoryType(Identifier blockIdentifier) {
+                    return "metadata";
+                }
+            },
+            0,
+            1,
+            List.of(new MachineProcessingBridge.MachineRecipe(
+                new TransferBridgeFactory.ItemStackView("minecraft:stone", 1),
+                new TransferBridgeFactory.ItemStackView("minecraft:iron_ingot", 1),
+                1
+            ))
+        ));
     }
 
     @Test
@@ -194,12 +242,14 @@ class TransferBridgeRuntimeTest {
         TransferBridgeFactory.EnergyTransferBridge energyBridge = TransferBridgeFactory.createEnergyTransfer(energyPlan, storage);
 
         assertNotNull(fluidBridge);
+        assertTrue(fluidBridge.executable());
         assertTrue(fluidBridge.canInsertFluid(Identifier.fromNamespaceAndPath("hydraulic", "test_machine")));
         assertTrue(fluidBridge.canExtractFluid(Identifier.fromNamespaceAndPath("hydraulic", "test_machine")));
         assertEquals(1000, fluidBridge.tankCapacity(Identifier.fromNamespaceAndPath("hydraulic", "test_machine"), 0));
         assertEquals(250, fluidBridge.insertFluid(Identifier.fromNamespaceAndPath("hydraulic", "test_machine"), new TransferBridgeFactory.FluidStackView("minecraft:water", 250), 0, "input", false));
 
         assertNotNull(energyBridge);
+        assertTrue(energyBridge.executable());
         assertTrue(energyBridge.canReceiveEnergy(Identifier.fromNamespaceAndPath("hydraulic", "test_machine")));
         assertTrue(energyBridge.canProvideEnergy(Identifier.fromNamespaceAndPath("hydraulic", "test_machine")));
         assertEquals(1000, energyBridge.getMaxEnergy(Identifier.fromNamespaceAndPath("hydraulic", "test_machine")));
