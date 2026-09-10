@@ -9,7 +9,7 @@ import java.util.Set;
 
 /**
  * Represents a single Bedrock addon entry in the corpus.
- * 
+ *
  * The corpus normalizes each addon into a typed record that can feed
  * compatibility analysis, reporting, ranking, and adapter planning.
  */

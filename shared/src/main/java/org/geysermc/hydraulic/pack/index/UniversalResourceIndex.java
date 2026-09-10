@@ -16,7 +16,7 @@ import java.util.Set;
 
 /**
  * Universal resource index that provides authoritative discovery across the entire pipeline.
- * 
+ *
  * This separates the broader universal-index boundaries from ModResourceIndex and ensures
  * that runtime consumers use indexed surfaces instead of local resource scans.
  */

@@ -7,7 +7,7 @@ import java.util.Set;
 
 /**
  * Validates the admissibility of Bedrock addons for use in Hydraulic.
- * 
+ *
  * This enforces the corpus contract and source admissibility rules:
  * - GitHub is the first-class source for inspectable Bedrock addons
  * - CurseForge is discovery metadata only unless linked source exists

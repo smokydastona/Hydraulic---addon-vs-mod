@@ -13,7 +13,7 @@ import java.util.Map;
 
 /**
  * Loads and manages the Bedrock addon corpus.
- * 
+ *
  * Hydraulic startup must not depend on live crawling, remote availability, or background scraping.
  * This loader works with validated local cache snapshots only.
  */

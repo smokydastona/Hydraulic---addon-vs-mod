@@ -81,7 +81,7 @@ public final class MachineBridgeFactory {
 
         @Override
         public boolean hasProcessingBehavior(@NotNull Identifier blockIdentifier) {
-            return plan.inventoryFacts().containsKey("has_processing") 
+            return plan.inventoryFacts().containsKey("has_processing")
                 && Boolean.parseBoolean(plan.inventoryFacts().get("has_processing"));
         }
 
@@ -107,7 +107,7 @@ public final class MachineBridgeFactory {
 
         @Override
         public boolean hasInventory(@NotNull Identifier blockIdentifier) {
-            return plan.inventoryFacts().containsKey("has_inventory") 
+            return plan.inventoryFacts().containsKey("has_inventory")
                 && Boolean.parseBoolean(plan.inventoryFacts().get("has_inventory"));
         }
 

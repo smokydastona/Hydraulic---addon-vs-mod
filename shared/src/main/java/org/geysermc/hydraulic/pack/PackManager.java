@@ -164,7 +164,7 @@ public class PackManager {
         LookupSummary lookupSummary = initializeModLookups();
         long indexedResourcesMillis = nanosToMillis(System.nanoTime() - resourceIndexStarted);
         this.artifactCache.storeIndexSnapshot(ArtifactCache.IndexSnapshot.from(this.hydraulic.mods(), this.modResourceIndexes));
-        
+
         // Build universal resource index from mod indexes
         this.universalResourceIndex = UniversalResourceIndex.fromLookups(
             this.modResourceIndexes,

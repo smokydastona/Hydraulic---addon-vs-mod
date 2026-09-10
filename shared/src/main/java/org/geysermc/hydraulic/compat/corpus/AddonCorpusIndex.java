@@ -7,7 +7,7 @@ import java.util.Map;
 
 /**
  * Index of the Bedrock addon corpus.
- * 
+ *
  * This index provides fast lookup for corpus entries without requiring
  * parsing individual entry files during normal operation.
  */

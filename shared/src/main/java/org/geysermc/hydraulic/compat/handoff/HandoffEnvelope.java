@@ -9,7 +9,7 @@ import java.util.Map;
 
 /**
  * Envelope for compatibility report handoff operations.
- * 
+ *
  * This envelope carries the compatibility report along with necessary metadata
  * for transport, processing, and deduplication. The envelope is designed to be
  * provider-neutral, allowing different transport backends (GitHub, custom APIs, etc.)

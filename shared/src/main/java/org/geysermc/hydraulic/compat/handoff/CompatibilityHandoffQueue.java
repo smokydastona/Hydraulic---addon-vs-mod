@@ -17,7 +17,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Durable, non-blocking queue for compatibility report handoff operations.
- * 
+ *
  * This system ensures that:
  * - Startup never blocks on handoff success
  * - Failed exports persist as retryable local queue entries
@@ -63,7 +63,7 @@ public final class CompatibilityHandoffQueue {
      */
     public boolean enqueue(@NotNull CompatibilityReport report, @NotNull HandoffEnvelope envelope) {
         String fingerprint = envelope.compatibilityFingerprint();
-        
+
         // Check for existing pending entry with same fingerprint
         if (this.pendingEntries.containsKey(fingerprint)) {
             this.logger.debug("Handoff entry already pending for fingerprint {}, skipping duplicate", fingerprint);
@@ -148,7 +148,7 @@ public final class CompatibilityHandoffQueue {
         this.failedEntries.put(fingerprint, failedEntry);
         this.persistQueueEntry(failedEntry, FAILED_DIR);
         this.deleteQueueEntry(entry.entryId(), PENDING_DIR);
-        this.logger.warn("Marked handoff entry as failed (fingerprint={}, entryId={}, reason={}, retryCount={})", 
+        this.logger.warn("Marked handoff entry as failed (fingerprint={}, entryId={}, reason={}, retryCount={})",
             fingerprint, entry.entryId(), failureReason, failedEntry.retryCount());
     }
 
@@ -181,7 +181,7 @@ public final class CompatibilityHandoffQueue {
      */
     public void loadQueueState() {
         this.ensureLayout();
-        
+
         // Load pending entries
         this.loadEntriesFromDir(PENDING_DIR, this.pendingEntries);
         // Load completed entries
@@ -189,7 +189,7 @@ public final class CompatibilityHandoffQueue {
         // Load failed entries
         this.loadEntriesFromDir(FAILED_DIR, this.failedEntries);
 
-        this.logger.info("Loaded handoff queue state (pending={}, completed={}, failed={})", 
+        this.logger.info("Loaded handoff queue state (pending={}, completed={}, failed={})",
             this.pendingEntries.size(), this.completedEntries.size(), this.failedEntries.size());
     }
 
