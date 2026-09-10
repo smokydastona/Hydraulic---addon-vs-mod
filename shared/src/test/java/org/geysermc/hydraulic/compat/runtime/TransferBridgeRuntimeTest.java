@@ -142,6 +142,48 @@ class TransferBridgeRuntimeTest {
     }
 
     @Test
+    void machineProcessingResetsWhenInputRecipeChangesMidCycle() {
+        Identifier machine = Identifier.fromNamespaceAndPath("hydraulic", "test_machine");
+        TestInventory inventory = new TestInventory();
+        CompiledCompatibilityPlan plan = runtimePlan(
+            List.of(RuntimeBridgeKind.ITEM_TRANSFER, RuntimeBridgeKind.MACHINE_BEHAVIOR, RuntimeBridgeKind.MACHINE_INVENTORY),
+            Map.of("can_insert", "true", "can_extract", "true", "inventory_type", "generic", "has_processing", "true", "has_inventory", "true")
+        );
+        TransferBridgeFactory.ItemTransferBridge transfer = TransferBridgeFactory.createItemTransfer(plan, inventory);
+        MachineProcessingBridge processing = MachineBridgeFactory.createProcessing(
+            plan,
+            transfer,
+            0,
+            1,
+            List.of(
+                new MachineProcessingBridge.MachineRecipe(
+                    new TransferBridgeFactory.ItemStackView("minecraft:stone", 1),
+                    new TransferBridgeFactory.ItemStackView("minecraft:iron_ingot", 1),
+                    2
+                ),
+                new MachineProcessingBridge.MachineRecipe(
+                    new TransferBridgeFactory.ItemStackView("minecraft:iron_ingot", 1),
+                    new TransferBridgeFactory.ItemStackView("minecraft:gold_ingot", 1),
+                    2
+                )
+            )
+        );
+
+        assertNotNull(processing);
+        assertTrue(processing.tick(machine));
+        assertEquals(1, processing.progress());
+        transfer.extract(machine, new TransferBridgeFactory.ItemStackView("minecraft:stone", 1), 0, null, false);
+        transfer.insert(machine, new TransferBridgeFactory.ItemStackView("minecraft:iron_ingot", 1), 0, null, false);
+
+        assertTrue(processing.tick(machine));
+        assertEquals(1, processing.progress());
+        assertTrue(processing.tick(machine));
+        assertEquals(2, processing.progress());
+        assertTrue(processing.tick(machine));
+        assertEquals("minecraft:gold_ingot", transfer.itemAt(machine, 1).itemId());
+    }
+
+    @Test
     void fluidAndEnergyBridgesExposeRealRuntimeCapabilities() {
         TestTank tank = new TestTank();
         TestEnergyStorage storage = new TestEnergyStorage();
@@ -258,7 +300,7 @@ class TransferBridgeRuntimeTest {
         }
 
         public boolean canPlaceItem(int slot, TransferBridgeFactory.ItemStackView item) {
-            return slot >= 0 && slot < slots.length && (item.itemId().equals("minecraft:iron_ingot") || item.itemId().equals("minecraft:stone"));
+            return slot >= 0 && slot < slots.length && !item.isEmpty();
         }
 
         public int insertItem(int slot, TransferBridgeFactory.ItemStackView item, boolean simulate) {

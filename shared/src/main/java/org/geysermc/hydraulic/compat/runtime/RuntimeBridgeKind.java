@@ -5,8 +5,10 @@ import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 public enum RuntimeBridgeKind {
@@ -34,6 +36,7 @@ public enum RuntimeBridgeKind {
     private static final List<RuntimeBridgeKind> FLUID_RUNTIME_KINDS = List.of(FLUID_TRANSLATOR, FLUID_RUNTIME);
     private static final List<RuntimeBridgeKind> TRANSFER_RUNTIME_KINDS = List.of(ITEM_TRANSFER, FLUID_TRANSFER, ENERGY_TRANSFER);
     private static final List<RuntimeBridgeKind> MACHINE_RUNTIME_KINDS = List.of(MACHINE_BEHAVIOR, MACHINE_INVENTORY);
+    private static final Map<String, RuntimeBridgeKind> BY_REQUIREMENT = indexByRequirement();
 
     private final String requirementId;
     private final String contentType;
@@ -90,12 +93,7 @@ public enum RuntimeBridgeKind {
 
     @Nullable
     public static RuntimeBridgeKind fromRequirement(@NotNull String requirementId) {
-        for (RuntimeBridgeKind kind : values()) {
-            if (kind.requirementId.equals(requirementId)) {
-                return kind;
-            }
-        }
-        return null;
+        return BY_REQUIREMENT.get(requirementId);
     }
 
     @NotNull
@@ -108,5 +106,14 @@ public enum RuntimeBridgeKind {
             }
         }
         return List.copyOf(resolved);
+    }
+
+    @NotNull
+    private static Map<String, RuntimeBridgeKind> indexByRequirement() {
+        Map<String, RuntimeBridgeKind> index = new HashMap<>();
+        for (RuntimeBridgeKind kind : values()) {
+            index.put(kind.requirementId, kind);
+        }
+        return Map.copyOf(index);
     }
 }

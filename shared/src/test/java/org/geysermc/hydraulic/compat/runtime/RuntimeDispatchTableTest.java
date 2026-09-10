@@ -48,6 +48,16 @@ class RuntimeDispatchTableTest {
     }
 
     @Test
+    void resolvesRuntimeBridgeRequirementsThroughTheTypedIndex() {
+        assertEquals(RuntimeBridgeKind.FLUID_TRANSFER, RuntimeBridgeKind.fromRequirement("fluid_transfer_bridge"));
+        assertNull(RuntimeBridgeKind.fromRequirement("unknown_bridge"));
+        assertEquals(
+            List.of(RuntimeBridgeKind.FLUID_TRANSFER, RuntimeBridgeKind.ITEM_TRANSFER),
+            RuntimeBridgeKind.resolve(List.of("fluid_transfer_bridge", "fluid_transfer_bridge", "item_transfer_bridge"))
+        );
+    }
+
+    @Test
     void compilesDirectRuntimePlansForCurrentBridgeSeams() {
         Identifier block = Identifier.fromNamespaceAndPath("minecraft", "piston");
         Identifier bow = Identifier.fromNamespaceAndPath("minecraft", "bow");
