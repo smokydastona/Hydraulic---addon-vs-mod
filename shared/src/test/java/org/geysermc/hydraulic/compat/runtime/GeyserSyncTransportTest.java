@@ -4,6 +4,7 @@ import net.minecraft.resources.Identifier;
 import org.cloudburstmc.protocol.bedrock.data.inventory.ContainerId;
 import org.cloudburstmc.protocol.bedrock.data.inventory.ItemData;
 import org.cloudburstmc.protocol.bedrock.packet.BedrockPacket;
+import org.cloudburstmc.protocol.bedrock.packet.ContainerSetDataPacket;
 import org.cloudburstmc.protocol.bedrock.packet.InventorySlotPacket;
 import org.junit.jupiter.api.Test;
 
@@ -78,6 +79,69 @@ class GeyserSyncTransportTest {
         List<SyncDeliveryResult> results = transport.deliver(List.of(change));
 
         assertEquals(SyncDeliveryStatus.UNSUPPORTED, results.getFirst().status());
+        assertTrue(packets.isEmpty());
+    }
+
+    @Test
+    void sendsContainerPropertyPacketToGeyserSessionBoundary() {
+        List<BedrockPacket> packets = new ArrayList<>();
+        EncodedSyncChange change = new EncodedSyncChange(
+            Identifier.fromNamespaceAndPath("hydraulic", "machine"),
+            "container.property.3",
+            EncodedSyncKind.CONTAINER_PROPERTY,
+            3,
+            null,
+            0,
+            null,
+            0,
+            4,
+            12,
+            SyncPriority.IMMEDIATE,
+            "container.property.3"
+        );
+        GeyserSyncTransport transport = new GeyserSyncTransport(
+            null,
+            packets::add,
+            (session, itemId, count) -> ItemData.AIR,
+            () -> 7
+        );
+
+        List<SyncDeliveryResult> results = transport.deliver(List.of(change));
+
+        assertEquals(SyncDeliveryStatus.SENT, results.getFirst().status());
+        ContainerSetDataPacket packet = assertInstanceOf(ContainerSetDataPacket.class, packets.getFirst());
+        assertEquals(7, packet.getWindowId());
+        assertEquals(3, packet.getProperty());
+        assertEquals(12, packet.getValue());
+    }
+
+    @Test
+    void reportsEncodingFailureForNonNumericContainerPropertyValue() {
+        List<BedrockPacket> packets = new ArrayList<>();
+        EncodedSyncChange change = new EncodedSyncChange(
+            Identifier.fromNamespaceAndPath("hydraulic", "machine"),
+            "container.property.3",
+            EncodedSyncKind.CONTAINER_PROPERTY,
+            3,
+            null,
+            0,
+            null,
+            0,
+            4,
+            "not-a-number",
+            SyncPriority.IMMEDIATE,
+            "container.property.3"
+        );
+        GeyserSyncTransport transport = new GeyserSyncTransport(
+            null,
+            packets::add,
+            (session, itemId, count) -> ItemData.AIR,
+            () -> 7
+        );
+
+        List<SyncDeliveryResult> results = transport.deliver(List.of(change));
+
+        assertEquals(SyncDeliveryStatus.ENCODING_FAILED, results.getFirst().status());
         assertTrue(packets.isEmpty());
     }
 

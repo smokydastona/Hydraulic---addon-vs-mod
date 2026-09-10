@@ -46,4 +46,19 @@ class SyncEncoderTest {
         assertEquals(2, encoded.afterValue());
         assertEquals(-1, encoded.slot());
     }
+
+    @Test
+    void encodesContainerPropertiesAsMenuStateUpdates() {
+        Identifier machine = Identifier.fromNamespaceAndPath("test", "machine");
+        SyncBatch batch = new SyncPlanner().plan(new StateChangeSet(List.of(
+            new StateChangeSet.FieldChange(machine, "container.property.2", 10, 20)
+        )));
+
+        EncodedSyncChange encoded = new SyncEncoder().encode(batch).getFirst();
+
+        assertEquals(EncodedSyncKind.CONTAINER_PROPERTY, encoded.kind());
+        assertEquals(2, encoded.slot());
+        assertEquals(10, encoded.beforeValue());
+        assertEquals(20, encoded.afterValue());
+    }
 }

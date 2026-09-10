@@ -11,6 +11,7 @@ import java.util.regex.Pattern;
 /** Encodes normalized sync changes into explicit Bedrock-facing update records. */
 public final class SyncEncoder {
     private static final Pattern INVENTORY_SLOT = Pattern.compile("inventory\\.slot\\.(\\d+)");
+    private static final Pattern CONTAINER_PROPERTY = Pattern.compile("container\\.property\\.(\\d+)");
 
     @NotNull
     public List<EncodedSyncChange> encode(@NotNull SyncBatch batch) {
@@ -32,6 +33,25 @@ public final class SyncEncoder {
                     after.count(),
                     null,
                     null,
+                    change.priority(),
+                    change.field()
+                ));
+                continue;
+            }
+
+            matcher = CONTAINER_PROPERTY.matcher(change.field());
+            if (matcher.matches()) {
+                encoded.add(new EncodedSyncChange(
+                    change.blockIdentifier(),
+                    change.field(),
+                    EncodedSyncKind.CONTAINER_PROPERTY,
+                    Integer.parseInt(matcher.group(1)),
+                    null,
+                    0,
+                    null,
+                    0,
+                    change.before(),
+                    change.after(),
                     change.priority(),
                     change.field()
                 ));

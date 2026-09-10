@@ -6,6 +6,7 @@ import net.minecraft.world.item.Item;
 import org.cloudburstmc.protocol.bedrock.data.inventory.ContainerId;
 import org.cloudburstmc.protocol.bedrock.data.inventory.ItemData;
 import org.cloudburstmc.protocol.bedrock.packet.BedrockPacket;
+import org.cloudburstmc.protocol.bedrock.packet.ContainerSetDataPacket;
 import org.cloudburstmc.protocol.bedrock.packet.InventorySlotPacket;
 import org.geysermc.geyser.session.GeyserSession;
 import org.geysermc.geyser.translator.item.ItemTranslator;
@@ -57,6 +58,9 @@ public final class GeyserSyncTransport implements SyncTransport {
 
     @NotNull
     private SyncDeliveryResult deliver(@NotNull EncodedSyncChange change) {
+        if (change.kind() == EncodedSyncKind.CONTAINER_PROPERTY) {
+            return deliverContainerProperty(change);
+        }
         if (change.kind() != EncodedSyncKind.INVENTORY_SLOT) {
             return new SyncDeliveryResult(change, SyncDeliveryStatus.UNSUPPORTED, "No Geyser transport mapping exists for " + change.kind());
         }
@@ -80,9 +84,50 @@ public final class GeyserSyncTransport implements SyncTransport {
         }
     }
 
+    @NotNull
+    private SyncDeliveryResult deliverContainerProperty(@NotNull EncodedSyncChange change) {
+        if (change.slot() < 0) {
+            return new SyncDeliveryResult(change, SyncDeliveryStatus.ENCODING_FAILED, "Container property synchronization requires a non-negative property id");
+        }
+        Integer value = asInteger(change.afterValue());
+        if (value == null) {
+            return new SyncDeliveryResult(change, SyncDeliveryStatus.ENCODING_FAILED, "Container property synchronization requires an integer value");
+        }
+        try {
+            ContainerSetDataPacket packet = new ContainerSetDataPacket();
+            packet.setWindowId((byte) resolveContainerId());
+            packet.setProperty(change.slot());
+            packet.setValue(value);
+            this.packetSender.send(packet);
+            return new SyncDeliveryResult(change, SyncDeliveryStatus.SENT, null);
+        } catch (RuntimeException exception) {
+            String reason = exception.getMessage();
+            return new SyncDeliveryResult(
+                change,
+                SyncDeliveryStatus.TRANSPORT_FAILED,
+                reason == null || reason.isBlank() ? exception.getClass().getSimpleName() : reason
+            );
+        }
+    }
+
     private int resolveContainerId() {
         int id = this.containerId.getAsInt();
         return id == ContainerId.NONE ? ContainerId.INVENTORY : id;
+    }
+
+    @Nullable
+    private static Integer asInteger(@Nullable Object value) {
+        if (value instanceof Number number) {
+            return number.intValue();
+        }
+        if (value instanceof String string) {
+            try {
+                return Integer.parseInt(string);
+            } catch (NumberFormatException ignored) {
+                return null;
+            }
+        }
+        return null;
     }
 
     @NotNull
