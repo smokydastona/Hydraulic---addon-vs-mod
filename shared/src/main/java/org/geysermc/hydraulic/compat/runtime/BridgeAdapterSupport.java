@@ -44,26 +44,43 @@ final class BridgeAdapterSupport {
 
     static boolean supportsItemTransfer(@Nullable CompiledCompatibilityPlan plan) {
         return plan != null
-            && plan.runtimeBridgeKinds().contains(RuntimeBridgeKind.ITEM_TRANSFER);
+            && plan.runtimeBridgeKinds().contains(RuntimeBridgeKind.ITEM_TRANSFER)
+            && hasTrueFact(plan, "can_insert", "can_extract");
     }
 
     static boolean supportsFluidTransfer(@Nullable CompiledCompatibilityPlan plan) {
         return plan != null
-            && plan.runtimeBridgeKinds().contains(RuntimeBridgeKind.FLUID_TRANSFER);
+            && plan.runtimeBridgeKinds().contains(RuntimeBridgeKind.FLUID_TRANSFER)
+            && hasTrueFact(plan, "can_insert_fluid", "can_extract_fluid");
     }
 
     static boolean supportsEnergyTransfer(@Nullable CompiledCompatibilityPlan plan) {
         return plan != null
-            && plan.runtimeBridgeKinds().contains(RuntimeBridgeKind.ENERGY_TRANSFER);
+            && plan.runtimeBridgeKinds().contains(RuntimeBridgeKind.ENERGY_TRANSFER)
+            && hasTrueFact(plan, "can_receive_energy", "can_provide_energy");
     }
 
     static boolean supportsMachineBehavior(@Nullable CompiledCompatibilityPlan plan) {
         return plan != null
-            && plan.runtimeBridgeKinds().contains(RuntimeBridgeKind.MACHINE_BEHAVIOR);
+            && plan.runtimeBridgeKinds().contains(RuntimeBridgeKind.MACHINE_BEHAVIOR)
+            && hasTrueFact(plan, "has_processing");
     }
 
     static boolean supportsMachineInventory(@Nullable CompiledCompatibilityPlan plan) {
         return plan != null
-            && plan.runtimeBridgeKinds().contains(RuntimeBridgeKind.MACHINE_INVENTORY);
+            && plan.runtimeBridgeKinds().contains(RuntimeBridgeKind.MACHINE_INVENTORY)
+            && hasTrueFact(plan, "has_inventory");
+    }
+
+    private static boolean hasTrueFact(@Nullable CompiledCompatibilityPlan plan, String... keys) {
+        if (plan == null) {
+            return false;
+        }
+        for (String key : keys) {
+            if (Boolean.parseBoolean(plan.inventoryFacts().getOrDefault(key, "false"))) {
+                return true;
+            }
+        }
+        return false;
     }
 }

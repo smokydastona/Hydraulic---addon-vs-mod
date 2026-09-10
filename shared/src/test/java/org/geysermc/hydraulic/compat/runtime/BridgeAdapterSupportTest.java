@@ -54,6 +54,7 @@ class BridgeAdapterSupportTest {
     void machineBehaviorRequiresMachineBridgeKind() {
         assertTrue(BridgeAdapterSupport.supportsMachineBehavior(machinePlan(RuntimeBridgeKind.MACHINE_BEHAVIOR)));
         assertFalse(BridgeAdapterSupport.supportsMachineBehavior(machinePlan(RuntimeBridgeKind.MACHINE_INVENTORY)));
+        assertFalse(BridgeAdapterSupport.supportsMachineBehavior(machinePlanWithoutFacts(RuntimeBridgeKind.MACHINE_BEHAVIOR)));
     }
 
     @Test
@@ -62,6 +63,7 @@ class BridgeAdapterSupportTest {
         assertTrue(BridgeAdapterSupport.supportsFluidTransfer(transferPlan(RuntimeBridgeKind.FLUID_TRANSFER)));
         assertTrue(BridgeAdapterSupport.supportsEnergyTransfer(transferPlan(RuntimeBridgeKind.ENERGY_TRANSFER)));
         assertFalse(BridgeAdapterSupport.supportsItemTransfer(transferPlan(RuntimeBridgeKind.FLUID_TRANSFER)));
+        assertFalse(BridgeAdapterSupport.supportsItemTransfer(transferPlanWithoutFacts(RuntimeBridgeKind.ITEM_TRANSFER)));
     }
 
     @Test
@@ -187,7 +189,25 @@ class BridgeAdapterSupportTest {
         );
     }
 
+    private static CompiledCompatibilityPlan machinePlanWithoutFacts(RuntimeBridgeKind runtimeBridgeKind) {
+        return machinePlanWithFacts(runtimeBridgeKind, Map.of());
+    }
+
     private static CompiledCompatibilityPlan transferPlan(RuntimeBridgeKind runtimeBridgeKind) {
+        Map<String, String> facts = switch (runtimeBridgeKind) {
+            case ITEM_TRANSFER -> Map.of("can_insert", "true");
+            case FLUID_TRANSFER -> Map.of("can_insert_fluid", "true");
+            case ENERGY_TRANSFER -> Map.of("can_receive_energy", "true");
+            default -> Map.of();
+        };
+        return machinePlanWithFacts(runtimeBridgeKind, facts);
+    }
+
+    private static CompiledCompatibilityPlan transferPlanWithoutFacts(RuntimeBridgeKind runtimeBridgeKind) {
+        return machinePlanWithFacts(runtimeBridgeKind, Map.of());
+    }
+
+    private static CompiledCompatibilityPlan machinePlanWithFacts(RuntimeBridgeKind runtimeBridgeKind, Map<String, String> facts) {
         return new CompiledCompatibilityPlan(
             "testmod",
             "block",
@@ -200,7 +220,7 @@ class BridgeAdapterSupportTest {
             List.of(),
             List.of(runtimeBridgeKind.requirementId()),
             List.of(runtimeBridgeKind),
-            Map.of("can_insert", "true"),
+            facts,
             false,
             null,
             false,
