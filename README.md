@@ -3,8 +3,9 @@
 
 # Hydraulic-Phlodgate
 
-[KEEP THE EXISTING PROJECT BANNER HERE — UNCHANGED]
-
+<p align="center">
+  <img src="https://raw.githubusercontent.com/smokydastona/Hydraulic-Phlodgate/master/.github/Phlodgate_LOGO.png" alt="Phlodgate Banner">
+</p>
 > **Hydraulic-Phlodgate is a fork of [GeyserMC Hydraulic](https://github.com/GeyserMC/Hydraulic).**
 >
 > Phlodgate's goal is to push Hydraulic further toward automatic compatibility with modded Java servers, so Bedrock players can interact with as much of a modded server as possible without requiring the server owner to manually create a Bedrock compatibility layer for every mod.
