@@ -441,8 +441,8 @@ public final class TransferBridgeFactory {
             if (runtimeTarget instanceof RuntimeInventoryAdapter adapter) {
                 return adapter;
             }
-            if (!hasMethod(runtimeTarget, "insertItem", "insert", "addItem")
-                && !hasMethod(runtimeTarget, "extractItem", "extract", "takeItem")) {
+            if (!hasCompatibleMethod(runtimeTarget, new String[] {"insertItem", "insert", "addItem"}, 0, new ItemStackView("minecraft:air", 0), "hydraulic-side", false)
+                && !hasCompatibleMethod(runtimeTarget, new String[] {"extractItem", "extract", "takeItem"}, 0, new ItemStackView("minecraft:air", 0), 0, "hydraulic-side", false)) {
                 return null;
             }
             return new ReflectiveRuntimeInventoryAdapter(runtimeTarget);
@@ -465,8 +465,8 @@ public final class TransferBridgeFactory {
             if (runtimeTarget instanceof RuntimeFluidAdapter adapter) {
                 return adapter;
             }
-            if (!hasMethod(runtimeTarget, "fill", "insertFluid")
-                && !hasMethod(runtimeTarget, "drain", "extractFluid")) {
+            if (!hasCompatibleMethod(runtimeTarget, new String[] {"fill", "insertFluid"}, 0, new FluidStackView("minecraft:empty", 0), false)
+                && !hasCompatibleMethod(runtimeTarget, new String[] {"drain", "extractFluid"}, 0, 0, false)) {
                 return null;
             }
             return new ReflectiveRuntimeFluidAdapter(runtimeTarget);
@@ -488,8 +488,8 @@ public final class TransferBridgeFactory {
             if (runtimeTarget instanceof RuntimeEnergyAdapter adapter) {
                 return adapter;
             }
-            if (!hasMethod(runtimeTarget, "receiveEnergy")
-                && !hasMethod(runtimeTarget, "extractEnergy")) {
+            if (!hasCompatibleMethod(runtimeTarget, new String[] {"receiveEnergy"}, 0, false)
+                && !hasCompatibleMethod(runtimeTarget, new String[] {"extractEnergy"}, 0, false)) {
                 return null;
             }
             return new ReflectiveRuntimeEnergyAdapter(runtimeTarget);
@@ -686,12 +686,12 @@ public final class TransferBridgeFactory {
 
         @Override
         public boolean supportsInsertion() {
-            return hasMethod(target, "insertItem", "insert", "addItem") || hasMethod(target, "canPlaceItem");
+            return hasCompatibleMethod(target, new String[] {"insertItem", "insert", "addItem"}, 0, new ItemStackView("minecraft:air", 0), "hydraulic-side", false);
         }
 
         @Override
         public boolean supportsExtraction() {
-            return hasMethod(target, "extractItem", "extract", "takeItem") || hasMethod(target, "canTakeItem");
+            return hasCompatibleMethod(target, new String[] {"extractItem", "extract", "takeItem"}, 0, new ItemStackView("minecraft:air", 0), 0, "hydraulic-side", false);
         }
 
         @Override
@@ -703,7 +703,7 @@ public final class TransferBridgeFactory {
             if (value instanceof ItemStackView stack) {
                 return stack;
             }
-            return new ItemStackView(String.valueOf(value), 1);
+            return null;
         }
 
         @Override
@@ -733,12 +733,12 @@ public final class TransferBridgeFactory {
 
         @Override
         public boolean supportsInsertion() {
-            return hasMethod(target, "fill", "insertFluid");
+            return hasCompatibleMethod(target, new String[] {"fill", "insertFluid"}, 0, new FluidStackView("minecraft:empty", 0), false);
         }
 
         @Override
         public boolean supportsExtraction() {
-            return hasMethod(target, "drain", "extractFluid");
+            return hasCompatibleMethod(target, new String[] {"drain", "extractFluid"}, 0, 0, false);
         }
 
         @Override
@@ -756,7 +756,7 @@ public final class TransferBridgeFactory {
             if (value instanceof FluidStackView stack) {
                 return stack;
             }
-            return new FluidStackView(String.valueOf(value), 0);
+            return null;
         }
 
         @Override
@@ -781,12 +781,12 @@ public final class TransferBridgeFactory {
 
         @Override
         public boolean canReceive() {
-            return hasMethod(target, "canReceive") || hasMethod(target, "receiveEnergy");
+            return hasCompatibleMethod(target, new String[] {"receiveEnergy"}, 0, false);
         }
 
         @Override
         public boolean canExtract() {
-            return hasMethod(target, "canExtract") || hasMethod(target, "extractEnergy");
+            return hasCompatibleMethod(target, new String[] {"extractEnergy"}, 0, false);
         }
 
         @Override
@@ -814,6 +814,21 @@ public final class TransferBridgeFactory {
 
     private static boolean hasMethod(@NotNull Object target, @NotNull String... names) {
         return findMethod(target, names) != null;
+    }
+
+    private static boolean hasCompatibleMethod(
+        @NotNull Object target,
+        @NotNull String[] names,
+        @Nullable Object... args
+    ) {
+        for (String name : names) {
+            for (Method method : target.getClass().getMethods()) {
+                if (method.getName().equals(name) && compatibleArguments(method, args) != null) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     private static @Nullable Method findMethod(@NotNull Object target, @NotNull String... names) {
@@ -882,7 +897,7 @@ public final class TransferBridgeFactory {
                     break;
                 }
             }
-            if (matched == null) {
+                if (matchedIndex < 0) {
                 return null;
             }
             ordered[i] = matched;

@@ -50,6 +50,16 @@ class TransferBridgeRuntimeTest {
     }
 
     @Test
+    void incompatibleReflectiveStackTypesFailClosed() {
+        CompiledCompatibilityPlan plan = runtimePlan(
+            RuntimeBridgeKind.ITEM_TRANSFER,
+            Map.of("can_insert", "true", "can_extract", "true")
+        );
+
+        assertNull(TransferBridgeFactory.createItemTransfer(plan, new ForeignStackInventory()));
+    }
+
+    @Test
     void declaredDirectionsMustHaveConcreteRuntimeOperations() {
         CompiledCompatibilityPlan itemPlan = runtimePlan(RuntimeBridgeKind.ITEM_TRANSFER, Map.of("can_insert", "true", "can_extract", "true"));
         CompiledCompatibilityPlan fluidPlan = runtimePlan(RuntimeBridgeKind.FLUID_TRANSFER, Map.of("can_insert_fluid", "true", "can_extract_fluid", "true"));
@@ -556,6 +566,24 @@ class TransferBridgeRuntimeTest {
         public int insertItem(int slot, TransferBridgeFactory.ItemStackView item, boolean simulate) {
             return item.count();
         }
+    }
+
+    private static final class ForeignStackInventory {
+        public int getContainerSize() {
+            return 1;
+        }
+
+        public int insertItem(int slot, ForeignStack item, boolean simulate) {
+            return item.count;
+        }
+
+        public int extractItem(int slot, ForeignStack item, int maxCount, boolean simulate) {
+            return Math.min(item.count, maxCount);
+        }
+    }
+
+    private static final class ForeignStack {
+        private final int count = 1;
     }
 
     private static final class ThrowingInventory {
