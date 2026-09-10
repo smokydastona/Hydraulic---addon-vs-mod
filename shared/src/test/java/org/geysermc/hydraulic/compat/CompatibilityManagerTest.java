@@ -103,6 +103,60 @@ class CompatibilityManagerTest {
     }
 
         @Test
+        void criticalMachineCapabilitiesForceVisualOnlySupport(@TempDir Path tempDir) throws IOException {
+                ContentInventory.ModContentInventory inventory = new ContentInventory.ModContentInventory(
+                        "examplemod",
+                        "example",
+                        "Example Mod",
+                        "1.0.0",
+                        List.of(tempDir.toString()),
+                        new org.geysermc.hydraulic.compat.model.ModFingerprint("examplemod", "example", "1.0.0", "unknown", "test", 1, 1, 1, 0, 0, 1, 1, false, true, false, true, true, true, false, false),
+                        Map.of("blocks", 1),
+                        Map.of("blocks", List.of("minecraft:piston")),
+                        Map.of("block_assets", 1),
+                        Map.of("block_assets", List.of("minecraft:piston")),
+                        Map.of("blocks", 1),
+                        Map.of("blocks", List.of("minecraft:piston")),
+                        Map.of("blocks", 1),
+                        Map.of("blocks", List.of("minecraft:piston"))
+                );
+                ContentInventory inventoryRoot = new ContentInventory(Map.of("examplemod", inventory));
+
+                Files.writeString(tempDir.resolve("compat.json"), """
+                        {
+                            "patches": [
+                                {
+                                    "target": "minecraft:piston",
+                                    "content_type": "block",
+                                    "patch": {
+                                        "machine": {
+                                            "processing": {
+                                                "enabled": true,
+                                                "type": "processor"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                        """);
+
+                MetadataIndex metadataIndex = new MetadataLoader(LoggerFactory.getLogger("CompatibilityManagerTest")).load(tempDir);
+                CompatibilityReport report = new CompatibilityManager(LoggerFactory.getLogger("CompatibilityManagerTest"), tempDir).buildReport(inventoryRoot, metadataIndex);
+
+                CompatibilityObject block = report.object("examplemod", "minecraft:piston", "block");
+                CompatibilityProfile profile = report.mods().get("examplemod");
+                assertNotNull(block);
+                assertEquals("processing,inventory", block.inventoryFacts().get("critical_capabilities"));
+                assertEquals("true", block.inventoryFacts().get("critical_failure"));
+                assertEquals(SupportLevel.VISUAL_ONLY, block.overallLevel());
+                assertEquals(0, block.overallScore());
+                assertNotNull(profile);
+                assertEquals(SupportLevel.VISUAL_ONLY, profile.overallLevel());
+                assertEquals(0, profile.overallScore());
+        }
+
+        @Test
         void propagatesItemBehaviorPatchFactsIntoReportObjects(@TempDir Path tempDir) throws IOException {
                 ContentInventory.ModContentInventory inventory = new ContentInventory.ModContentInventory(
                         "examplemod",

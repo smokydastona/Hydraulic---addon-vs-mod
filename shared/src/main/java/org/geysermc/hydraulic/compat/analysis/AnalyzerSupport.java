@@ -104,9 +104,10 @@ final class AnalyzerSupport {
         @NotNull List<Provenance> provenance,
         @NotNull List<CompatibilityFinding> findings
     ) {
-        SupportLevel overallLevel = overallLevel(supportResults);
-        CompatibilityStatus overallStatus = overallStatus(supportResults);
-        int overallScore = overallScore(supportResults);
+        boolean criticalFailure = hasCriticalFailure(inventoryFacts, supportResults);
+        SupportLevel overallLevel = criticalFailure ? SupportLevel.VISUAL_ONLY : overallLevel(supportResults);
+        CompatibilityStatus overallStatus = criticalFailure ? CompatibilityStatus.PARTIAL : overallStatus(supportResults);
+        int overallScore = criticalFailure ? 0 : overallScore(supportResults);
         CompatibilityObject candidate = new CompatibilityObject(javaIdentifier, contentType, modId, inventoryFacts, capabilityProfile, List.of(), List.of(), supportResults, overallLevel, overallStatus, overallScore, confidence, provenance, findings);
         List<AdapterBinding> adapterBindings = CapabilityAdapterRegistry.bindings(candidate);
         List<String> runtimeRequirements = runtimeRequirements(contentType, inventoryFacts, supportResults, adapterBindings);
@@ -264,5 +265,22 @@ final class AnalyzerSupport {
             }
         }
         return total == 0 ? 0 : (int) Math.round(scored / (double) total);
+    }
+
+    static boolean hasCriticalFailure(
+        @NotNull Map<String, String> inventoryFacts,
+        @NotNull Map<String, SupportResult> supportResults
+    ) {
+        SupportResult behavior = supportResults.get("behavior");
+        if (behavior == null || behavior.level() == SupportLevel.NATIVE
+            || behavior.level() == SupportLevel.AUTOMATIC || behavior.level() == SupportLevel.ADAPTED) {
+            return false;
+        }
+
+        return booleanFact(inventoryFacts, "has_processing") || booleanFact(inventoryFacts, "has_inventory");
+    }
+
+    private static boolean booleanFact(@NotNull Map<String, String> inventoryFacts, @NotNull String key) {
+        return Boolean.parseBoolean(inventoryFacts.getOrDefault(key, "false"));
     }
 }

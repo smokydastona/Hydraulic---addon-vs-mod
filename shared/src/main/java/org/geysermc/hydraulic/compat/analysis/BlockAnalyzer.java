@@ -34,7 +34,11 @@ public final class BlockAnalyzer implements CompatibilityAnalyzer {
         Identifier identifier = Identifier.parse(descriptor.javaIdentifier());
         BlockMapping mapping = metadataIndex.blockMapping(identifier);
         List<ContentPatch> patches = metadataIndex.contentPatches(identifier);
-        boolean behaviorRequired = mapping != null && mapping.rules().stream().anyMatch(rule -> rule.behaviorRequired()) || patches.stream().anyMatch(patch -> patch.hasOperationPrefix("behavior.") || patch.hasOperationPrefix("interaction."));
+        boolean behaviorRequired = mapping != null && mapping.rules().stream().anyMatch(rule -> rule.behaviorRequired())
+            || patches.stream().anyMatch(patch -> patch.hasOperationPrefix("behavior.")
+            || patch.hasOperationPrefix("interaction.")
+            || patch.hasOperationPrefix("machine.")
+            || patch.hasOperationPrefix("transfer."));
         String behaviorTag = mapping != null ? mapping.rules().stream().map(rule -> rule.behaviorTag()).filter(tag -> tag != null && !tag.isBlank()).findFirst().orElse(null) : null;
         if (behaviorTag == null) {
             behaviorTag = patches.stream().map(patch -> patch.operation("behavior.tag")).filter(tag -> tag != null && !tag.isBlank()).findFirst().orElse(null);
@@ -93,11 +97,20 @@ public final class BlockAnalyzer implements CompatibilityAnalyzer {
         Map<String, String> inventoryFacts = new LinkedHashMap<>(AnalyzerSupport.inventoryFacts(descriptor.registered(), descriptor.assetPresent(), mapping != null ? 1 : 0, patches.size()));
         inventoryFacts.putAll(BehaviorFactExtractor.extractFacts(patches));
         inventoryFacts.put("behavior_required", Boolean.toString(behaviorRequired));
+        if (Boolean.parseBoolean(inventoryFacts.getOrDefault("has_processing", "false"))
+            || Boolean.parseBoolean(inventoryFacts.getOrDefault("has_inventory", "false"))) {
+            inventoryFacts.put("critical_capabilities", "processing,inventory");
+        }
         if (behaviorTag != null) {
             inventoryFacts.put("behavior_tag", behaviorTag);
         }
 
         List<String> behaviorBridgeRequirements = BehaviorFactExtractor.runtimeRequirements(inventoryFacts);
+
+        if (AnalyzerSupport.hasCriticalFailure(inventoryFacts, supportResults)) {
+            inventoryFacts.put("critical_failure", "true");
+            inventoryFacts.put("critical_failure_reason", "machine processing or inventory runtime is unavailable");
+        }
 
         return AnalyzerSupport.object(
             descriptor.javaIdentifier(),

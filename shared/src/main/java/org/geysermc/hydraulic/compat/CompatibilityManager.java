@@ -216,9 +216,9 @@ public final class CompatibilityManager {
                 new CompatibilityProfile(
                     modInventory.modId(),
                     modInventory.fingerprint(),
-                    overallLevel(supportResults),
-                    overallStatus(supportResults),
-                    overallScore(supportResults),
+                    overallLevel(supportResults, objects),
+                    overallStatus(supportResults, objects),
+                    overallScore(supportResults, objects),
                     supportResults,
                     levelCounts,
                     objects,
@@ -303,7 +303,10 @@ public final class CompatibilityManager {
     }
 
     @NotNull
-    private static CompatibilityStatus overallStatus(@NotNull Map<String, SupportResult> supportResults) {
+    private static CompatibilityStatus overallStatus(@NotNull Map<String, SupportResult> supportResults, @NotNull List<CompatibilityObject> objects) {
+        if (hasCriticalFailure(objects)) {
+            return CompatibilityStatus.PARTIAL;
+        }
         boolean hasComplete = false;
         boolean hasPartial = false;
         boolean hasNone = false;
@@ -322,7 +325,10 @@ public final class CompatibilityManager {
     }
 
     @NotNull
-    private static SupportLevel overallLevel(@NotNull Map<String, SupportResult> supportResults) {
+    private static SupportLevel overallLevel(@NotNull Map<String, SupportResult> supportResults, @NotNull List<CompatibilityObject> objects) {
+        if (hasCriticalFailure(objects)) {
+            return SupportLevel.VISUAL_ONLY;
+        }
         boolean hasUnsupported = false;
         boolean hasVisualOnly = false;
         boolean hasApproximated = false;
@@ -348,7 +354,10 @@ public final class CompatibilityManager {
         return SupportLevel.AUTOMATIC;
     }
 
-    private static int overallScore(@NotNull Map<String, SupportResult> supportResults) {
+    private static int overallScore(@NotNull Map<String, SupportResult> supportResults, @NotNull List<CompatibilityObject> objects) {
+        if (hasCriticalFailure(objects)) {
+            return 0;
+        }
         int total = 0;
         int counted = 0;
         for (SupportResult result : supportResults.values()) {
@@ -358,6 +367,10 @@ public final class CompatibilityManager {
             }
         }
         return counted == 0 ? 0 : (int) Math.round(total / (double) counted);
+    }
+
+    private static boolean hasCriticalFailure(@NotNull List<CompatibilityObject> objects) {
+        return objects.stream().anyMatch(object -> "true".equals(object.inventoryFacts().get("critical_failure")));
     }
 
     @NotNull
