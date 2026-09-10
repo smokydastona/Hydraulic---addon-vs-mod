@@ -253,6 +253,24 @@ public final class RuntimeDispatchTable {
     }
 
     @Nullable
+    public MachineBridgeFactory.InventoryAccess inventoryAccess(@NotNull Identifier blockIdentifier, @NotNull Object runtimeInventory) {
+        CompiledCompatibilityPlan plan = this.block(blockIdentifier);
+        TransferBridgeFactory.ItemTransferBridge transfer = plan == null
+            ? null
+            : TransferBridgeFactory.createItemTransfer(plan, runtimeInventory);
+        return MachineBridgeFactory.createInventoryAccess(plan, transfer);
+    }
+
+    @Nullable
+    public MachineBridgeFactory.AutomationAccess automationAccess(@NotNull Identifier blockIdentifier, @NotNull Object runtimeInventory) {
+        CompiledCompatibilityPlan plan = this.block(blockIdentifier);
+        TransferBridgeFactory.ItemTransferBridge transfer = plan == null
+            ? null
+            : TransferBridgeFactory.createItemTransfer(plan, runtimeInventory);
+        return MachineBridgeFactory.createAutomation(plan, transfer);
+    }
+
+    @Nullable
     public MachineProcessingBridge machineProcessing(
         @NotNull Identifier blockIdentifier,
         @Nullable TransferBridgeFactory.ItemTransferBridge inventory,
