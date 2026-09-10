@@ -936,7 +936,7 @@ public class PackManager {
     @NotNull
     private static String resolveGeyserVersion() {
         try {
-            return GeyserApi.api().version();
+            return String.valueOf(GeyserApi.api().geyserApiVersion());
         } catch (Throwable ignored) {
             return "unknown";
         }
@@ -945,7 +945,7 @@ public class PackManager {
     @NotNull
     private static String resolveBedrockProtocolVersion() {
         try {
-            return "geyser-" + GeyserApi.api().version();
+            return "geyser-" + GeyserApi.api().geyserApiVersion();
         } catch (Throwable ignored) {
             return "unknown";
         }
