@@ -405,6 +405,7 @@ Including:
 ```text
 content-inventory.json
 compatibility-report.json
+compatibility-summary.json
 performance-report.json
 pack-validation-report.json
 ```

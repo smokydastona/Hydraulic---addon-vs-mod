@@ -84,6 +84,7 @@ public final class CompatibilityManager {
         CompatibilityReport report = this.buildReport(inventory, metadataIndex);
         this.writeJson(this.dataPath.resolve("reports/content-inventory.json"), inventory);
         this.writeJson(this.dataPath.resolve("reports/compatibility-report.json"), report);
+        this.writeJson(this.dataPath.resolve("reports/compatibility-summary.json"), CompatibilitySummary.from(report));
         return new CompatibilityRegistry(metadataIndex, new MappingResolver(metadataIndex), inventory, report);
     }
 
@@ -95,6 +96,7 @@ public final class CompatibilityManager {
      */
     public void writeReport(@NotNull CompatibilityReport report) {
         this.writeJson(this.dataPath.resolve("reports/compatibility-report.json"), report);
+        this.writeJson(this.dataPath.resolve("reports/compatibility-summary.json"), CompatibilitySummary.from(report));
     }
 
     @NotNull

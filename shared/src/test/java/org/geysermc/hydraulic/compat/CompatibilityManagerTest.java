@@ -74,6 +74,41 @@ class CompatibilityManagerTest {
     }
 
     @Test
+    void writesCompactCompatibilitySummary(@TempDir Path tempDir) throws IOException {
+        ContentInventory.ModContentInventory inventory = new ContentInventory.ModContentInventory(
+            "examplemod",
+            "example",
+            "Example Mod",
+            "1.0.0",
+            List.of(tempDir.toString()),
+            new org.geysermc.hydraulic.compat.model.ModFingerprint("examplemod", "example", "1.0.0", "unknown", "test", 1, 0, 0, 0, 0, 0, 0, false, false, false, false, false, false, false, false),
+            Map.of("blocks", 1),
+            Map.of("blocks", List.of("example:test_block")),
+            Map.of("block_assets", 1),
+            Map.of("block_assets", List.of("example:test_block")),
+            Map.of("blocks", 1),
+            Map.of("blocks", List.of("example:test_block")),
+            Map.of(),
+            Map.of()
+        );
+
+        CompatibilityManager manager = new CompatibilityManager(LoggerFactory.getLogger("CompatibilityManagerTest"), tempDir);
+        CompatibilityReport report = manager.buildReport(new ContentInventory(Map.of("examplemod", inventory)), MetadataIndex.empty());
+        manager.writeReport(report);
+
+        CompatibilitySummary summary;
+        try (var reader = Files.newBufferedReader(tempDir.resolve("reports/compatibility-summary.json"))) {
+            summary = Constants.GSON.fromJson(reader, CompatibilitySummary.class);
+        }
+        assertNotNull(summary);
+        assertEquals(1, summary.modCount());
+        assertEquals(1, summary.objectCount());
+        assertNotNull(summary.mods().get("examplemod"));
+        assertEquals(1, summary.mods().get("examplemod").objectCount());
+        assertEquals(report.mods().get("examplemod").overallLevel(), summary.mods().get("examplemod").overallLevel());
+    }
+
+    @Test
     void buildsCapabilityDrivenReport(@TempDir Path tempDir) {
         ContentInventory.ModContentInventory inventory = new ContentInventory.ModContentInventory(
             "examplemod",
