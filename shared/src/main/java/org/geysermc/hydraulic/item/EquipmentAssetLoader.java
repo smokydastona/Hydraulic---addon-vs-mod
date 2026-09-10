@@ -22,7 +22,7 @@ import java.util.EnumMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.function.Consumer;
+import java.util.function.BiConsumer;
 
 public final class EquipmentAssetLoader {
     private EquipmentAssetLoader() {
@@ -73,17 +73,27 @@ public final class EquipmentAssetLoader {
         }
     }
 
-    public static void collectTextureDependencies(@NotNull ModInfo mod, @NotNull Identifier assetId, @NotNull Logger logger, @NotNull Consumer<Key> sink) {
+    public static void collectTextureDependencies(@NotNull ModInfo mod, @NotNull Identifier assetId, @NotNull Logger logger, @NotNull BiConsumer<EquipmentLayerType, Key> sink) {
         EquipmentAsset equipment = load(mod, assetId, logger);
         if (equipment == null) {
             return;
         }
 
-        for (List<Key> textures : equipment.layers.values()) {
+        for (Map.Entry<EquipmentLayerType, List<Key>> entry : equipment.layers.entrySet()) {
+            EquipmentLayerType layerType = entry.getKey();
+            List<Key> textures = entry.getValue();
             for (Key texture : textures) {
-                sink.accept(texture);
+                sink.accept(layerType, sourceTextureKey(layerType, texture));
             }
         }
+    }
+
+    @NotNull
+    static Key sourceTextureKey(@NotNull EquipmentLayerType layerType, @NotNull Key textureKey) {
+        if (textureKey.value().contains("/")) {
+            return textureKey;
+        }
+        return Key.key(textureKey.namespace(), "entity/equipment/" + layerType.name().toLowerCase(Locale.ROOT) + "/" + textureKey.value());
     }
 
     @Nullable

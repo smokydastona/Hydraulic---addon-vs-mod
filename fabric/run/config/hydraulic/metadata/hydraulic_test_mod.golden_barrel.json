@@ -35,9 +35,21 @@
       "target": "hydraulic_test_mod:barrel_cube",
       "content_type": "entity",
       "patch": {
+        "interaction": {
+          "prompt": "Open Barrel Cube"
+        },
         "behavior": {
           "required": true,
           "tag": "visual_only_runtime"
+        }
+      }
+    },
+    {
+      "target": "hydraulic_test_mod:barrel_fluid",
+      "content_type": "fluid",
+      "patch": {
+        "visual": {
+          "bucket_texture": "hydraulic_test_mod:barrel_pack"
         }
       }
     }

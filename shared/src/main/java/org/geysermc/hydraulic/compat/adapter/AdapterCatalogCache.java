@@ -1,5 +1,6 @@
 package org.geysermc.hydraulic.compat.adapter;
 
+import com.google.gson.reflect.TypeToken;
 import org.geysermc.hydraulic.util.PackUtil;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -14,6 +15,7 @@ import java.util.Map;
  * Hydraulic startup can read from this cache synchronously without depending on remote availability.
  */
 public final class AdapterCatalogCache {
+    private static final String CACHE_ALGORITHM = "HYDRAULIC_ADAPTER_CATALOG_CACHE_V1";
     private static final String CATALOG_MANIFEST = "adapter-catalog-manifest.json";
     private static final String BUILTIN_CATALOG_FILE = "builtin-catalog.json";
     private static final String MOD_SPECIFIC_CATALOG_FILE = "mod-specific-catalog.json";
@@ -46,6 +48,7 @@ public final class AdapterCatalogCache {
         }
         // Store manifest
         this.writeJson(this.cacheRoot.resolve(CATALOG_MANIFEST), new CatalogManifest(
+            CACHE_ALGORITHM,
             catalog.fingerprint(),
             catalog.builtInAdapters().size(),
             catalog.modSpecificAdapters().size(),
@@ -61,14 +64,13 @@ public final class AdapterCatalogCache {
             return AdapterCatalog.builtinOnly();
         }
 
-        // Validate fingerprint matches expected builtin fingerprint
-        if (!manifest.fingerprint().equals(PackUtil.adapterCatalogFingerprint()) && !manifest.isBuiltinOnly()) {
-            this.logger.warn("Adapter catalog fingerprint mismatch, falling back to builtin-only catalog");
+        if (!CACHE_ALGORITHM.equals(manifest.algorithm()) || manifest.fingerprint().isBlank()) {
+            this.logger.warn("Adapter catalog cache manifest is invalid or obsolete, falling back to builtin-only catalog");
             return AdapterCatalog.builtinOnly();
         }
 
-        Map<String, AdapterBinding> builtInAdapters = this.readJson(this.cacheRoot.resolve(BUILTIN_CATALOG_FILE), Map.class);
-        Map<String, AdapterBinding> modSpecificAdapters = this.readJson(this.cacheRoot.resolve(MOD_SPECIFIC_CATALOG_FILE), Map.class);
+        Map<String, AdapterBinding> builtInAdapters = this.readBindings(this.cacheRoot.resolve(BUILTIN_CATALOG_FILE));
+        Map<String, AdapterBinding> modSpecificAdapters = this.readBindings(this.cacheRoot.resolve(MOD_SPECIFIC_CATALOG_FILE));
 
         if (builtInAdapters == null) {
             builtInAdapters = Map.of();
@@ -116,7 +118,22 @@ public final class AdapterCatalogCache {
         }
     }
 
+    @Nullable
+    private Map<String, AdapterBinding> readBindings(@NotNull Path path) {
+        if (!Files.isRegularFile(path)) {
+            return null;
+        }
+
+        try (var reader = Files.newBufferedReader(path)) {
+            return org.geysermc.hydraulic.Constants.GSON.fromJson(reader, new TypeToken<Map<String, AdapterBinding>>() {}.getType());
+        } catch (Exception e) {
+            this.logger.error("Failed to read adapter binding cache entry {}", path, e);
+            return null;
+        }
+    }
+
     private record CatalogManifest(
+        @NotNull String algorithm,
         @NotNull String fingerprint,
         int builtInAdapterCount,
         int modSpecificAdapterCount,

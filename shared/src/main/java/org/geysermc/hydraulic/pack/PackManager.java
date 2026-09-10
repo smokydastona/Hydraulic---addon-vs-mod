@@ -778,7 +778,7 @@ public class PackManager {
                 continue;
             }
 
-            EquipmentAssetLoader.collectTextureDependencies(mod, assetId, LOGGER, textureKey -> textureDependencies.recordEquipmentTexture(assetId.toString(), textureKey));
+            EquipmentAssetLoader.collectTextureDependencies(mod, assetId, LOGGER, (layerType, textureKey) -> textureDependencies.recordEquipmentTexture(assetId + "/" + layerType.name().toLowerCase(java.util.Locale.ROOT), textureKey));
         }
     }
 

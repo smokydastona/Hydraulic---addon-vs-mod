@@ -21,6 +21,20 @@ class EquipmentAssetLoaderTest {
     @TempDir
     Path tempDir;
 
+  @Test
+  void resolvesLogicalEquipmentTextureToLayerQualifiedSourcePath() {
+    Key resolved = EquipmentAssetLoader.sourceTextureKey(EquipmentLayerType.HUMANOID, Key.key("create", "copper"));
+
+    assertEquals("create:entity/equipment/humanoid/copper", resolved.asString());
+  }
+
+  @Test
+  void preservesAlreadyQualifiedEquipmentTexturePaths() {
+    Key resolved = EquipmentAssetLoader.sourceTextureKey(EquipmentLayerType.HUMANOID, Key.key("example", "entity/equipment/humanoid/widget"));
+
+    assertEquals("example:entity/equipment/humanoid/widget", resolved.asString());
+  }
+
     @Test
     void loadsEquipmentLayersFromModAssets() throws IOException {
         Path asset = this.tempDir.resolve("assets/examplemod/equipment/barrel.json");
