@@ -142,7 +142,11 @@ class RuntimeDispatchTableTest {
                                 List.of()
                             ),
                             object("entity", entity.toString(), Map.of("behavior_required", "true", "behavior_tag", "visual_only_runtime"), supportResults(SupportLevel.ADAPTED, SupportLevel.ADAPTED, SupportLevel.APPROXIMATED)),
-                            object("menu", menu.toString(), Map.of(), supportResults(SupportLevel.AUTOMATIC, SupportLevel.AUTOMATIC, SupportLevel.AUTOMATIC)),
+                            object("menu", menu.toString(), Map.of(
+                                "container.archetype", "machine",
+                                "container.slot.input", "2",
+                                "container.slot.output", "0"
+                            ), supportResults(SupportLevel.AUTOMATIC, SupportLevel.AUTOMATIC, SupportLevel.AUTOMATIC)),
                             object("block_entity", blockEntity.toString(), Map.of(), supportResults(SupportLevel.AUTOMATIC, SupportLevel.AUTOMATIC, SupportLevel.AUTOMATIC)),
                             object("item", fluidBucket.toString(), Map.of("fluid_source", fluid.toString(), "bucket_texture", "example:bucket"), supportResults(SupportLevel.AUTOMATIC, SupportLevel.ADAPTED, SupportLevel.AUTOMATIC)),
                             object("fluid", fluid.toString(), Map.of("behavior_tag", "fluid_tank"), supportResults(SupportLevel.AUTOMATIC, SupportLevel.UNSUPPORTED, SupportLevel.UNSUPPORTED))
@@ -200,6 +204,9 @@ class RuntimeDispatchTableTest {
         assertNotNull(menuPlan);
         assertTrue(menuPlan.requiresMenuBridge());
         assertEquals(ContainerType.GENERIC_9X3, menuPlan.menuFallbackContainerType());
+        assertEquals(ContainerArchetype.MACHINE, menuPlan.containerArchetype());
+        assertEquals(List.of(2), menuPlan.slotRoles().get(SlotRole.INPUT));
+        assertEquals(List.of(0), menuPlan.slotRoles().get(SlotRole.OUTPUT));
 
         var blockEntityPlan = registry.dispatchTable().blockEntity(blockEntity);
         assertNotNull(blockEntityPlan);

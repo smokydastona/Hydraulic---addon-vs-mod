@@ -7,7 +7,9 @@ import org.geysermc.hydraulic.compat.adapter.AdapterFeature;
 import org.geysermc.hydraulic.compat.model.Confidence;
 import org.geysermc.hydraulic.compat.model.SupportLevel;
 import org.geysermc.hydraulic.compat.runtime.BlockEntityPatchTemplate;
+import org.geysermc.hydraulic.compat.runtime.ContainerArchetype;
 import org.geysermc.hydraulic.compat.runtime.RuntimeBridgeKind;
+import org.geysermc.hydraulic.compat.runtime.SlotRole;
 import org.geysermc.hydraulic.compat.model.CompatibilityContract;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -16,6 +18,8 @@ import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.EnumMap;
+import java.util.ArrayList;
 
 public record CompiledCompatibilityPlan(
     @NotNull String modId,
@@ -78,6 +82,37 @@ public record CompiledCompatibilityPlan(
 
     public boolean hasRuntimeBridges() {
         return !this.runtimeBridgeKinds.isEmpty();
+    }
+
+    @NotNull
+    public ContainerArchetype containerArchetype() {
+        return ContainerArchetype.parse(this.inventoryFacts.get("container.archetype"));
+    }
+
+    @NotNull
+    public Map<SlotRole, List<Integer>> slotRoles() {
+        Map<SlotRole, List<Integer>> roles = new EnumMap<>(SlotRole.class);
+        for (SlotRole role : SlotRole.values()) {
+            String raw = this.inventoryFacts.get("container.slot." + role.name().toLowerCase());
+            if (raw == null || raw.isBlank()) {
+                continue;
+            }
+            List<Integer> slots = new ArrayList<>();
+            for (String value : raw.split(",")) {
+                try {
+                    int slot = Integer.parseInt(value.trim());
+                    if (slot >= 0) {
+                        slots.add(slot);
+                    }
+                } catch (NumberFormatException ignored) {
+                    return Map.of();
+                }
+            }
+            if (!slots.isEmpty()) {
+                roles.put(role, List.copyOf(slots));
+            }
+        }
+        return Map.copyOf(roles);
     }
 
     @NotNull

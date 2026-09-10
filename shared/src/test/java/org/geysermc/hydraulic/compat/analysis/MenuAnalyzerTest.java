@@ -49,6 +49,37 @@ class MenuAnalyzerTest {
         assertTrue(object.runtimeRequirements().contains("container_bridge"));
     }
 
+    @Test
+    void compilesMachineArchetypeAndSlotRoles() {
+        Identifier target = Identifier.fromNamespaceAndPath("test", "machine_menu");
+        ContentPatch patch = new ContentPatch(
+            target,
+            "menu",
+            Map.of(
+                "bedrock.menu.container_type", "generic_9x3",
+                "container.archetype", "machine",
+                "container.slot.input", "2",
+                "container.slot.output", "0",
+                "container.slot.player_inventory", "3,4,5"
+            ),
+            MappingOwnership.USER,
+            "user/menus.json",
+            MappingOwnership.USER.priority(),
+            0
+        );
+        MetadataIndex metadataIndex = new MetadataIndex(Map.of(), Map.of(), Map.of(), Map.of(), Map.of(), Map.of(target, List.of(patch)), List.of(), MetadataIndex.Summary.empty());
+        CompatibilityObject object = new MenuAnalyzer().analyze(
+            new ContentInventory.ContentDescriptor("menu", "test", target.toString(), true, false, List.of()),
+            emptyInventory(),
+            metadataIndex
+        );
+
+        assertEquals("machine", object.inventoryFacts().get("container.archetype"));
+        assertEquals("2", object.inventoryFacts().get("container.slot.input"));
+        assertEquals("0", object.inventoryFacts().get("container.slot.output"));
+        assertEquals("3,4,5", object.inventoryFacts().get("container.slot.player_inventory"));
+    }
+
     private static ContentInventory.ModContentInventory emptyInventory() {
         return new ContentInventory.ModContentInventory(
             "test",

@@ -65,11 +65,23 @@ public final class MenuAnalyzer implements CompatibilityAnalyzer {
             metadataSources.add(mapping.sourcePath());
         }
 
+        Map<String, String> inventoryFacts = new LinkedHashMap<>(AnalyzerSupport.inventoryFacts(descriptor.registered(), descriptor.assetPresent(), mapping != null ? 1 : 0, patches.size()));
+        String archetype = patches.stream().map(patch -> patch.operation("container.archetype")).filter(value -> value != null && !value.isBlank()).findFirst().orElse(null);
+        if (archetype != null) {
+            inventoryFacts.put("container.archetype", archetype);
+        }
+        for (String role : List.of("input", "output", "fuel", "upgrade", "fluid_input", "fluid_output", "catalyst", "player_inventory")) {
+            String slots = patches.stream().map(patch -> patch.operation("container.slot." + role)).filter(value -> value != null && !value.isBlank()).findFirst().orElse(null);
+            if (slots != null) {
+                inventoryFacts.put("container.slot." + role, slots);
+            }
+        }
+
         return AnalyzerSupport.object(
             descriptor.javaIdentifier(),
             descriptor.kind(),
             descriptor.modId(),
-            AnalyzerSupport.inventoryFacts(descriptor.registered(), descriptor.assetPresent(), mapping != null ? 1 : 0, patches.size()),
+            inventoryFacts,
             profile,
             supportResults,
             new Confidence(fallbackContainerBridge ? 0.42D : mapping != null || !patches.isEmpty() ? 0.32D : 0.14D, fallbackContainerBridge ? "Menu analysis is metadata-backed with an explicit fallback container bridge." : "Menu analysis is currently metadata-backed and runtime-constrained."),

@@ -124,11 +124,22 @@ public final class MachineBridgeFactory {
         }
         Integer inputSlot = integerFact(plan.inventoryFacts(), "machine.input_slot");
         Integer outputSlot = integerFact(plan.inventoryFacts(), "machine.output_slot");
+        if (inputSlot == null) {
+            inputSlot = firstSlot(plan.slotRoles().get(SlotRole.INPUT));
+        }
+        if (outputSlot == null) {
+            outputSlot = firstSlot(plan.slotRoles().get(SlotRole.OUTPUT));
+        }
         List<MachineProcessingBridge.MachineRecipe> recipes = compileRecipes(plan.inventoryFacts());
         if (inputSlot == null || outputSlot == null || recipes.isEmpty()) {
             return null;
         }
         return createProcessing(plan, inventory, inputSlot, outputSlot, recipes);
+    }
+
+    @Nullable
+    private static Integer firstSlot(@Nullable List<Integer> slots) {
+        return slots == null || slots.isEmpty() ? null : slots.getFirst();
     }
 
     @Nullable
