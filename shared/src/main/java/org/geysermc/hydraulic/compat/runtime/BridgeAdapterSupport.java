@@ -72,6 +72,12 @@ final class BridgeAdapterSupport {
             && hasTrueFact(plan, "has_inventory");
     }
 
+    static boolean supportsAutomation(@Nullable CompiledCompatibilityPlan plan) {
+        return plan != null
+            && plan.runtimeBridgeKinds().contains(RuntimeBridgeKind.AUTOMATION_ACCESS)
+            && (hasTrueFact(plan, "sided_insert", "sided_extract") || hasFact(plan, "filtering"));
+    }
+
     private static boolean hasTrueFact(@Nullable CompiledCompatibilityPlan plan, String... keys) {
         if (plan == null) {
             return false;
@@ -82,5 +88,13 @@ final class BridgeAdapterSupport {
             }
         }
         return false;
+    }
+
+    private static boolean hasFact(@Nullable CompiledCompatibilityPlan plan, String key) {
+        if (plan == null) {
+            return false;
+        }
+        String value = plan.inventoryFacts().get(key);
+        return value != null && !value.isBlank();
     }
 }

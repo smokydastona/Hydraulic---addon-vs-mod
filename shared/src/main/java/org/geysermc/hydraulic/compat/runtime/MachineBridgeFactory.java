@@ -69,6 +69,19 @@ public final class MachineBridgeFactory {
     }
 
     @Nullable
+    public static AutomationAccess createAutomation(
+        @Nullable CompiledCompatibilityPlan plan,
+        @Nullable TransferBridgeFactory.ItemTransferBridge inventory
+    ) {
+        if (!BridgeAdapterSupport.supportsAutomation(plan)
+            || inventory == null
+            || !inventory.executable()) {
+            return null;
+        }
+        return new RuntimeAutomationAccess(plan, inventory);
+    }
+
+    @Nullable
     public static MachineProcessingBridge createProcessing(
         @Nullable CompiledCompatibilityPlan plan,
         @Nullable TransferBridgeFactory.ItemTransferBridge inventory,
@@ -164,6 +177,50 @@ public final class MachineBridgeFactory {
         boolean hasInventory(@NotNull Identifier blockIdentifier);
         @Nullable String inventoryLayout(@NotNull Identifier blockIdentifier);
         @Nullable String slotSemantics(@NotNull Identifier blockIdentifier);
+    }
+
+    public interface AutomationAccess {
+        boolean supportsSidedInsertion(@NotNull Identifier blockIdentifier);
+        boolean supportsSidedExtraction(@NotNull Identifier blockIdentifier);
+        @Nullable String filterType(@NotNull Identifier blockIdentifier);
+        int insert(@NotNull Identifier blockIdentifier, @NotNull TransferBridgeFactory.ItemStackView item, int slot, @NotNull String side, boolean simulate);
+        int extract(@NotNull Identifier blockIdentifier, @NotNull TransferBridgeFactory.ItemStackView item, int slot, @NotNull String side, boolean simulate);
+    }
+
+    private static final class RuntimeAutomationAccess implements AutomationAccess {
+        private final CompiledCompatibilityPlan plan;
+        private final TransferBridgeFactory.ItemTransferBridge inventory;
+
+        private RuntimeAutomationAccess(@NotNull CompiledCompatibilityPlan plan, @NotNull TransferBridgeFactory.ItemTransferBridge inventory) {
+            this.plan = plan;
+            this.inventory = inventory;
+        }
+
+        @Override
+        public boolean supportsSidedInsertion(@NotNull Identifier blockIdentifier) {
+            return Boolean.parseBoolean(this.plan.inventoryFacts().getOrDefault("sided_insert", "false"));
+        }
+
+        @Override
+        public boolean supportsSidedExtraction(@NotNull Identifier blockIdentifier) {
+            return Boolean.parseBoolean(this.plan.inventoryFacts().getOrDefault("sided_extract", "false"));
+        }
+
+        @Override
+        @Nullable
+        public String filterType(@NotNull Identifier blockIdentifier) {
+            return this.plan.inventoryFacts().get("filtering");
+        }
+
+        @Override
+        public int insert(@NotNull Identifier blockIdentifier, @NotNull TransferBridgeFactory.ItemStackView item, int slot, @NotNull String side, boolean simulate) {
+            return this.inventory.insert(blockIdentifier, item, slot, side, simulate);
+        }
+
+        @Override
+        public int extract(@NotNull Identifier blockIdentifier, @NotNull TransferBridgeFactory.ItemStackView item, int slot, @NotNull String side, boolean simulate) {
+            return this.inventory.extract(blockIdentifier, item, slot, side, simulate);
+        }
     }
 
     private static final class MetadataBackedMachineBehaviorBridge implements MachineBehaviorBridge {

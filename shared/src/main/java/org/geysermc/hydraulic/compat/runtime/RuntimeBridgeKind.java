@@ -29,13 +29,14 @@ public enum RuntimeBridgeKind {
     FLUID_TRANSFER("fluid_transfer_bridge", "fluid"),
     ENERGY_TRANSFER("energy_transfer_bridge", "energy"),
     MACHINE_BEHAVIOR("machine_behavior_bridge", "machine"),
-    MACHINE_INVENTORY("machine_inventory_bridge", "machine");
+    MACHINE_INVENTORY("machine_inventory_bridge", "machine"),
+    AUTOMATION_ACCESS("automation_access_bridge", "machine");
 
     private static final List<RuntimeBridgeKind> MENU_RUNTIME_KINDS = List.of(MENU_CONTAINER, MENU_BEHAVIOR);
     private static final List<RuntimeBridgeKind> BLOCK_ENTITY_RUNTIME_KINDS = List.of(BLOCK_ENTITY_DATA, BLOCK_ENTITY_INTERACTION, BLOCK_ENTITY_BEHAVIOR);
     private static final List<RuntimeBridgeKind> FLUID_RUNTIME_KINDS = List.of(FLUID_TRANSLATOR, FLUID_RUNTIME);
     private static final List<RuntimeBridgeKind> TRANSFER_RUNTIME_KINDS = List.of(ITEM_TRANSFER, FLUID_TRANSFER, ENERGY_TRANSFER);
-    private static final List<RuntimeBridgeKind> MACHINE_RUNTIME_KINDS = List.of(MACHINE_BEHAVIOR, MACHINE_INVENTORY);
+    private static final List<RuntimeBridgeKind> MACHINE_RUNTIME_KINDS = List.of(MACHINE_BEHAVIOR, MACHINE_INVENTORY, AUTOMATION_ACCESS);
     private static final Map<String, RuntimeBridgeKind> BY_REQUIREMENT = indexByRequirement();
 
     private final String requirementId;

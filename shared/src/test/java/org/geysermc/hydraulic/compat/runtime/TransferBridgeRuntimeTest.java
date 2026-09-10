@@ -153,6 +153,30 @@ class TransferBridgeRuntimeTest {
     }
 
     @Test
+    void automationBridgeDelegatesSidedOperationsAndCompiledFiltering() {
+        Identifier machine = Identifier.fromNamespaceAndPath("hydraulic", "test_machine");
+        CompiledCompatibilityPlan plan = runtimePlan(
+            List.of(RuntimeBridgeKind.ITEM_TRANSFER, RuntimeBridgeKind.AUTOMATION_ACCESS),
+            Map.of(
+                "can_insert", "true",
+                "can_extract", "true",
+                "sided_insert", "true",
+                "sided_extract", "true",
+                "filtering", "tag"
+            )
+        );
+        TransferBridgeFactory.ItemTransferBridge transfer = TransferBridgeFactory.createItemTransfer(plan, new SidedInventory());
+        MachineBridgeFactory.AutomationAccess automation = MachineBridgeFactory.createAutomation(plan, transfer);
+
+        assertNotNull(automation);
+        assertTrue(automation.supportsSidedInsertion(machine));
+        assertTrue(automation.supportsSidedExtraction(machine));
+        assertEquals("tag", automation.filterType(machine));
+        assertEquals(1, automation.insert(machine, new TransferBridgeFactory.ItemStackView("minecraft:stone", 1), 0, "north", false));
+        assertEquals(1, automation.extract(machine, new TransferBridgeFactory.ItemStackView("minecraft:stone", 1), 0, "south", false));
+    }
+
+    @Test
     void machineProcessingConsumesInputAndProducesOutputAfterDuration() {
         Identifier machine = Identifier.fromNamespaceAndPath("hydraulic", "test_machine");
         TestInventory inventory = new TestInventory();

@@ -44,6 +44,11 @@ public final class BehaviorFactExtractor {
         if (booleanFact(facts, "can_receive_energy") || booleanFact(facts, "can_provide_energy")) {
             requirements.add(RuntimeBridgeKind.ENERGY_TRANSFER.requirementId());
         }
+        if (booleanFact(facts, "sided_insert")
+            || booleanFact(facts, "sided_extract")
+            || !facts.getOrDefault("filtering", "").isBlank()) {
+            requirements.add(RuntimeBridgeKind.AUTOMATION_ACCESS.requirementId());
+        }
         return List.copyOf(requirements);
     }
 
@@ -65,6 +70,9 @@ public final class BehaviorFactExtractor {
         putIfPresent(facts, "can_receive_energy", patch.operation("transfer.energy.can_receive"));
         putIfPresent(facts, "can_provide_energy", patch.operation("transfer.energy.can_provide"));
         putIfPresent(facts, "energy_type", patch.operation("transfer.energy.type"));
+        putIfPresent(facts, "sided_insert", patch.operation("machine.automation.sided_insert"));
+        putIfPresent(facts, "sided_extract", patch.operation("machine.automation.sided_extract"));
+        putIfPresent(facts, "filtering", patch.operation("machine.automation.filtering"));
 
         putIfPresent(facts, "machine.input_slot", patch.operation("machine.inventory.input_slot"));
         putIfPresent(facts, "machine.output_slot", patch.operation("machine.inventory.output_slot"));
