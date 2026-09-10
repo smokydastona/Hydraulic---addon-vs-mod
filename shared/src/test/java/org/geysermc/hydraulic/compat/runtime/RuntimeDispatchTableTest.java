@@ -184,6 +184,7 @@ class RuntimeDispatchTableTest {
         assertTrue(behaviorItemPlan.requiresRuntimeBridge(RuntimeBridgeKind.ITEM_BEHAVIOR));
         assertTrue(behaviorItemPlan.contract().requiredBridges().contains(RuntimeBridgeKind.ITEM_BEHAVIOR));
         assertTrue(behaviorItemPlan.contract().domains().containsKey(org.geysermc.hydraulic.compat.model.CompatibilityContract.Domain.PRESENTATION));
+        assertEquals(org.geysermc.hydraulic.compat.model.CapabilityExecutionStatus.EXECUTABLE, behaviorItemPlan.contract().executionStatus());
         assertFalse(behaviorItemPlan.allowsCreativeExposure());
         assertEquals("item behavior runtime bridge is required (tag: wearable)", behaviorItemPlan.creativeExposureReason());
 

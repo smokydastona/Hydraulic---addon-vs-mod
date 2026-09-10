@@ -45,6 +45,7 @@ class CompatibilityContractTest {
         assertEquals(CompatibilityContract.Action.OMIT, contract.domains().get(CompatibilityContract.Domain.NETWORK).action());
         assertEquals(List.of(RuntimeBridgeKind.ITEM_TRANSFER, RuntimeBridgeKind.MACHINE_BEHAVIOR), contract.requiredBridges());
         assertFalse(contract.executable());
+        assertEquals(CapabilityExecutionStatus.ANALYZED, contract.executionStatus());
     }
 
     @Test
@@ -67,6 +68,7 @@ class CompatibilityContractTest {
         );
 
         assertFalse(object.contract().executable());
+        assertEquals(CapabilityExecutionStatus.ANALYZED, object.contract().executionStatus());
         assertTrue(object.contract().domains().containsKey(CompatibilityContract.Domain.BEHAVIOR));
     }
 

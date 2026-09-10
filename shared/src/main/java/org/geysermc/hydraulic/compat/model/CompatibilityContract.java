@@ -23,7 +23,8 @@ public record CompatibilityContract(
     int overallScore,
     @NotNull Map<Domain, DomainContract> domains,
     @NotNull List<RuntimeBridgeKind> requiredBridges,
-    boolean executable
+    boolean executable,
+    @NotNull CapabilityExecutionStatus executionStatus
 ) {
     public CompatibilityContract {
         domains = Map.copyOf(new LinkedHashMap<>(domains));
@@ -82,7 +83,8 @@ public record CompatibilityContract(
             object.overallScore(),
             domains,
             requiredBridges,
-            executable
+            executable,
+            executionStatus(object.overallLevel(), requiredBridges, executable, false)
         );
     }
 
@@ -134,8 +136,31 @@ public record CompatibilityContract(
             plan.overallScore(),
             domains,
             plan.runtimeBridgeKinds(),
-            executable
+            executable,
+            executionStatus(plan.overallLevel(), plan.runtimeBridgeKinds(), executable, true)
         );
+    }
+
+    @NotNull
+    private static CapabilityExecutionStatus executionStatus(
+        @NotNull SupportLevel level,
+        @NotNull List<RuntimeBridgeKind> bridges,
+        boolean executable,
+        boolean compiled
+    ) {
+        if (level == SupportLevel.UNSUPPORTED || level == SupportLevel.VISUAL_ONLY) {
+            return CapabilityExecutionStatus.ANALYZED;
+        }
+        if (executable && compiled) {
+            return CapabilityExecutionStatus.EXECUTABLE;
+        }
+        if (!compiled) {
+            return CapabilityExecutionStatus.ANALYZED;
+        }
+        if (compiled || !bridges.isEmpty()) {
+            return CapabilityExecutionStatus.COMPILED;
+        }
+        return CapabilityExecutionStatus.TRANSLATABLE;
     }
 
     @NotNull
