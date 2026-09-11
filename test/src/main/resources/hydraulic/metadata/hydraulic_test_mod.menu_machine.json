@@ -1,0 +1,27 @@
+{
+  "patches": [
+    {
+      "target": "hydraulic_test_mod:menu_machine",
+      "content_type": "menu",
+      "patch": {
+        "bedrock": {
+          "menu": { "container_type": "FURNACE" }
+        }
+      }
+    },
+    {
+      "target": "hydraulic_test_mod:menu_machine",
+      "content_type": "block_entity",
+      "patch": {
+        "bedrock": {
+          "block_entity": {
+            "id": "Furnace",
+            "data": {
+              "Progress": "$java.progress"
+            }
+          }
+        }
+      }
+    }
+  ]
+}

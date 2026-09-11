@@ -12,6 +12,12 @@ import net.minecraft.world.level.block.state.BlockBehaviour;
 import net.minecraft.world.level.material.PushReaction;
 import org.geysermc.hydraulic.fabric.test.machine.ItemTransferMachineBlock;
 import org.geysermc.hydraulic.fabric.test.machine.ProcessingMachineBlock;
+import org.geysermc.hydraulic.fabric.test.machine.EnergyMachineBlockEntity;
+import org.geysermc.hydraulic.fabric.test.machine.FluidMachineBlockEntity;
+import org.geysermc.hydraulic.fabric.test.machine.MixedResourceMachineBlockEntity;
+import org.geysermc.hydraulic.fabric.test.machine.MixedResourceMachineBlock;
+import org.geysermc.hydraulic.fabric.test.machine.MenuMachineBlock;
+import org.geysermc.hydraulic.fabric.test.machine.ResourceMachineBlock;
 
 import java.util.function.Function;
 
@@ -41,6 +47,34 @@ public class ModBlocks {
             BlockBehaviour.Properties.of()
                     .requiresCorrectToolForDrops()
                     .strength(3.5f),
+            true
+    );
+
+    public static final Block FLUID_MACHINE = register(
+            "fluid_machine",
+            properties -> new ResourceMachineBlock(properties, FluidMachineBlockEntity::new),
+            BlockBehaviour.Properties.of().requiresCorrectToolForDrops().strength(3.5f),
+            true
+    );
+
+    public static final Block ENERGY_MACHINE = register(
+            "energy_machine",
+            properties -> new ResourceMachineBlock(properties, EnergyMachineBlockEntity::new),
+            BlockBehaviour.Properties.of().requiresCorrectToolForDrops().strength(3.5f),
+            true
+    );
+
+    public static final Block MIXED_RESOURCE_MACHINE = register(
+            "mixed_resource_machine",
+            MixedResourceMachineBlock::new,
+            BlockBehaviour.Properties.of().requiresCorrectToolForDrops().strength(3.5f),
+            true
+    );
+
+    public static final Block MENU_MACHINE = register(
+            "menu_machine",
+            MenuMachineBlock::new,
+            BlockBehaviour.Properties.of().requiresCorrectToolForDrops().strength(3.5f),
             true
     );
 

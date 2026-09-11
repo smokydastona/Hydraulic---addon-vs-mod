@@ -191,9 +191,30 @@ public final class MachineBridgeFactory {
     }
 
     public static boolean hasExecutableProcessingContract(@NotNull Map<String, String> facts) {
-        return integerFact(facts, "machine.input_slot") != null
-            && integerFact(facts, "machine.output_slot") != null
-            && !compileRecipes(facts).isEmpty();
+        if (integerFact(facts, "machine.input_slot") == null || integerFact(facts, "machine.output_slot") == null) {
+            return false;
+        }
+        boolean recipesValid = hasMixedResourceRecipeFacts(facts)
+            ? !compileMixedRecipes(facts, Map.of()).isEmpty()
+            : !compileRecipes(facts).isEmpty();
+        return recipesValid && supportsDeclaredRecipeResources(facts);
+    }
+
+    private static boolean hasMixedResourceRecipeFacts(@NotNull Map<String, String> facts) {
+        return facts.keySet().stream().anyMatch(key -> key.matches(
+            "machine\\.processing\\.recipe\\.\\d+\\.(item_input|item_output|fluid_input|fluid_output)\\..+"
+        ) || key.matches("machine\\.processing\\.recipe\\.\\d+\\.energy_(input|output)"));
+    }
+
+    private static boolean supportsDeclaredRecipeResources(@NotNull Map<String, String> facts) {
+        boolean needsFluidInput = facts.keySet().stream().anyMatch(key -> key.matches("machine\\.processing\\.recipe\\.\\d+\\.fluid_input\\..+"));
+        boolean needsFluidOutput = facts.keySet().stream().anyMatch(key -> key.matches("machine\\.processing\\.recipe\\.\\d+\\.fluid_output\\..+"));
+        boolean needsEnergyInput = facts.keySet().stream().anyMatch(key -> key.matches("machine\\.processing\\.recipe\\.\\d+\\.energy_input"));
+        boolean needsEnergyOutput = facts.keySet().stream().anyMatch(key -> key.matches("machine\\.processing\\.recipe\\.\\d+\\.energy_output"));
+        return (!needsFluidInput || Boolean.parseBoolean(facts.getOrDefault("can_insert_fluid", "false")))
+            && (!needsFluidOutput || Boolean.parseBoolean(facts.getOrDefault("can_extract_fluid", "false")))
+            && (!needsEnergyInput || Boolean.parseBoolean(facts.getOrDefault("can_receive_energy", "false")))
+            && (!needsEnergyOutput || Boolean.parseBoolean(facts.getOrDefault("can_provide_energy", "false")));
     }
 
     @Nullable
@@ -304,11 +325,19 @@ public final class MachineBridgeFactory {
             return null;
         }
 
-        MixedResourceMachineProcessingBridge.ItemSlotStack legacyInput = compileLegacyItemStack(facts, prefix, "input", "input_count", "input_slot", firstSlot(slotRoles.get(SlotRole.INPUT)));
+        Integer defaultInputSlot = firstSlot(slotRoles.get(SlotRole.INPUT));
+        if (defaultInputSlot == null) {
+            defaultInputSlot = integerFact(facts, "machine.input_slot");
+        }
+        Integer defaultOutputSlot = firstSlot(slotRoles.get(SlotRole.OUTPUT));
+        if (defaultOutputSlot == null) {
+            defaultOutputSlot = integerFact(facts, "machine.output_slot");
+        }
+        MixedResourceMachineProcessingBridge.ItemSlotStack legacyInput = compileLegacyItemStack(facts, prefix, "input", "input_count", "input_slot", defaultInputSlot);
         if (legacyInput != null) {
             itemInputs = append(itemInputs, legacyInput);
         }
-        MixedResourceMachineProcessingBridge.ItemSlotStack legacyOutput = compileLegacyItemStack(facts, prefix, "output", "output_count", "output_slot", firstSlot(slotRoles.get(SlotRole.OUTPUT)));
+        MixedResourceMachineProcessingBridge.ItemSlotStack legacyOutput = compileLegacyItemStack(facts, prefix, "output", "output_count", "output_slot", defaultOutputSlot);
         if (legacyOutput != null) {
             itemOutputs = append(itemOutputs, legacyOutput);
         }

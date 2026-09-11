@@ -1,7 +1,7 @@
 {
   "patches": [
     {
-      "target": "hydraulic_test_mod:processing_machine",
+      "target": "hydraulic_test_mod:mixed_resource_machine",
       "content_type": "block",
       "patch": {
         "machine": {
@@ -13,34 +13,26 @@
           },
           "processing": {
             "enabled": true,
-            "type": "generic_smelting",
+            "type": "mixed",
             "recipe": {
               "0": {
                 "input": "minecraft:cobblestone",
                 "input_count": 1,
                 "output": "minecraft:stone",
                 "output_count": 1,
+                "fluid_input": {
+                  "0": { "fluid": "minecraft:water", "amount": 250, "tank": 0 }
+                },
+                "energy_input": 100,
                 "duration": 40
               }
             }
-          },
-          "automation": {
-            "sided_insert": true
-          }
-        },
-        "interaction": {
-          "block_use": {
-            "action": "insert_held_item",
-            "slot": 0,
-            "count": 1,
-            "side": "up"
           }
         },
         "transfer": {
-          "item": {
-            "can_insert": true,
-            "can_extract": true
-          }
+          "item": { "can_insert": true, "can_extract": true },
+          "fluid": { "can_insert": true, "can_extract": true, "tank_type": "single" },
+          "energy": { "can_receive": true, "can_provide": true, "type": "generic" }
         }
       }
     }

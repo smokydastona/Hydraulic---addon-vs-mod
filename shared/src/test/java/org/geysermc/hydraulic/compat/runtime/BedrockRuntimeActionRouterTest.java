@@ -6,6 +6,8 @@ import org.cloudburstmc.protocol.bedrock.data.inventory.transaction.InventoryTra
 import org.cloudburstmc.protocol.bedrock.packet.InventoryTransactionPacket;
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
@@ -76,6 +78,67 @@ class BedrockRuntimeActionRouterTest {
         assertEquals(traceId, result.traceId());
     }
 
+    @Test
+    void executesCompiledHeldItemInsertionAndConsumesExactCount() {
+        RuntimeTraceId traceId = new RuntimeTraceId("bedrock-owned-insert");
+        RecordingAutomationAccess automation = new RecordingAutomationAccess(true);
+        RuntimeTargetDiscovery discovery = discovery(new RuntimeTargetDiscovery.Target(MACHINE, new Object(), null, null), automation);
+        MutableHeldItem held = new MutableHeldItem(new TransferBridgeFactory.ItemStackView("minecraft:cobblestone", 4));
+        BedrockRuntimeActionRouter.RuntimeActionResult routed = BedrockRuntimeActionRouter.route(blockUsePacket(), discovery, LEVEL, traceId);
+
+        BedrockRuntimeActionRouter.RuntimeActionResult result = BedrockRuntimeActionRouter.executeItemAction(
+            routed,
+            discovery,
+            new BlockUseActionPlan(BlockUseActionPlan.Action.INSERT_HELD_ITEM, 2, 1, "up"),
+            held
+        );
+
+        assertEquals(BedrockRuntimeActionRouter.Status.MUTATED, result.status());
+        assertEquals(3, held.item.count());
+        assertEquals(1, automation.lastRequest.item().count());
+        assertEquals(2, automation.lastRequest.slot());
+        assertEquals("up", automation.lastRequest.side());
+    }
+
+    @Test
+    void rejectsMutationWithoutConsumingHeldItem() {
+        RuntimeTraceId traceId = new RuntimeTraceId("bedrock-rejected-insert");
+        RecordingAutomationAccess automation = new RecordingAutomationAccess(false);
+        RuntimeTargetDiscovery discovery = discovery(new RuntimeTargetDiscovery.Target(MACHINE, new Object(), null, null), automation);
+        MutableHeldItem held = new MutableHeldItem(new TransferBridgeFactory.ItemStackView("minecraft:cobblestone", 1));
+        BedrockRuntimeActionRouter.RuntimeActionResult routed = BedrockRuntimeActionRouter.route(blockUsePacket(), discovery, LEVEL, traceId);
+
+        BedrockRuntimeActionRouter.RuntimeActionResult result = BedrockRuntimeActionRouter.executeItemAction(
+            routed,
+            discovery,
+            new BlockUseActionPlan(BlockUseActionPlan.Action.INSERT_HELD_ITEM, 0, 1, null),
+            held
+        );
+
+        assertEquals(BedrockRuntimeActionRouter.Status.MUTATION_REJECTED, result.status());
+        assertEquals(1, held.item.count());
+    }
+
+    @Test
+    void rejectsInsufficientHeldItemBeforeTargetMutation() {
+        RuntimeTraceId traceId = new RuntimeTraceId("bedrock-insufficient-held-item");
+        RecordingAutomationAccess automation = new RecordingAutomationAccess(true);
+        RuntimeTargetDiscovery discovery = discovery(new RuntimeTargetDiscovery.Target(MACHINE, new Object(), null, null), automation);
+        MutableHeldItem held = new MutableHeldItem(new TransferBridgeFactory.ItemStackView("minecraft:cobblestone", 1));
+        BedrockRuntimeActionRouter.RuntimeActionResult routed = BedrockRuntimeActionRouter.route(blockUsePacket(), discovery, LEVEL, traceId);
+
+        BedrockRuntimeActionRouter.RuntimeActionResult result = BedrockRuntimeActionRouter.executeItemAction(
+            routed,
+            discovery,
+            new BlockUseActionPlan(BlockUseActionPlan.Action.INSERT_HELD_ITEM, 0, 2, null),
+            held
+        );
+
+        assertEquals(BedrockRuntimeActionRouter.Status.MUTATION_REJECTED, result.status());
+        assertNull(automation.lastRequest);
+        assertEquals(1, held.item.count());
+    }
+
     private static InventoryTransactionPacket blockUsePacket() {
         InventoryTransactionPacket packet = new InventoryTransactionPacket();
         packet.setTransactionType(InventoryTransactionType.ITEM_USE);
@@ -91,7 +154,53 @@ class BedrockRuntimeActionRouterTest {
         );
     }
 
-    private static final class NoopAutomationAccess implements MachineBridgeFactory.ResourceAutomationAccess {
+    private static RuntimeTargetDiscovery discovery(RuntimeTargetDiscovery.Target target, MachineBridgeFactory.ResourceAutomationAccess automation) {
+        return new RuntimeTargetDiscovery(ignored -> automation, position -> target);
+    }
+
+    private static final class MutableHeldItem implements BedrockRuntimeActionRouter.HeldItemAccess {
+        private TransferBridgeFactory.ItemStackView item;
+
+        private MutableHeldItem(TransferBridgeFactory.ItemStackView item) {
+            this.item = item;
+        }
+
+        @Override
+        public TransferBridgeFactory.ItemStackView heldItem() {
+            return this.item;
+        }
+
+        @Override
+        public void consume(int count) {
+            this.item = new TransferBridgeFactory.ItemStackView(this.item.itemId(), this.item.count() - count);
+        }
+    }
+
+    private static final class RecordingAutomationAccess extends NoopAutomationAccess {
+        private final boolean commit;
+        private TransferRequest lastRequest;
+
+        private RecordingAutomationAccess(boolean commit) {
+            this.commit = commit;
+        }
+
+        @Override
+        public TransferResult transferItem(TransferRequest request) {
+            this.lastRequest = request;
+            if (!this.commit) {
+                return TransferResult.rejected("target rejected insertion");
+            }
+            StateChangeSet changes = new StateChangeSet(List.of(new StateChangeSet.FieldChange(
+                request.blockIdentifier(),
+                "inventory.slot." + request.slot(),
+                new TransferBridgeFactory.ItemStackView("minecraft:air", 0),
+                request.item()
+            )));
+            return new TransferResult(true, request.item().count(), TransferBridgeFactory.OperationStatus.COMPLETED, null, List.of(), changes);
+        }
+    }
+
+    private static class NoopAutomationAccess implements MachineBridgeFactory.ResourceAutomationAccess {
         @Override
         public boolean supportsSidedItemInsertion(Identifier blockIdentifier) {
             return true;

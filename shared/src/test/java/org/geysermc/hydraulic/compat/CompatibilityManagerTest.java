@@ -366,6 +366,47 @@ class CompatibilityManagerTest {
         }
 
         @Test
+        void mixedProcessingMissingDeclaredResourceBridgeFailsClosed(@TempDir Path tempDir) throws IOException {
+                ContentInventory.ModContentInventory inventory = machineInventory(tempDir, "example:missing_fluid_bridge_machine");
+                Files.writeString(tempDir.resolve("compat.json"), """
+                        {
+                            "patches": [
+                                {
+                                    "target": "example:missing_fluid_bridge_machine",
+                                    "content_type": "block",
+                                    "patch": {
+                                        "machine": {
+                                            "inventory": { "enabled": true, "type": "generic", "input_slot": 0, "output_slot": 1 },
+                                            "processing": {
+                                                "enabled": true,
+                                                "type": "mixed",
+                                                "recipe": {
+                                                    "0": {
+                                                        "input": "minecraft:cobblestone", "input_count": 1,
+                                                        "output": "minecraft:stone", "output_count": 1,
+                                                        "duration": 40,
+                                                        "fluid_input": { "0": { "fluid": "minecraft:water", "amount": 250, "tank": 0 } }
+                                                    }
+                                                }
+                                            }
+                                        },
+                                        "transfer": { "item": { "can_insert": true, "can_extract": true } }
+                                    }
+                                }
+                            ]
+                        }
+                        """);
+                MetadataIndex metadataIndex = new MetadataLoader(LoggerFactory.getLogger("CompatibilityManagerTest")).load(tempDir);
+                CompatibilityReport report = new CompatibilityManager(LoggerFactory.getLogger("CompatibilityManagerTest"), tempDir).buildReport(new ContentInventory(Map.of("examplemod", inventory)), metadataIndex);
+
+                CompatibilityObject block = report.object("examplemod", "example:missing_fluid_bridge_machine", "block");
+                assertNotNull(block);
+                assertEquals(SupportLevel.UNSUPPORTED, block.supportResults().get("behavior").level());
+                assertEquals("true", block.inventoryFacts().get("critical_failure"));
+                assertEquals(SupportLevel.VISUAL_ONLY, block.overallLevel());
+        }
+
+        @Test
         void completeProcessingMachineBecomesExecutableAndClearsCriticalFailure(@TempDir Path tempDir) throws IOException {
                 ContentInventory.ModContentInventory inventory = machineInventory(tempDir, "example:processing_machine");
                 Files.writeString(tempDir.resolve("compat.json"), """

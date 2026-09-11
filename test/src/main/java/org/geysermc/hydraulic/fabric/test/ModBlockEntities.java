@@ -8,6 +8,10 @@ import net.minecraft.resources.ResourceKey;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import org.geysermc.hydraulic.fabric.test.machine.ItemTransferMachineBlockEntity;
 import org.geysermc.hydraulic.fabric.test.machine.ProcessingMachineBlockEntity;
+import org.geysermc.hydraulic.fabric.test.machine.EnergyMachineBlockEntity;
+import org.geysermc.hydraulic.fabric.test.machine.FluidMachineBlockEntity;
+import org.geysermc.hydraulic.fabric.test.machine.MixedResourceMachineBlockEntity;
+import org.geysermc.hydraulic.fabric.test.machine.MenuMachineBlockEntity;
 
 import java.util.Set;
 
@@ -24,6 +28,30 @@ public final class ModBlockEntities {
         BuiltInRegistries.BLOCK_ENTITY_TYPE,
         PROCESSING_MACHINE_KEY,
         new BlockEntityType<>(ProcessingMachineBlockEntity::new, Set.of(ModBlocks.PROCESSING_MACHINE))
+    );
+
+    public static final BlockEntityType<FluidMachineBlockEntity> FLUID_MACHINE = Registry.register(
+        BuiltInRegistries.BLOCK_ENTITY_TYPE,
+        keyOf("fluid_machine"),
+        new BlockEntityType<>(FluidMachineBlockEntity::new, Set.of(ModBlocks.FLUID_MACHINE))
+    );
+
+    public static final BlockEntityType<EnergyMachineBlockEntity> ENERGY_MACHINE = Registry.register(
+        BuiltInRegistries.BLOCK_ENTITY_TYPE,
+        keyOf("energy_machine"),
+        new BlockEntityType<>(EnergyMachineBlockEntity::new, Set.of(ModBlocks.ENERGY_MACHINE))
+    );
+
+    public static final BlockEntityType<MixedResourceMachineBlockEntity> MIXED_RESOURCE_MACHINE = Registry.register(
+        BuiltInRegistries.BLOCK_ENTITY_TYPE,
+        keyOf("mixed_resource_machine"),
+        new BlockEntityType<>(MixedResourceMachineBlockEntity::new, Set.of(ModBlocks.MIXED_RESOURCE_MACHINE))
+    );
+
+    public static final BlockEntityType<MenuMachineBlockEntity> MENU_MACHINE = Registry.register(
+        BuiltInRegistries.BLOCK_ENTITY_TYPE,
+        keyOf("menu_machine"),
+        new BlockEntityType<>(MenuMachineBlockEntity::new, Set.of(ModBlocks.MENU_MACHINE))
     );
 
     private ModBlockEntities() {

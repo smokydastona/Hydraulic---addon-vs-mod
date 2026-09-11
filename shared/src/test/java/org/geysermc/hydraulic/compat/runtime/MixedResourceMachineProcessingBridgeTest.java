@@ -118,6 +118,37 @@ class MixedResourceMachineProcessingBridgeTest {
             TestFluidBridge.ready(),
             new TestEnergyBridge(100, 1000)
         ));
+        assertFalse(MachineBridgeFactory.hasExecutableProcessingContract(withGlobalSlots(malformed)));
+    }
+
+    @Test
+    void legacyItemRecipeUsesGlobalMachineSlots() {
+        Map<String, String> facts = Map.ofEntries(
+            Map.entry("has_processing", "true"),
+            Map.entry("has_inventory", "true"),
+            Map.entry("machine.input_slot", "0"),
+            Map.entry("machine.output_slot", "1"),
+            Map.entry("machine.processing.recipe.0.input", "minecraft:stone"),
+            Map.entry("machine.processing.recipe.0.input_count", "1"),
+            Map.entry("machine.processing.recipe.0.output", "minecraft:iron_ingot"),
+            Map.entry("machine.processing.recipe.0.output_count", "1"),
+            Map.entry("machine.processing.recipe.0.fluid_input.0.fluid", "minecraft:water"),
+            Map.entry("machine.processing.recipe.0.fluid_input.0.amount", "500"),
+            Map.entry("machine.processing.recipe.0.fluid_input.0.tank", "0"),
+            Map.entry("machine.processing.recipe.0.energy_input", "50"),
+            Map.entry("machine.processing.recipe.0.duration", "1")
+        );
+        TestItemBridge items = new TestItemBridge(
+            new TransferBridgeFactory.ItemStackView("minecraft:stone", 1),
+            new TransferBridgeFactory.ItemStackView("minecraft:air", 0)
+        );
+
+        assertNotNull(MachineBridgeFactory.createMixedProcessing(
+            plan(facts),
+            items,
+            TestFluidBridge.ready(),
+            new TestEnergyBridge(100, 1000)
+        ));
     }
 
     private static MixedResourceMachineProcessingBridge.MixedMachineRecipe recipe() {
@@ -204,6 +235,16 @@ class MixedResourceMachineProcessingBridgeTest {
             Map.entry("machine.processing.recipe.0.fluid_output.0.tank", "1"),
             Map.entry("machine.processing.recipe.0.duration", "1")
         );
+    }
+
+    private static Map<String, String> withGlobalSlots(Map<String, String> facts) {
+        Map<String, String> copy = new java.util.LinkedHashMap<>(facts);
+        copy.put("machine.input_slot", "0");
+        copy.put("machine.output_slot", "2");
+        copy.put("can_insert_fluid", "true");
+        copy.put("can_extract_fluid", "true");
+        copy.put("can_receive_energy", "true");
+        return Map.copyOf(copy);
     }
 
     private static final class TestItemBridge implements TransferBridgeFactory.ItemTransferBridge {

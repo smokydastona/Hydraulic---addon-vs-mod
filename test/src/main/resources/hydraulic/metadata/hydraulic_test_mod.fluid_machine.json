@@ -1,0 +1,17 @@
+{
+  "patches": [
+    {
+      "target": "hydraulic_test_mod:fluid_machine",
+      "content_type": "block",
+      "patch": {
+        "transfer": {
+          "fluid": {
+            "can_insert": true,
+            "can_extract": true,
+            "tank_type": "single"
+          }
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,17 @@
+{
+  "patches": [
+    {
+      "target": "hydraulic_test_mod:energy_machine",
+      "content_type": "block",
+      "patch": {
+        "transfer": {
+          "energy": {
+            "can_receive": true,
+            "can_provide": true,
+            "type": "generic"
+          }
+        }
+      }
+    }
+  ]
+}

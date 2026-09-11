@@ -32,5 +32,9 @@ public class LanguageGeneration extends FabricLanguageProvider {
         translationBuilder.add(ModBlocks.GOLDEN_BARREL, "Golden Barrel");
         translationBuilder.add(ModBlocks.ITEM_TRANSFER_MACHINE, "Item Transfer Machine");
         translationBuilder.add(ModBlocks.PROCESSING_MACHINE, "Processing Machine");
+        translationBuilder.add(ModBlocks.FLUID_MACHINE, "Fluid Machine");
+        translationBuilder.add(ModBlocks.ENERGY_MACHINE, "Energy Machine");
+        translationBuilder.add(ModBlocks.MIXED_RESOURCE_MACHINE, "Mixed Resource Machine");
+        translationBuilder.add(ModBlocks.MENU_MACHINE, "Menu Machine");
     }
 }

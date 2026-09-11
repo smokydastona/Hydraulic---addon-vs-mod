@@ -17,7 +17,11 @@ final class HydraulicTestMetadataBootstrap {
     private static final String[] BUNDLED_METADATA_FILES = {
         "hydraulic_test_mod.golden_barrel.json",
         "hydraulic_test_mod.item_transfer_machine.json",
-        "hydraulic_test_mod.processing_machine.json"
+        "hydraulic_test_mod.processing_machine.json",
+        "hydraulic_test_mod.fluid_machine.json",
+        "hydraulic_test_mod.energy_machine.json",
+        "hydraulic_test_mod.mixed_resource_machine.json",
+        "hydraulic_test_mod.menu_machine.json"
     };
 
     private HydraulicTestMetadataBootstrap() {

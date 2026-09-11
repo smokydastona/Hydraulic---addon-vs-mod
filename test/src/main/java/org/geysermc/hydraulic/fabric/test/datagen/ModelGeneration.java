@@ -19,6 +19,10 @@ public class ModelGeneration extends FabricModelProvider {
         blockModelGenerators.createTrivialCube(ModBlocks.GOLDEN_BARREL);
         blockModelGenerators.createTrivialCube(ModBlocks.ITEM_TRANSFER_MACHINE);
         blockModelGenerators.createTrivialCube(ModBlocks.PROCESSING_MACHINE);
+        blockModelGenerators.createTrivialCube(ModBlocks.FLUID_MACHINE);
+        blockModelGenerators.createTrivialCube(ModBlocks.ENERGY_MACHINE);
+        blockModelGenerators.createTrivialCube(ModBlocks.MIXED_RESOURCE_MACHINE);
+        blockModelGenerators.createTrivialCube(ModBlocks.MENU_MACHINE);
     }
 
     @Override
