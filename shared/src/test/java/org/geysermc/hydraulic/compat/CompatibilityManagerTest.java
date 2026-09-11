@@ -28,6 +28,7 @@ import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -252,6 +253,174 @@ class CompatibilityManagerTest {
                 assertNotNull(profile);
                 assertEquals(SupportLevel.VISUAL_ONLY, profile.overallLevel());
                 assertEquals(0, profile.overallScore());
+        }
+
+        @Test
+        void itemTransferOnlyMachineIsNotExecutableMerelyBecauseItemTransferExists(@TempDir Path tempDir) throws IOException {
+                ContentInventory.ModContentInventory inventory = machineInventory(tempDir, "example:item_transfer_machine");
+                Files.writeString(tempDir.resolve("compat.json"), """
+                        {
+                            "patches": [
+                                {
+                                    "target": "example:item_transfer_machine",
+                                    "content_type": "block",
+                                    "patch": {
+                                        "machine": {
+                                            "inventory": {
+                                                "enabled": true,
+                                                "type": "generic"
+                                            }
+                                        },
+                                        "transfer": {
+                                            "item": {
+                                                "can_insert": true,
+                                                "can_extract": true
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                        """);
+                MetadataIndex metadataIndex = new MetadataLoader(LoggerFactory.getLogger("CompatibilityManagerTest")).load(tempDir);
+                CompatibilityReport report = new CompatibilityManager(LoggerFactory.getLogger("CompatibilityManagerTest"), tempDir).buildReport(new ContentInventory(Map.of("examplemod", inventory)), metadataIndex);
+
+                CompatibilityObject block = report.object("examplemod", "example:item_transfer_machine", "block");
+                assertNotNull(block);
+                assertEquals(SupportLevel.UNSUPPORTED, block.supportResults().get("behavior").level());
+                assertEquals("true", block.inventoryFacts().get("critical_failure"));
+                assertEquals(SupportLevel.VISUAL_ONLY, block.overallLevel());
+        }
+
+        @Test
+        void machineWithProcessingButMissingTransferFactsStaysUnsupported(@TempDir Path tempDir) throws IOException {
+                ContentInventory.ModContentInventory inventory = machineInventory(tempDir, "example:half_wired_machine");
+                Files.writeString(tempDir.resolve("compat.json"), """
+                        {
+                            "patches": [
+                                {
+                                    "target": "example:half_wired_machine",
+                                    "content_type": "block",
+                                    "patch": {
+                                        "machine": {
+                                            "inventory": { "enabled": true, "type": "generic", "input_slot": 0, "output_slot": 1 },
+                                            "processing": {
+                                                "enabled": true,
+                                                "type": "generic_smelting",
+                                                "recipe": {
+                                                    "0": { "input": "minecraft:cobblestone", "input_count": 1, "output": "minecraft:stone", "output_count": 1, "duration": 40 }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                        """);
+                MetadataIndex metadataIndex = new MetadataLoader(LoggerFactory.getLogger("CompatibilityManagerTest")).load(tempDir);
+                CompatibilityReport report = new CompatibilityManager(LoggerFactory.getLogger("CompatibilityManagerTest"), tempDir).buildReport(new ContentInventory(Map.of("examplemod", inventory)), metadataIndex);
+
+                CompatibilityObject block = report.object("examplemod", "example:half_wired_machine", "block");
+                assertNotNull(block);
+                assertEquals(SupportLevel.UNSUPPORTED, block.supportResults().get("behavior").level());
+                assertEquals("true", block.inventoryFacts().get("critical_failure"));
+                assertEquals(SupportLevel.VISUAL_ONLY, block.overallLevel());
+        }
+
+        @Test
+        void malformedProcessingRecipeFailsClosed(@TempDir Path tempDir) throws IOException {
+                ContentInventory.ModContentInventory inventory = machineInventory(tempDir, "example:broken_recipe_machine");
+                Files.writeString(tempDir.resolve("compat.json"), """
+                        {
+                            "patches": [
+                                {
+                                    "target": "example:broken_recipe_machine",
+                                    "content_type": "block",
+                                    "patch": {
+                                        "machine": {
+                                            "inventory": { "enabled": true, "type": "generic", "input_slot": 0, "output_slot": 1 },
+                                            "processing": {
+                                                "enabled": true,
+                                                "type": "generic_smelting",
+                                                "recipe": {
+                                                    "0": { "input": "minecraft:cobblestone", "input_count": 1, "output": "minecraft:stone", "output_count": 1, "duration": 0 }
+                                                }
+                                            }
+                                        },
+                                        "transfer": {
+                                            "item": { "can_insert": true, "can_extract": true }
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                        """);
+                MetadataIndex metadataIndex = new MetadataLoader(LoggerFactory.getLogger("CompatibilityManagerTest")).load(tempDir);
+                CompatibilityReport report = new CompatibilityManager(LoggerFactory.getLogger("CompatibilityManagerTest"), tempDir).buildReport(new ContentInventory(Map.of("examplemod", inventory)), metadataIndex);
+
+                CompatibilityObject block = report.object("examplemod", "example:broken_recipe_machine", "block");
+                assertNotNull(block);
+                assertEquals(SupportLevel.UNSUPPORTED, block.supportResults().get("behavior").level());
+                assertEquals("true", block.inventoryFacts().get("critical_failure"));
+                assertEquals(SupportLevel.VISUAL_ONLY, block.overallLevel());
+        }
+
+        @Test
+        void completeProcessingMachineBecomesExecutableAndClearsCriticalFailure(@TempDir Path tempDir) throws IOException {
+                ContentInventory.ModContentInventory inventory = machineInventory(tempDir, "example:processing_machine");
+                Files.writeString(tempDir.resolve("compat.json"), """
+                        {
+                            "patches": [
+                                {
+                                    "target": "example:processing_machine",
+                                    "content_type": "block",
+                                    "patch": {
+                                        "machine": {
+                                            "inventory": { "enabled": true, "type": "generic", "input_slot": 0, "output_slot": 1 },
+                                            "processing": {
+                                                "enabled": true,
+                                                "type": "generic_smelting",
+                                                "recipe": {
+                                                    "0": { "input": "minecraft:cobblestone", "input_count": 1, "output": "minecraft:stone", "output_count": 1, "duration": 40 }
+                                                }
+                                            }
+                                        },
+                                        "transfer": {
+                                            "item": { "can_insert": true, "can_extract": true }
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                        """);
+                MetadataIndex metadataIndex = new MetadataLoader(LoggerFactory.getLogger("CompatibilityManagerTest")).load(tempDir);
+                CompatibilityReport report = new CompatibilityManager(LoggerFactory.getLogger("CompatibilityManagerTest"), tempDir).buildReport(new ContentInventory(Map.of("examplemod", inventory)), metadataIndex);
+
+                CompatibilityObject block = report.object("examplemod", "example:processing_machine", "block");
+                assertNotNull(block);
+                assertEquals(SupportLevel.ADAPTED, block.supportResults().get("behavior").level());
+                assertFalse(block.inventoryFacts().containsKey("critical_failure"));
+                assertNotEquals(SupportLevel.VISUAL_ONLY, block.overallLevel());
+                assertTrue(block.findings().stream().anyMatch(finding -> finding.code().equals("block.behavior.executable")));
+        }
+
+        private static ContentInventory.ModContentInventory machineInventory(Path tempDir, String blockId) {
+                return new ContentInventory.ModContentInventory(
+                        "examplemod",
+                        "example",
+                        "Example Mod",
+                        "1.0.0",
+                        List.of(tempDir.toString()),
+                        new org.geysermc.hydraulic.compat.model.ModFingerprint("examplemod", "example", "1.0.0", "unknown", "test", 1, 1, 1, 0, 0, 1, 1, false, true, false, true, true, true, false, false),
+                        Map.of("blocks", 1),
+                        Map.of("blocks", List.of(blockId)),
+                        Map.of("block_assets", 1),
+                        Map.of("block_assets", List.of(blockId)),
+                        Map.of("blocks", 1),
+                        Map.of("blocks", List.of(blockId)),
+                        Map.of("blocks", 1),
+                        Map.of("blocks", List.of(blockId))
+                );
         }
 
         @Test

@@ -7,7 +7,9 @@
         "machine": {
           "inventory": {
             "enabled": true,
-            "type": "generic"
+            "type": "generic",
+            "input_slot": 0,
+            "output_slot": 1
           },
           "processing": {
             "enabled": true,
@@ -21,9 +23,7 @@
                 "duration": 40
               }
             }
-          },
-          "input_slot": 0,
-          "output_slot": 1
+          }
         },
         "transfer": {
           "item": {

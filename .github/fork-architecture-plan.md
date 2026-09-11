@@ -1848,23 +1848,27 @@ a live `:fabric:runServer` run with no crashes: `compatibility-report.json` now 
 item_transfer_bridge]` (note the new `machine_behavior_bridge`, absent for `item_transfer_machine`), and
 `inventoryFacts.has_processing = "true"`.
 
-**Critical, verified architecture finding (not a bug in the fixture, a real gap in the compatibility
-scoring layer):** `processing_machine`'s `overallLevel` still reports `VISUAL_ONLY` with
-`critical_failure = true`, identically to the non-processing fixture. Root cause, traced in
-`BlockAnalyzer.java`: `behaviorRequired` is set to `true` whenever ANY patch declares an operation prefixed
-`machine.`, `transfer.`, `behavior.`, or `interaction.` — this immediately forces the `behavior` SupportResult
-to `UNSUPPORTED`, which `AnalyzerSupport.hasCriticalFailure` then treats as an automatic critical failure
-whenever `has_processing` or `has_inventory` is also true. There is currently **no code path that upgrades
-the `behavior` SupportResult based on an actual compiled/executable adapter binding** (unlike `presentation`,
-`state_data`, etc., which do react to patch/mapping evidence). This means, as of this commit, **no block that
-declares any `machine.*`/`transfer.*` capability can ever score above `VISUAL_ONLY` in the static
-compatibility report**, regardless of how complete its real runtime bridge is. This is a legitimate,
-previously-undocumented Phase 3/5 gap — `BlockAnalyzer`'s `behavior` SupportResult needs an
-adapter-execution-aware upgrade path (e.g. checking `plan.supportsAdapterFeature(...)` /
-`plan.runtimeBridgeKinds()` completeness against the declared facts) before compatibility scoring can ever
-reflect the real, executable state of a machine bridge. Do not attempt to "fix" this by further tweaking
-fixture metadata; it requires a `BlockAnalyzer`/`AnalyzerSupport.hasCriticalFailure` change, which is
-out of scope for fixture work and belongs in Phase 3.
+**Analyzer/runtime classification correction shipped and live-verified (2026-09-10).** `BlockAnalyzer`
+no longer treats the presence of any `machine.*` or `transfer.*` declaration as conclusive evidence that
+behavior is unavailable. `AnalyzerSupport` now classifies machine readiness from the full processing,
+inventory, bidirectional item-transfer, slot, and recipe contract. Recipe and slot validity are delegated
+to `MachineBridgeFactory.hasExecutableProcessingContract(...)`, which uses the same parser and validation
+rules as `MachineBridgeFactory.createProcessing(...)`; analysis and runtime construction therefore no
+longer maintain separate definitions of a valid processing contract. This remains deliberately static:
+the report records that the compiled contract can bind the production bridge when a matching live block
+entity is resolved, while the factory still rejects a null compiled plan, a non-executable live transfer
+bridge, missing capability kinds, malformed facts, or missing required resources.
+
+The correction is fail-closed. Inventory/item-transfer facts without processing remain `UNSUPPORTED`;
+processing without inventory or both transfer directions remains `UNSUPPORTED`; missing or negative slots,
+empty/malformed recipes, zero counts, and zero duration remain `UNSUPPORTED`. Focused adversarial tests also
+retain the existing incomplete `minecraft:piston` regression case. A fresh live Fabric/Geyser report records
+the block object for `hydraulic_test_mod:processing_machine` as `overallLevel = APPROXIMATED`,
+`overallScore = 93`, `behavior = ADAPTED`, no `critical_failure`, valid input/output slot facts, and the
+`block.behavior.executable` finding. In the same report, `hydraulic_test_mod:item_transfer_machine` remains
+`overallLevel = VISUAL_ONLY`, `overallScore = 0`, `behavior = UNSUPPORTED`, and `critical_failure = true`.
+This proves the transition is tied to the complete processing contract rather than a blanket machine-patch
+upgrade. It does not claim Bedrock-client observation; that remains a separate manual integration gate.
 
 ### Exit criteria
 - The Fabric dev server can be built, started, and attached to for breakpoint debugging entirely from

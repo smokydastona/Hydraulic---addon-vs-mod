@@ -16,6 +16,7 @@ import org.geysermc.hydraulic.compat.model.Provenance;
 import org.geysermc.hydraulic.compat.model.SupportLevel;
 import org.geysermc.hydraulic.compat.model.SupportResult;
 import org.geysermc.hydraulic.compat.mapping.ContentPatch;
+import org.geysermc.hydraulic.compat.runtime.MachineBridgeFactory;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -286,5 +287,31 @@ final class AnalyzerSupport {
 
     private static boolean booleanFact(@NotNull Map<String, String> inventoryFacts, @NotNull String key) {
         return Boolean.parseBoolean(inventoryFacts.getOrDefault(key, "false"));
+    }
+
+    enum MachineBehaviorReadiness {
+        NOT_APPLICABLE,
+        UNSUPPORTED,
+        INSUFFICIENT,
+        EXECUTABLE
+    }
+
+    @NotNull
+    static MachineBehaviorReadiness machineBehaviorReadiness(@NotNull Map<String, String> facts) {
+        boolean hasProcessing = booleanFact(facts, "has_processing");
+        boolean hasInventory = booleanFact(facts, "has_inventory");
+        if (!hasProcessing && !hasInventory) {
+            return MachineBehaviorReadiness.NOT_APPLICABLE;
+        }
+        if (!hasProcessing || !hasInventory) {
+            return MachineBehaviorReadiness.UNSUPPORTED;
+        }
+        if (!booleanFact(facts, "can_insert") || !booleanFact(facts, "can_extract")) {
+            return MachineBehaviorReadiness.INSUFFICIENT;
+        }
+        if (!MachineBridgeFactory.hasExecutableProcessingContract(facts)) {
+            return MachineBehaviorReadiness.INSUFFICIENT;
+        }
+        return MachineBehaviorReadiness.EXECUTABLE;
     }
 }

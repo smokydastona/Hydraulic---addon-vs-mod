@@ -190,6 +190,12 @@ public final class MachineBridgeFactory {
         return createProcessing(plan, inventory, inputSlot, outputSlot, recipes);
     }
 
+    public static boolean hasExecutableProcessingContract(@NotNull Map<String, String> facts) {
+        return integerFact(facts, "machine.input_slot") != null
+            && integerFact(facts, "machine.output_slot") != null
+            && !compileRecipes(facts).isEmpty();
+    }
+
     @Nullable
     private static Integer firstSlot(@Nullable List<Integer> slots) {
         return slots == null || slots.isEmpty() ? null : slots.getFirst();

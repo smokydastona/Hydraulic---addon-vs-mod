@@ -45,6 +45,12 @@ public final class BlockAnalyzer implements CompatibilityAnalyzer {
         }
         boolean visualPatch = patches.stream().anyMatch(patch -> patch.hasOperationPrefix("visual.") || patch.hasOperationPrefix("bedrock."));
 
+        // Computed before the support results so "behavior" can reflect real fact completeness,
+        // not just the presence of a machine/transfer declaration.
+        Map<String, String> behaviorFacts = BehaviorFactExtractor.extractFacts(patches);
+        AnalyzerSupport.MachineBehaviorReadiness machineReadiness = AnalyzerSupport.machineBehaviorReadiness(behaviorFacts);
+        boolean machineExecutable = machineReadiness == AnalyzerSupport.MachineBehaviorReadiness.EXECUTABLE;
+
         Capability registered = AnalyzerSupport.capability(CapabilityDomain.CONTENT, "registered", "Block exists in the Java registry.");
         Capability blockAsset = AnalyzerSupport.capability(CapabilityDomain.PRESENTATION, "block_asset", "Block has discoverable blockstate assets for conversion.");
         Capability stateTranslation = AnalyzerSupport.capability(CapabilityDomain.STATE_DATA, "state_translation", "Block has explicit state mapping or patch data.");
@@ -70,7 +76,9 @@ public final class BlockAnalyzer implements CompatibilityAnalyzer {
             AnalyzerSupport.result(placement, true, "Current custom block path can place converted blocks."),
             AnalyzerSupport.result(breaking, true, "Current custom block path can break converted blocks."),
             AnalyzerSupport.result(contextualUse, !behaviorRequired, "Complex interaction still depends on future runtime bridges."),
-            AnalyzerSupport.result(runtimeBehavior, !behaviorRequired, "Behavior-required blocks still need behavior generation or bridges.")
+            AnalyzerSupport.result(runtimeBehavior, !behaviorRequired || machineExecutable, machineExecutable
+                ? "Machine processing, inventory, and item-transfer facts are structurally complete and executable via MachineBridgeFactory.createProcessing()."
+                : "Behavior-required blocks still need behavior generation or bridges.")
         );
 
         CapabilityProfile profile = new CapabilityProfile(descriptor.javaIdentifier(), requirements, results);
@@ -79,13 +87,17 @@ public final class BlockAnalyzer implements CompatibilityAnalyzer {
         supportResults.put("presentation", AnalyzerSupport.support("presentation", visualPatch ? SupportLevel.ADAPTED : SupportLevel.AUTOMATIC, List.of(results.get(1)), List.of("Presentation coverage currently relies on discovered blockstate assets and optional metadata overrides.")));
         supportResults.put("state_data", AnalyzerSupport.support("state_data", mapping != null || !patches.isEmpty() ? SupportLevel.ADAPTED : SupportLevel.APPROXIMATED, List.of(results.get(2)), List.of("Generic state translation is not implemented yet; this score reflects explicit metadata and patch evidence only.")));
         supportResults.put("interaction", AnalyzerSupport.support("interaction", behaviorRequired ? SupportLevel.APPROXIMATED : SupportLevel.AUTOMATIC, List.of(results.get(3), results.get(4), results.get(5)), List.of("Placement and breaking are established, but contextual interaction remains conservative until bridges land.")));
-        supportResults.put("behavior", AnalyzerSupport.support("behavior", behaviorRequired ? SupportLevel.UNSUPPORTED : SupportLevel.AUTOMATIC, List.of(results.get(6)), List.of("Behavior pack generation and runtime bridges are not yet implemented.")));
+        supportResults.put("behavior", AnalyzerSupport.support("behavior", machineExecutable ? SupportLevel.ADAPTED : (behaviorRequired ? SupportLevel.UNSUPPORTED : SupportLevel.AUTOMATIC), List.of(results.get(6)), List.of(machineExecutable
+            ? "Declared machine.processing/machine.inventory/transfer.item facts form a complete, well-formed recipe and slot contract; MachineBridgeFactory.createProcessing() will bind a real executable bridge once a live block entity is queried."
+            : "Behavior pack generation and runtime bridges are not yet implemented.")));
 
         List<CompatibilityFinding> findings = new ArrayList<>();
         if (!descriptor.assetPresent()) {
             findings.add(new CompatibilityFinding("block.asset.missing", CompatibilityFinding.Severity.WARNING, "presentation", "Block asset discovery failed for " + descriptor.javaIdentifier(), "The block does not currently have a discovered blockstate asset in this mod root.", "Add a blockstate asset or metadata patch for this block.", null));
         }
-        if (behaviorRequired) {
+        if (machineExecutable) {
+            findings.add(new CompatibilityFinding("block.behavior.executable", CompatibilityFinding.Severity.INFO, "behavior", "Block declares a structurally complete machine processing/inventory contract.", "machine.processing, machine.inventory, and transfer.item facts are well-formed with valid recipe and slot data.", "None - MachineBridgeFactory.createProcessing() can bind a real executable bridge to a live block entity.", null));
+        } else if (behaviorRequired) {
             findings.add(new CompatibilityFinding("block.behavior.required", CompatibilityFinding.Severity.WARNING, "behavior", "Block declares behavior requirements that Hydraulic cannot satisfy yet.", behaviorTag != null ? "Metadata or patch data flagged behavior tag '" + behaviorTag + "'." : "Metadata or patch data flagged behavior-dependent handling.", "Implement a behavior bridge or adapter for this block family.", null));
         }
 
@@ -95,7 +107,7 @@ public final class BlockAnalyzer implements CompatibilityAnalyzer {
         }
 
         Map<String, String> inventoryFacts = new LinkedHashMap<>(AnalyzerSupport.inventoryFacts(descriptor.registered(), descriptor.assetPresent(), mapping != null ? 1 : 0, patches.size()));
-        inventoryFacts.putAll(BehaviorFactExtractor.extractFacts(patches));
+        inventoryFacts.putAll(behaviorFacts);
         inventoryFacts.put("behavior_required", Boolean.toString(behaviorRequired));
         if (Boolean.parseBoolean(inventoryFacts.getOrDefault("has_processing", "false"))
             || Boolean.parseBoolean(inventoryFacts.getOrDefault("has_inventory", "false"))) {
