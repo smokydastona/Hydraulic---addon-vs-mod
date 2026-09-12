@@ -1,0 +1,124 @@
+{
+  "identity": {
+    "corpusId": "bedrock-core-network",
+    "bedrockIdentifier": "bedrock_core:network",
+    "author": "bedrock-core (drav0011)",
+    "displayName": "@bedrock-core/network",
+    "description": "Rule-driven directed graph abstraction where nodes carry domain data plus an immutable set of edge-generation rules, materialized on insert, remove, or explicit data update."
+  },
+  "source": {
+    "sourceType": "GITHUB",
+    "sourceUrl": "https://github.com/bedrock-core/network",
+    "repositoryUrl": "https://github.com/bedrock-core/network",
+    "homepageUrl": null,
+    "documentationUrl": null
+  },
+  "license": {
+    "licenseType": "MIT",
+    "licenseUrl": "https://github.com/bedrock-core/network/blob/main/LICENSE",
+    "licenseText": null,
+    "allowsRedistribution": true,
+    "allowsModification": true,
+    "allowsCommercialUse": true,
+    "requiresAttribution": true
+  },
+  "admissibility": {
+    "isAdmissible": true,
+    "reason": "FULLY_PERMISSIVE",
+    "denialReason": null,
+    "constraints": [
+      "Requires attribution: MIT requires retaining the copyright notice",
+      "Beta status: breaking changes may occur in any release before 1.0.0"
+    ]
+  },
+  "versions": {
+    "latestVersion": "0.3.0",
+    "supportedBedrockVersions": ["1.21"],
+    "minBedrockVersion": "1.21.0",
+    "maxBedrockVersion": "1.21.0",
+    "allVersions": ["0.3.0"]
+  },
+  "behaviorPack": {
+    "hasBehaviorPack": false,
+    "behaviorPackFormat": null,
+    "entities": [],
+    "blocks": [],
+    "items": [],
+    "recipes": [],
+    "functions": [],
+    "scripts": ["NetworkManager, Rule, RuleDirection (framework-agnostic TypeScript library, no Minecraft-specific API surface)"],
+    "customComponents": {}
+  },
+  "resourcePack": {
+    "hasResourcePack": false,
+    "resourcePackFormat": null,
+    "textures": [],
+    "models": [],
+    "animations": [],
+    "particles": [],
+    "sounds": [],
+    "uiElements": [],
+    "renderControllers": {}
+  },
+  "capabilities": {
+    "storageTypes": [],
+    "machineTypes": [],
+    "transferTypes": [],
+    "fluidTypes": [],
+    "energyTypes": [],
+    "automationTypes": ["rule_driven_edge_routing"],
+    "networkingTypes": ["directed_graph_topology", "handshake_based_edge_formation"],
+    "customCapabilities": {
+      "rules": "immutable, reusable outgoing/incoming/both edge-intent predicates evaluated per node insert/update"
+    }
+  },
+  "evidence": {
+    "manifestEvidence": ["README: rule-driven directed graph abstraction library"],
+    "scriptEvidence": ["Documented NetworkManager.createNode/updateNodeData/getNode API with handshake-based edge formation"],
+    "functionEvidence": [],
+    "componentEvidence": [],
+    "uiEvidence": [],
+    "heuristicScores": {
+      "documentation": "1.00",
+      "npm_package_evidence": "1.00"
+    }
+  },
+  "confidence": {
+    "overallScore": 0.8,
+    "assessmentMethod": "readme_and_release_history_review",
+    "strongIndicators": [
+      "9 tagged releases",
+      "Documented edge-evaluation lifecycle, complexity notes, and invariants",
+      "Concrete quick-example API usage in README"
+    ],
+    "weakIndicators": ["Beta status; breaking changes possible before 1.0.0", "Not Bedrock-specific; a generic graph library usable as a machine/logistics network substrate"],
+    "gaps": ["Source was not opened or copied; facts are README-level only"]
+  },
+  "implementationFacts": {
+    "implementationPattern": "Rule-driven directed graph: nodes carry domain data plus an immutable set of edge-generation rules; edges are formed via a two-way handshake (initiator + acceptor rule match) and recalculated on node insert, remove, or explicit updateNodeData() call",
+    "limitations": [
+      "Beta status: breaking changes possible in any release before 1.0.0",
+      "O(rules * nodes) complexity per insertion/update; no built-in bulk-insert API"
+    ],
+    "performanceCharacteristics": ["Direct data mutation avoids edge recalculation for performance-critical scenarios"],
+    "persistenceMethods": [],
+    "runtimeHooks": [],
+    "transferSemantics": ["Directed, potentially one-way edges formed via independent per-direction handshakes"],
+    "uiMethods": [],
+    "dependencies": [],
+    "reusability": "high",
+    "adapterCandidate": "generic-network-topology-graph"
+  },
+  "provenance": {
+    "addedBy": "hydraulic-corpus-bootstrap",
+    "addedEpochMillis": 1799600000000,
+    "lastUpdatedBy": null,
+    "lastUpdatedEpochMillis": null,
+    "corpusVersion": "v2.0.0",
+    "reviewNotes": [
+      "Reviewed 2026-09-11 against the public README and root file listing (LICENSE, package.json).",
+      "Only README-level facts were used; no third-party source code was copied or inspected line-by-line.",
+      "This library is not Bedrock-specific, but is recorded as a generic network-topology pattern candidate for machine/logistics network adapters."
+    ]
+  }
+}

@@ -1,0 +1,132 @@
+{
+  "identity": {
+    "corpusId": "bedrock-core-ui",
+    "bedrockIdentifier": "bedrock_core:ui",
+    "author": "bedrock-core (drav0011)",
+    "displayName": "@bedrock-core/ui",
+    "description": "Custom JSX-driven UI system for Minecraft Bedrock: components serialize into compact strings decoded by a companion render pack, with forms, stack navigation, and i18n."
+  },
+  "source": {
+    "sourceType": "GITHUB",
+    "sourceUrl": "https://github.com/bedrock-core/ui",
+    "repositoryUrl": "https://github.com/bedrock-core/ui",
+    "homepageUrl": "https://bedrock-core.drav.dev/",
+    "documentationUrl": "https://bedrock-core.drav.dev/docs/ui/get-started/overview"
+  },
+  "license": {
+    "licenseType": "MIT",
+    "licenseUrl": "https://github.com/bedrock-core/ui/blob/main/LICENSE",
+    "licenseText": null,
+    "allowsRedistribution": true,
+    "allowsModification": true,
+    "allowsCommercialUse": true,
+    "requiresAttribution": true
+  },
+  "admissibility": {
+    "isAdmissible": true,
+    "reason": "FULLY_PERMISSIVE",
+    "denialReason": null,
+    "constraints": [
+      "Requires attribution: MIT requires retaining the copyright notice",
+      "Beta status: breaking changes may occur before 1.0.0",
+      "Requires shipping a matching render-pack version (core-ui-v*.mcpack) alongside the addon"
+    ]
+  },
+  "versions": {
+    "latestVersion": "0.11.0",
+    "supportedBedrockVersions": ["1.21"],
+    "minBedrockVersion": "1.21.0",
+    "maxBedrockVersion": "1.21.0",
+    "allVersions": ["0.11.0"]
+  },
+  "behaviorPack": {
+    "hasBehaviorPack": true,
+    "behaviorPackFormat": null,
+    "entities": [],
+    "blocks": [],
+    "items": [],
+    "recipes": [],
+    "functions": [],
+    "scripts": ["@bedrock-core/ui runtime, /navigation, /i18n, /guides, /config, /flexbox subpath packages"],
+    "customComponents": {
+      "native_component_api": "custom native JSON UI component registration API"
+    }
+  },
+  "resourcePack": {
+    "hasResourcePack": true,
+    "resourcePackFormat": null,
+    "textures": [],
+    "models": [],
+    "animations": [],
+    "particles": [],
+    "sounds": [],
+    "uiElements": [
+      "Panel, Text, Image, Fragment, Button, ItemRenderer base components",
+      "Ore-UI styled components (Card, Toggle, Divider, Input, Dropdown, Slider, Checkbox, RadioGroup, Header, MenuRow, ItemSlot, ItemContainer, EquipmentSlots)",
+      "ModalFormData-backed <Form> with atomic single-submit lifecycle"
+    ],
+    "renderControllers": {}
+  },
+  "capabilities": {
+    "storageTypes": [],
+    "machineTypes": [],
+    "transferTypes": [],
+    "fluidTypes": [],
+    "energyTypes": [],
+    "automationTypes": [],
+    "networkingTypes": ["replicated_localization_bundles"],
+    "customCapabilities": {
+      "ui": "JSX-style custom UI runtime with a serialization protocol decoded by a companion render pack",
+      "navigation": "stack-based multi-screen navigation with typed route state",
+      "forms": "native ModalFormData-backed forms with atomic single-submit lifecycle"
+    }
+  },
+  "evidence": {
+    "manifestEvidence": ["README: custom JSX-driven UI system, ships a render pack (core-ui-v*.mcpack) per release"],
+    "scriptEvidence": ["Documented hooks: useState, useReducer, useRef, useEffect, useContext, useEvent, usePlayer, useExit"],
+    "functionEvidence": [],
+    "componentEvidence": ["Custom native component API for registering native JSON UI components"],
+    "uiEvidence": ["Documented Panel/Text/Image/Button/ItemRenderer components and Ore-UI styled component set"],
+    "heuristicScores": {
+      "documentation": "1.00",
+      "npm_package_evidence": "1.00"
+    }
+  },
+  "confidence": {
+    "overallScore": 0.85,
+    "assessmentMethod": "readme_and_release_history_review",
+    "strongIndicators": [
+      "26 tagged releases with a companion documentation site",
+      "Explicit component, hook, navigation, form, and i18n feature list",
+      "Ships a versioned companion render pack for every release"
+    ],
+    "weakIndicators": ["Beta status; breaking changes possible before 1.0.0"],
+    "gaps": ["Source was not opened or copied; facts are README/documentation-level only"]
+  },
+  "implementationFacts": {
+    "implementationPattern": "Custom JSX-style UI runtime serialized into compact strings and decoded by a companion render pack, with stack navigation, ModalFormData-backed forms, i18n, and in-game MDX guides",
+    "limitations": [
+      "Beta status: breaking changes may occur before 1.0.0",
+      "Requires shipping a version-matched render pack (core-ui-v*.mcpack) in the world"
+    ],
+    "performanceCharacteristics": [],
+    "persistenceMethods": [],
+    "runtimeHooks": ["@minecraft/server-ui (native ModalFormData for <Form>)", "custom native JSON UI component registration"],
+    "transferSemantics": [],
+    "uiMethods": ["JSX-style component tree", "stack-based navigation", "ModalFormData-backed forms", "flexbox layout engine"],
+    "dependencies": ["@minecraft/server-ui"],
+    "reusability": "high",
+    "adapterCandidate": "generic-custom-menu-ui-runtime"
+  },
+  "provenance": {
+    "addedBy": "hydraulic-corpus-bootstrap",
+    "addedEpochMillis": 1799600000000,
+    "lastUpdatedBy": null,
+    "lastUpdatedEpochMillis": null,
+    "corpusVersion": "v2.0.0",
+    "reviewNotes": [
+      "Reviewed 2026-09-11 against the public README, root file listing (LICENSE, package.json), and release history.",
+      "Only README/repository-listing level facts were used; no third-party source code was copied or inspected line-by-line."
+    ]
+  }
+}

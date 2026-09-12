@@ -124,7 +124,8 @@ class ResourceAutomationAccessTest {
             false,
             false,
             SupportLevel.ADAPTED,
-            "automation"
+            "automation",
+            List.of()
         );
     }
 

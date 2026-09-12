@@ -55,7 +55,8 @@ class EntityInteractionPromptResolverTest {
             false,
             false,
             SupportLevel.UNSUPPORTED,
-            null
+            null,
+            List.of()
         );
     }
 }

@@ -1,0 +1,127 @@
+{
+  "identity": {
+    "corpusId": "engineering-tools",
+    "bedrockIdentifier": "galloppinggryphon:engineering_tools",
+    "author": "Bjornar Egede-Nissen (galloppinggryphon)",
+    "displayName": "Engineering Tools",
+    "description": "Bedrock add-on with scripted, item-based world-editing tools (build, destroy, query, measure, teleport) driven by the /fill command, with a shift-key-activated in-game configuration GUI."
+  },
+  "source": {
+    "sourceType": "GITHUB",
+    "sourceUrl": "https://github.com/galloppinggryphon/EngineeringTools",
+    "repositoryUrl": "https://github.com/galloppinggryphon/EngineeringTools",
+    "homepageUrl": null,
+    "documentationUrl": "https://github.com/galloppinggryphon/EngineeringTools/blob/main/README.MD"
+  },
+  "license": {
+    "licenseType": "GPL-3.0",
+    "licenseUrl": "https://github.com/galloppinggryphon/EngineeringTools/blob/main/license",
+    "licenseText": null,
+    "allowsRedistribution": true,
+    "allowsModification": true,
+    "allowsCommercialUse": true,
+    "requiresAttribution": true
+  },
+  "admissibility": {
+    "isAdmissible": true,
+    "reason": "FULLY_PERMISSIVE",
+    "denialReason": null,
+    "constraints": [
+      "GPL-3.0 is copyleft: redistributed derivatives of the licensed code must remain GPL-3.0 and disclose source changes",
+      "The items/blocks/models/build-scripts subfolders are separately MIT-licensed by the author",
+      "The experimental_ui folder embeds third-party Mojang-distributed demonstration font/UI engine code under its own terms"
+    ]
+  },
+  "versions": {
+    "latestVersion": "1.0.0",
+    "supportedBedrockVersions": ["1.17"],
+    "minBedrockVersion": "1.17.0",
+    "maxBedrockVersion": "1.17.0",
+    "allVersions": ["1.0.0"]
+  },
+  "behaviorPack": {
+    "hasBehaviorPack": true,
+    "behaviorPackFormat": null,
+    "entities": [],
+    "blocks": [],
+    "items": ["Building Tool", "Destruction Tool", "Query Tool", "Measuring Tool", "Teleport"],
+    "recipes": [],
+    "functions": [],
+    "scripts": ["EngToolsBP scripting engine tools driving the vanilla /fill command"],
+    "customComponents": {}
+  },
+  "resourcePack": {
+    "hasResourcePack": true,
+    "resourcePackFormat": null,
+    "textures": [],
+    "models": [],
+    "animations": [],
+    "particles": [],
+    "sounds": [],
+    "uiElements": ["Shift-key-activated GUI for per-tool configuration (fill size, build direction, block selector)"],
+    "renderControllers": {}
+  },
+  "capabilities": {
+    "storageTypes": [],
+    "machineTypes": [],
+    "transferTypes": [],
+    "fluidTypes": [],
+    "energyTypes": [],
+    "automationTypes": ["bulk_block_placement", "area_fill_scripted_tool", "block_query_and_measurement"],
+    "networkingTypes": [],
+    "customCapabilities": {
+      "ui": "shift-key-triggered graphical tool-configuration interface"
+    }
+  },
+  "evidence": {
+    "manifestEvidence": ["README: item-based scripting engine tools requiring Holiday Creator Features and Additional Modding Capabilities experimental toggles"],
+    "scriptEvidence": ["EngToolsBP scripting logic for Building/Destruction/Query/Measuring/Teleport tools"],
+    "functionEvidence": [],
+    "componentEvidence": [],
+    "uiEvidence": ["Documented shift-key GUI for configuring fill size, build direction, and block selector"],
+    "heuristicScores": {
+      "documentation": "1.00"
+    }
+  },
+  "confidence": {
+    "overallScore": 0.65,
+    "assessmentMethod": "readme_and_license_review",
+    "strongIndicators": [
+      "Published LICENSE file with an explicit GPL-3.0 grant plus a documented MIT carve-out for asset subfolders",
+      "Detailed per-tool documentation with concrete usage instructions and known-issue tracking"
+    ],
+    "weakIndicators": [
+      "Single tagged release from 5 years ago; targets an old Bedrock version (1.17)",
+      "Windows-only, single-player, creative-mode-only; author marks it a preview that may be unstable"
+    ],
+    "gaps": ["Source was not opened or copied; facts are README/file-listing-level only"]
+  },
+  "implementationFacts": {
+    "implementationPattern": "Scripted item-based world-editing tools (fill/destroy/query/measure/teleport) driven by the vanilla /fill command, with a shift-key-activated in-game GUI for per-tool configuration",
+    "limitations": [
+      "Windows-only (relies on the scripting and GUI engine; unavailable on mobile editions)",
+      "Single-player games only; creative mode only",
+      "Max supported fill volume is 32,768 blocks (x*y*z)",
+      "Custom blocks with custom states cannot be placed (documented Mojang engine limitation, MCPE-116750)"
+    ],
+    "performanceCharacteristics": ["Large fills (tens of thousands of blocks) noticeably add to world save size and CPU cost per the author's own tips"],
+    "persistenceMethods": [],
+    "runtimeHooks": ["Minecraft Bedrock scripting engine (Additional Modding Capabilities experimental toggle)", "shift/sneak key repurposed to open tool configuration GUI"],
+    "transferSemantics": [],
+    "uiMethods": ["Shift-key-activated configuration GUI per equipped tool"],
+    "dependencies": ["Holiday Creator Features", "Additional Modding Capabilities", "Upcoming Creator Features (for block permutations)"],
+    "reusability": "medium",
+    "adapterCandidate": "generic-scripted-tool-gui-reference"
+  },
+  "provenance": {
+    "addedBy": "hydraulic-corpus-bootstrap",
+    "addedEpochMillis": 1799600000000,
+    "lastUpdatedBy": null,
+    "lastUpdatedEpochMillis": null,
+    "corpusVersion": "v2.0.0",
+    "reviewNotes": [
+      "Reviewed 2026-09-11 against the public README, root file listing (LICENSE present), and the single v1.0.0 release tag.",
+      "Only README-level facts were used; no template source code or assets were copied into Hydraulic."
+    ]
+  }
+}

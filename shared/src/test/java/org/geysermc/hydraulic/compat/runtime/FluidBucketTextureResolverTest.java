@@ -55,7 +55,8 @@ class FluidBucketTextureResolverTest {
             false,
             true,
             SupportLevel.UNSUPPORTED,
-            null
+            null,
+            List.of()
         );
     }
 }

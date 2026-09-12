@@ -25,7 +25,12 @@ class CorpusBuiltinBootstrapTest {
             "bedrock-energistics-core.json",
             "mojang-bedrock-samples.json",
             "utilitycraft-addon-template.json",
-            "utilitycraft.json"
+            "utilitycraft.json",
+            "bedrock-core-server.json",
+            "bedrock-core-ui.json",
+            "bedrock-core-network.json",
+            "engineering-tools.json",
+            "bedrock-core-regolith-filters.json"
         )) {
             assertTrue(Files.isRegularFile(builtinDirectory.resolve(fileName)), "missing " + fileName);
         }
@@ -39,11 +44,16 @@ class CorpusBuiltinBootstrapTest {
 
         AddonCorpusIndex index = loader.refreshIndexFromSnapshots();
 
-        assertEquals(4, index.entries().size());
+        assertEquals(9, index.entries().size());
         assertTrue(index.entries().get("bedrock-energistics-core").isAdmissible());
         assertTrue(index.entries().get("mojang-bedrock-samples").isAdmissible());
         assertTrue(!index.entries().get("utilitycraft-addon-template").isAdmissible());
         assertTrue(!index.entries().get("utilitycraft").isAdmissible());
-        assertEquals(2, loader.loadAdmissibleEntries().size());
+        assertTrue(index.entries().get("bedrock-core-server").isAdmissible());
+        assertTrue(index.entries().get("bedrock-core-ui").isAdmissible());
+        assertTrue(index.entries().get("bedrock-core-network").isAdmissible());
+        assertTrue(index.entries().get("engineering-tools").isAdmissible());
+        assertTrue(!index.entries().get("bedrock-core-regolith-filters").isAdmissible());
+        assertEquals(6, loader.loadAdmissibleEntries().size());
     }
 }

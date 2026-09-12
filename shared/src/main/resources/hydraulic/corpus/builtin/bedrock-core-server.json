@@ -1,0 +1,127 @@
+{
+  "identity": {
+    "corpusId": "bedrock-core-server",
+    "bedrockIdentifier": "bedrock_core:server",
+    "author": "bedrock-core (drav0011)",
+    "displayName": "@bedrock-core/server",
+    "description": "A framework for Minecraft Bedrock addon development providing cross-addon discovery, replicated state, typed RPC, feature gating, and typed configuration, built on a script-event transport."
+  },
+  "source": {
+    "sourceType": "GITHUB",
+    "sourceUrl": "https://github.com/bedrock-core/server",
+    "repositoryUrl": "https://github.com/bedrock-core/server",
+    "homepageUrl": "https://bedrock-core.drav.dev/",
+    "documentationUrl": "https://bedrock-core.drav.dev/docs/server/get-started/overview"
+  },
+  "license": {
+    "licenseType": "MIT",
+    "licenseUrl": "https://github.com/bedrock-core/server/blob/main/LICENSE",
+    "licenseText": null,
+    "allowsRedistribution": true,
+    "allowsModification": true,
+    "allowsCommercialUse": true,
+    "requiresAttribution": true
+  },
+  "admissibility": {
+    "isAdmissible": true,
+    "reason": "FULLY_PERMISSIVE",
+    "denialReason": null,
+    "constraints": [
+      "Requires attribution: MIT requires retaining the copyright notice",
+      "Beta status: breaking changes may occur before 1.0.0"
+    ]
+  },
+  "versions": {
+    "latestVersion": "0.1.0",
+    "supportedBedrockVersions": ["1.21"],
+    "minBedrockVersion": "1.21.0",
+    "maxBedrockVersion": "1.21.0",
+    "allVersions": ["0.1.0"]
+  },
+  "behaviorPack": {
+    "hasBehaviorPack": true,
+    "behaviorPackFormat": null,
+    "entities": [],
+    "blocks": [],
+    "items": [],
+    "recipes": [],
+    "functions": [],
+    "scripts": [
+      "@bedrock-core/server-runtime (registration, cross-addon registry, features, config, guides)",
+      "@bedrock-core/sync (message bus, discovery, typed RPC, replicated state over script events)"
+    ],
+    "customComponents": {}
+  },
+  "resourcePack": {
+    "hasResourcePack": false,
+    "resourcePackFormat": null,
+    "textures": [],
+    "models": [],
+    "animations": [],
+    "particles": [],
+    "sounds": [],
+    "uiElements": [],
+    "renderControllers": {}
+  },
+  "capabilities": {
+    "storageTypes": ["config_scoped_storage"],
+    "machineTypes": [],
+    "transferTypes": [],
+    "fluidTypes": [],
+    "energyTypes": [],
+    "automationTypes": ["feature_gating_by_peer_presence"],
+    "networkingTypes": ["cross_addon_discovery", "typed_rpc", "replicated_state"],
+    "customCapabilities": {
+      "guides": "compiled in-game guides declared at addon registration",
+      "config": "server/dimension/player scoped typed configuration with live change subscriptions"
+    }
+  },
+  "evidence": {
+    "manifestEvidence": ["README: framework for Minecraft Bedrock addon development, cross-addon compatible"],
+    "scriptEvidence": [
+      "core.register(...) single-call registration API",
+      "core.registry.all() / core.state.set(...) / core.rpc.request(...) documented quick-start usage"
+    ],
+    "functionEvidence": [],
+    "componentEvidence": [],
+    "uiEvidence": [],
+    "heuristicScores": {
+      "documentation": "1.00",
+      "npm_package_evidence": "1.00"
+    }
+  },
+  "confidence": {
+    "overallScore": 0.85,
+    "assessmentMethod": "readme_and_release_history_review",
+    "strongIndicators": [
+      "Explicit documented API for discovery, replicated state, typed RPC, features, and configuration",
+      "3 tagged releases with a companion documentation site",
+      "Split into meta/runtime/transport packages with a documented low-level transport layer"
+    ],
+    "weakIndicators": ["Beta status; breaking changes possible before 1.0.0"],
+    "gaps": ["Source was not opened or copied; facts are README/documentation-level only"]
+  },
+  "implementationFacts": {
+    "implementationPattern": "Cross-addon framework: addon discovery/registry, last-write-wins replicated state scoped per namespace, typed request/response RPC with timeouts, feature gating by peer presence, and server/dimension/player-scoped typed configuration, all built on a script-event transport",
+    "limitations": ["Beta status: breaking changes may occur before 1.0.0", "@minecraft/server is a required peer dependency (>=2.8.0)"],
+    "performanceCharacteristics": [],
+    "persistenceMethods": ["Typed configuration scopes (server/dimension/player) with live change subscriptions"],
+    "runtimeHooks": ["@minecraft/server script events", "core.register() single entry-point registration"],
+    "transferSemantics": ["Typed RPC request/response with timeouts", "Last-write-wins replicated key/value state scoped to namespace"],
+    "uiMethods": [],
+    "dependencies": ["@minecraft/server >=2.8.0"],
+    "reusability": "high",
+    "adapterCandidate": "generic-cross-addon-network-rpc-state"
+  },
+  "provenance": {
+    "addedBy": "hydraulic-corpus-bootstrap",
+    "addedEpochMillis": 1799600000000,
+    "lastUpdatedBy": null,
+    "lastUpdatedEpochMillis": null,
+    "corpusVersion": "v2.0.0",
+    "reviewNotes": [
+      "Reviewed 2026-09-11 against the public README, root file listing (LICENSE, package.json), and release history.",
+      "Only README/repository-listing level facts were used; no third-party source code was copied or inspected line-by-line."
+    ]
+  }
+}

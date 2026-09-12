@@ -52,7 +52,8 @@ public record CompiledCompatibilityPlan(
     boolean requiresBlockEntityRuntime,
     boolean requiresFluidRuntime,
     @Nullable SupportLevel behaviorLevel,
-    @Nullable String behaviorTag
+    @Nullable String behaviorTag,
+    @NotNull List<CorpusEvidenceRef> corpusEvidence
 ) {
     public CompiledCompatibilityPlan {
         adapterBindings = List.copyOf(adapterBindings);
@@ -62,6 +63,7 @@ public record CompiledCompatibilityPlan(
         menuRuntimeRequirements = List.copyOf(menuRuntimeRequirements);
         blockEntityRuntimeRequirements = List.copyOf(blockEntityRuntimeRequirements);
         fluidRuntimeRequirements = List.copyOf(fluidRuntimeRequirements);
+        corpusEvidence = List.copyOf(corpusEvidence);
     }
 
     public boolean hasMenuFallback() {
@@ -70,6 +72,15 @@ public record CompiledCompatibilityPlan(
 
     public boolean hasBlockEntityPatch() {
         return this.blockEntityPatchTemplate != null;
+    }
+
+    public boolean hasCorpusEvidence() {
+        return !this.corpusEvidence.isEmpty();
+    }
+
+    @NotNull
+    public List<CorpusEvidenceRef> corpusEvidenceForBridgeKind(@NotNull RuntimeBridgeKind kind) {
+        return this.corpusEvidence.stream().filter(ref -> ref.relatedBridgeKind() == kind).toList();
     }
 
     public boolean supportsAdapterFeature(@NotNull AdapterFeature feature) {

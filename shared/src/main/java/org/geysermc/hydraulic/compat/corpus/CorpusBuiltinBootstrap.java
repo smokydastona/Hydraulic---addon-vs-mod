@@ -31,7 +31,12 @@ public final class CorpusBuiltinBootstrap {
         "bedrock-energistics-core.json",
         "mojang-bedrock-samples.json",
         "utilitycraft-addon-template.json",
-        "utilitycraft.json"
+        "utilitycraft.json",
+        "bedrock-core-server.json",
+        "bedrock-core-ui.json",
+        "bedrock-core-network.json",
+        "engineering-tools.json",
+        "bedrock-core-regolith-filters.json"
     };
 
     private CorpusBuiltinBootstrap() {

@@ -1,0 +1,124 @@
+{
+  "identity": {
+    "corpusId": "bedrock-core-regolith-filters",
+    "bedrockIdentifier": "bedrock_core:regolith_filters",
+    "author": "bedrock-core (drav0011)",
+    "displayName": "@bedrock-core Regolith Filters",
+    "description": "Regolith Addon Compiler filters for TypeScript bundling, Mojang-schema-typed JSON generation, MDX in-game guide compilation, and TypeScript-first localization."
+  },
+  "source": {
+    "sourceType": "GITHUB",
+    "sourceUrl": "https://github.com/bedrock-core/regolith-filters",
+    "repositoryUrl": "https://github.com/bedrock-core/regolith-filters",
+    "homepageUrl": "https://bedrock-core.drav.dev/",
+    "documentationUrl": "https://github.com/bedrock-core/regolith-filters/blob/main/README.md"
+  },
+  "license": {
+    "licenseType": "UNSPECIFIED",
+    "licenseUrl": null,
+    "licenseText": null,
+    "allowsRedistribution": false,
+    "allowsModification": false,
+    "allowsCommercialUse": false,
+    "requiresAttribution": true
+  },
+  "admissibility": {
+    "isAdmissible": false,
+    "reason": "UNCLEAR_LICENSE",
+    "denialReason": "The repository root file listing has no LICENSE file, unlike the sibling bedrock-core/server, bedrock-core/ui, and bedrock-core/network repositories which each publish an MIT LICENSE.",
+    "constraints": [
+      "Treat as documentation-level reference evidence only",
+      "Do not copy or redistribute filter source code",
+      "Re-check for a published LICENSE before allowing runtime reuse"
+    ]
+  },
+  "versions": {
+    "latestVersion": "unversioned (tag-based releases)",
+    "supportedBedrockVersions": ["1.21"],
+    "minBedrockVersion": "1.21.0",
+    "maxBedrockVersion": "1.21.0",
+    "allVersions": ["unversioned (tag-based releases)"]
+  },
+  "behaviorPack": {
+    "hasBehaviorPack": false,
+    "behaviorPackFormat": null,
+    "entities": [],
+    "blocks": [],
+    "items": [],
+    "recipes": [],
+    "functions": [],
+    "scripts": ["bundler (esbuild TypeScript bundling)", "generator (TS-template to JSON, typed against Mojang schemas)", "guides (MDX to guide IR + .lang)", "i18n (TS-first localization)"],
+    "customComponents": {}
+  },
+  "resourcePack": {
+    "hasResourcePack": false,
+    "resourcePackFormat": null,
+    "textures": [],
+    "models": [],
+    "animations": [],
+    "particles": [],
+    "sounds": [],
+    "uiElements": [],
+    "renderControllers": {}
+  },
+  "capabilities": {
+    "storageTypes": [],
+    "machineTypes": [],
+    "transferTypes": [],
+    "fluidTypes": [],
+    "energyTypes": [],
+    "automationTypes": ["build_pipeline_codegen"],
+    "networkingTypes": [],
+    "customCapabilities": {
+      "generation": "Regolith filter pipeline: TypeScript bundler, Mojang-schema-typed JSON generator, MDX guide compiler, and TypeScript-first localization"
+    }
+  },
+  "evidence": {
+    "manifestEvidence": ["README: Regolith Addon Compiler filter collection with a documented resolver.json entry point"],
+    "scriptEvidence": ["Documented bundler/generator/guides/i18n filter responsibilities and a removed-filter migration log"],
+    "functionEvidence": [],
+    "componentEvidence": [],
+    "uiEvidence": [],
+    "heuristicScores": {
+      "documentation": "1.00",
+      "source_inspection": "0.00"
+    }
+  },
+  "confidence": {
+    "overallScore": 0.5,
+    "assessmentMethod": "readme_and_file_listing_only",
+    "strongIndicators": [
+      "Clear per-filter documentation table with concrete input/output behavior",
+      "Documented removal/migration history (translation-keys, item-aux) showing an actively maintained pipeline"
+    ],
+    "weakIndicators": ["No LICENSE file present in the repository, unlike its sibling bedrock-core repositories"],
+    "gaps": ["Source was not opened or copied; facts are README-level only"]
+  },
+  "implementationFacts": {
+    "implementationPattern": "Regolith Addon Compiler filter chain: esbuild-based TypeScript bundling of BP/scripts, Mojang-JSON-Schema-typed template-to-JSON generation, MDX-authored in-game guide compilation, and TypeScript-first localization with typed interpolation/plurals",
+    "limitations": [
+      "No LICENSE file, so reuse rights are unverified",
+      "Depends on the Regolith Addon Compiler build pipeline"
+    ],
+    "performanceCharacteristics": [],
+    "persistenceMethods": [],
+    "runtimeHooks": ["Regolith Addon Compiler filter pipeline"],
+    "transferSemantics": [],
+    "uiMethods": [],
+    "dependencies": ["Regolith Addon Compiler", "esbuild"],
+    "reusability": "medium",
+    "adapterCandidate": "generic-build-pipeline-codegen-reference"
+  },
+  "provenance": {
+    "addedBy": "hydraulic-corpus-bootstrap",
+    "addedEpochMillis": 1799600000000,
+    "lastUpdatedBy": null,
+    "lastUpdatedEpochMillis": null,
+    "corpusVersion": "v2.0.0",
+    "reviewNotes": [
+      "Reviewed 2026-09-11 against the public README and root file listing; no LICENSE file was found.",
+      "Marked inadmissible per corpus admissibility rules; recorded as research/backlog evidence only.",
+      "No filter source code was copied into Hydraulic; only README-level capability descriptions were recorded."
+    ]
+  }
+}

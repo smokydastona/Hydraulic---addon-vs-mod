@@ -12,6 +12,7 @@ import org.geysermc.hydraulic.compat.CompatibilityRegistry;
 import org.geysermc.hydraulic.compat.CompatibilityReport;
 import org.geysermc.hydraulic.compat.MappingResolver;
 import org.geysermc.hydraulic.compat.ir.CompiledCompatibilityPlan;
+import org.geysermc.hydraulic.compat.ir.CorpusEvidenceRef;
 import org.geysermc.hydraulic.compat.model.CompatibilityObject;
 import org.geysermc.hydraulic.compat.model.SupportLevel;
 import org.geysermc.hydraulic.compat.model.SupportResult;
@@ -82,8 +83,9 @@ public final class RuntimeDispatchTable {
         Map<String, MappingResolver.ResolvedBlockState> blockStatesByIdentifierAndState = new LinkedHashMap<>();
         Map<RuntimeBridgeKind, List<CompiledCompatibilityPlan>> plansByRuntimeBridgeKind = new EnumMap<>(RuntimeBridgeKind.class);
         for (CompatibilityProfile profile : report.mods().values()) {
+            List<CorpusEvidenceRef> corpusEvidenceForMod = corpusEvidenceRefs(report.corpusEvidence().getOrDefault(profile.modId(), List.of()));
             for (CompatibilityObject object : profile.objects()) {
-                plansByIdentifier.put(key(object.contentType(), object.javaIdentifier()), compilePlan(object, mappingResolver));
+                plansByIdentifier.put(key(object.contentType(), object.javaIdentifier()), compilePlan(object, mappingResolver, corpusEvidenceForMod));
                 compileBlockStatePlans(object, mappingResolver, blockDefinitionsByIdentifier, blockStatesByIdentifierAndState);
             }
         }
@@ -164,8 +166,18 @@ public final class RuntimeDispatchTable {
             plan.requiresBlockEntityRuntime(),
             plan.requiresFluidRuntime(),
             plan.behaviorLevel(),
-            plan.behaviorTag()
+            plan.behaviorTag(),
+            plan.corpusEvidence()
         );
+    }
+
+    @NotNull
+    private static List<CorpusEvidenceRef> corpusEvidenceRefs(@NotNull List<CompatibilityReport.CorpusMatch> matches) {
+        List<CorpusEvidenceRef> refs = new ArrayList<>(matches.size());
+        for (CompatibilityReport.CorpusMatch match : matches) {
+            refs.add(CorpusEvidenceRef.of(match.capability(), match.corpusId(), match.tier(), match.score()));
+        }
+        return List.copyOf(refs);
     }
 
     @NotNull
@@ -396,7 +408,11 @@ public final class RuntimeDispatchTable {
     }
 
     @NotNull
-    private static CompiledCompatibilityPlan compilePlan(@NotNull CompatibilityObject object, @NotNull MappingResolver mappingResolver) {
+    private static CompiledCompatibilityPlan compilePlan(
+        @NotNull CompatibilityObject object,
+        @NotNull MappingResolver mappingResolver,
+        @NotNull List<CorpusEvidenceRef> corpusEvidenceForMod
+    ) {
         Identifier javaIdentifier = Identifier.parse(object.javaIdentifier());
         Block block = "block".equals(object.contentType()) ? BuiltInRegistries.BLOCK.getValue(javaIdentifier) : null;
         Item item = "item".equals(object.contentType()) ? BuiltInRegistries.ITEM.getValue(javaIdentifier) : null;
@@ -444,6 +460,9 @@ public final class RuntimeDispatchTable {
         List<String> menuRuntimeRequirements = bridgeRequirements(runtimeBridgeKinds, "menu");
         List<String> blockEntityRuntimeRequirements = bridgeRequirements(runtimeBridgeKinds, "block_entity");
         List<String> fluidRuntimeRequirements = bridgeRequirements(runtimeBridgeKinds, "fluid");
+        List<CorpusEvidenceRef> corpusEvidence = corpusEvidenceForMod.stream()
+            .filter(ref -> ref.relatedBridgeKind() != null && runtimeBridgeKinds.contains(ref.relatedBridgeKind()))
+            .toList();
 
         return new CompiledCompatibilityPlan(
             object.modId(),
@@ -476,7 +495,8 @@ public final class RuntimeDispatchTable {
             !blockEntityRuntimeRequirements.isEmpty(),
             !fluidRuntimeRequirements.isEmpty(),
             behaviorLevel,
-            behaviorTag
+            behaviorTag,
+            corpusEvidence
         );
     }
 

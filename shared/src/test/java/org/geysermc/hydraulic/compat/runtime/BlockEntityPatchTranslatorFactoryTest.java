@@ -206,7 +206,8 @@ class BlockEntityPatchTranslatorFactoryTest {
             true,
             false,
             SupportLevel.UNSUPPORTED,
-            null
+            null,
+            List.of()
         );
     }
 }

@@ -600,7 +600,8 @@ class TransferBridgeRuntimeTest {
             false,
             false,
             SupportLevel.UNSUPPORTED,
-            null
+            null,
+            List.of()
         );
     }
 

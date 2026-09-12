@@ -235,7 +235,8 @@ class RuntimeTargetDiscoveryTest {
             false,
             false,
             SupportLevel.ADAPTED,
-            "automation"
+            "automation",
+            List.of()
         );
     }
 

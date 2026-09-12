@@ -206,7 +206,8 @@ class MixedResourceMachineProcessingBridgeTest {
             false,
             false,
             SupportLevel.ADAPTED,
-            "mixed_machine"
+            "mixed_machine",
+            List.of()
         );
     }
 

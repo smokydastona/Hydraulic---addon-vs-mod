@@ -105,7 +105,8 @@ class BridgeAdapterSupportTest {
             false,
             false,
             SupportLevel.UNSUPPORTED,
-            null
+            null,
+            List.of()
         );
     }
 
@@ -149,7 +150,8 @@ class BridgeAdapterSupportTest {
             true,
             false,
             SupportLevel.UNSUPPORTED,
-            null
+            null,
+            List.of()
         );
     }
 
@@ -185,7 +187,8 @@ class BridgeAdapterSupportTest {
             false,
             false,
             SupportLevel.UNSUPPORTED,
-            null
+            null,
+            List.of()
         );
     }
 
@@ -239,7 +242,8 @@ class BridgeAdapterSupportTest {
             false,
             false,
             SupportLevel.UNSUPPORTED,
-            null
+            null,
+            List.of()
         );
     }
 
@@ -279,7 +283,8 @@ class BridgeAdapterSupportTest {
             false,
             requiresRuntime,
             SupportLevel.UNSUPPORTED,
-            requiresRuntime ? "fluid_runtime" : null
+            requiresRuntime ? "fluid_runtime" : null,
+            List.of()
         );
     }
 
@@ -315,7 +320,8 @@ class BridgeAdapterSupportTest {
             false,
             false,
             SupportLevel.UNSUPPORTED,
-            null
+            null,
+            List.of()
         );
     }
 }
