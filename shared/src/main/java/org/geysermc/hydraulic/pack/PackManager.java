@@ -29,6 +29,9 @@ import org.geysermc.hydraulic.compat.corpus.AddonCorpusLoader;
 import org.geysermc.hydraulic.compat.corpus.CorpusBuiltinBootstrap;
 import org.geysermc.hydraulic.compat.corpus.CorpusSnapshotImporter;
 import org.geysermc.hydraulic.compat.corpus.CorpusReportWriter;
+import org.geysermc.hydraulic.compat.corpus.java.JavaModCorpusBuiltinBootstrap;
+import org.geysermc.hydraulic.compat.corpus.java.JavaModCorpusLoader;
+import org.geysermc.hydraulic.compat.corpus.java.JavaModCorpusReportWriter;
 import org.geysermc.hydraulic.compat.handoff.CompatibilityHandoffExporter;
 import org.geysermc.hydraulic.compat.handoff.CompatibilityHandoffQueue;
 import org.geysermc.hydraulic.compat.handoff.HandoffEnvelope;
@@ -108,6 +111,8 @@ public class PackManager {
     private final AddonCorpusLoader corpusLoader;
     private final CorpusSnapshotImporter corpusImporter;
     private final CorpusReportWriter corpusReportWriter;
+    private final JavaModCorpusLoader javaModCorpusLoader;
+    private final JavaModCorpusReportWriter javaModCorpusReportWriter;
     private final TextureResolutionCache textureResolutionCache = new TextureResolutionCache();
     private final PackValidator packValidator = new PackValidator();
     private final List<PackModule<?>> modules = new ArrayList<>();
@@ -150,6 +155,8 @@ public class PackManager {
         this.corpusLoader = new AddonCorpusLoader(LOGGER, dataPath);
         this.corpusImporter = new CorpusSnapshotImporter(LOGGER, this.corpusLoader);
         this.corpusReportWriter = new CorpusReportWriter(LOGGER, dataPath);
+        this.javaModCorpusLoader = new JavaModCorpusLoader(LOGGER, dataPath);
+        this.javaModCorpusReportWriter = new JavaModCorpusReportWriter(LOGGER, dataPath);
     }
 
     /**
@@ -166,6 +173,11 @@ public class PackManager {
         this.corpusLoader.loadIndex();
         this.corpusLoader.refreshIndexFromSnapshots();
         this.corpusReportWriter.writeReports(this.corpusLoader.index(), this.corpusLoader.loadAdmissibleEntries(), this.corpusLoader.loadAllEntries());
+        this.javaModCorpusLoader.ensureLayout();
+        JavaModCorpusBuiltinBootstrap.installBuiltinEntries(LOGGER, this.hydraulic.dataFolder(Constants.MOD_ID).resolve("corpus").resolve("java"));
+        this.javaModCorpusLoader.loadIndex();
+        this.javaModCorpusLoader.refreshIndexFromSnapshots();
+        this.javaModCorpusReportWriter.writeReport(this.javaModCorpusLoader.index(), this.javaModCorpusLoader.loadAdmissibleEntries());
         long resourceIndexStarted = System.nanoTime();
         LookupSummary lookupSummary = initializeModLookups();
         long indexedResourcesMillis = nanosToMillis(System.nanoTime() - resourceIndexStarted);

@@ -1,0 +1,119 @@
+{
+  "identity": {
+    "corpusId": "bedrock-oss-bedrock-boost",
+    "bedrockIdentifier": "bedrock_oss:bedrock_boost",
+    "author": "Bedrock-OSS (stirante and contributors)",
+    "displayName": "bedrock-boost",
+    "description": "A utility library for Minecraft Bedrock's Script API providing vector math, caching, polyfills, logging, colored chat/JSON, timing, and pulse-based task scheduling."
+  },
+  "source": {
+    "sourceType": "GITHUB",
+    "sourceUrl": "https://github.com/Bedrock-OSS/bedrock-boost",
+    "repositoryUrl": "https://github.com/Bedrock-OSS/bedrock-boost",
+    "homepageUrl": null,
+    "documentationUrl": "https://github.com/Bedrock-OSS/bedrock-boost/tree/main/docs"
+  },
+  "license": {
+    "licenseType": "MIT",
+    "licenseUrl": "https://github.com/Bedrock-OSS/bedrock-boost/blob/main/LICENSE",
+    "licenseText": null,
+    "allowsRedistribution": true,
+    "allowsModification": true,
+    "allowsCommercialUse": true,
+    "requiresAttribution": true
+  },
+  "admissibility": {
+    "isAdmissible": true,
+    "reason": "FULLY_PERMISSIVE",
+    "denialReason": null,
+    "constraints": ["Requires attribution: MIT requires retaining the copyright notice"]
+  },
+  "versions": {
+    "latestVersion": "2.1.0",
+    "supportedBedrockVersions": ["1.21"],
+    "minBedrockVersion": "1.21.0",
+    "maxBedrockVersion": "1.21.0",
+    "allVersions": ["2.1.0"]
+  },
+  "behaviorPack": {
+    "hasBehaviorPack": false,
+    "behaviorPackFormat": null,
+    "entities": [],
+    "blocks": [],
+    "items": [],
+    "recipes": [],
+    "functions": [],
+    "scripts": ["Vec3, Cache, Polyfill, Logger, ChatColor, ColorJSON, Timings, PulseScheduler and related utility modules"],
+    "customComponents": {}
+  },
+  "resourcePack": {
+    "hasResourcePack": false,
+    "resourcePackFormat": null,
+    "textures": [],
+    "models": [],
+    "animations": [],
+    "particles": [],
+    "sounds": [],
+    "uiElements": [],
+    "renderControllers": {}
+  },
+  "capabilities": {
+    "storageTypes": [],
+    "machineTypes": [],
+    "transferTypes": [],
+    "fluidTypes": [],
+    "energyTypes": [],
+    "automationTypes": ["scheduled_task_pulsing"],
+    "networkingTypes": [],
+    "customCapabilities": {
+      "logging": "leveled, tagged logging with scriptevent runtime commands to change level/filter",
+      "scheduling": "PulseScheduler family (task/entity/player/unique variants) for distributed per-tick task execution",
+      "caching": "caches dimension lookups, height ranges, and block permutations to reduce native API calls"
+    }
+  },
+  "evidence": {
+    "manifestEvidence": ["README: utility library for Minecraft Bedrock's Script API"],
+    "scriptEvidence": ["Documented Vec3/Logger/ChatColor/ColorJSON/Timings/PulseScheduler usage examples with @minecraft/server imports"],
+    "functionEvidence": [],
+    "componentEvidence": [],
+    "uiEvidence": [],
+    "heuristicScores": {
+      "documentation": "1.00",
+      "npm_package_evidence": "1.00"
+    }
+  },
+  "confidence": {
+    "overallScore": 0.85,
+    "assessmentMethod": "readme_and_release_history_review",
+    "strongIndicators": [
+      "39 tagged releases, 27 stars, 9 contributors, published on npm",
+      "Per-module documentation files (vec3.md, cache.md, logging.md, colorJson.md, scheduler.md, profilingDummy.md)",
+      "Concrete usage examples against real @minecraft/server APIs"
+    ],
+    "weakIndicators": [],
+    "gaps": ["Source was not opened or copied; facts are README/documentation-level only"]
+  },
+  "implementationFacts": {
+    "implementationPattern": "General-purpose Script API utility library: 3D vector math, native-call caching, event/scheduling helpers (pulse schedulers keyed by entity/player/unique id), leveled/tagged logging with runtime scriptevent controls, and chat/JSON color formatting",
+    "limitations": ["Not gameplay-content-specific; a supporting utility layer rather than a machine/storage/fluid implementation"],
+    "performanceCharacteristics": ["Cache module explicitly reduces costly native dimension/permutation lookups"],
+    "persistenceMethods": [],
+    "runtimeHooks": ["@minecraft/server Script API", "scriptevent commands (logging:level, logging:filter)"],
+    "transferSemantics": [],
+    "uiMethods": ["ChatColor/ColorJSON for formatted chat output"],
+    "dependencies": ["@minecraft/server"],
+    "reusability": "high",
+    "adapterCandidate": "generic-script-api-utility-library-reference"
+  },
+  "provenance": {
+    "addedBy": "hydraulic-corpus-bootstrap",
+    "addedEpochMillis": 1799600000000,
+    "lastUpdatedBy": null,
+    "lastUpdatedEpochMillis": null,
+    "corpusVersion": "v2.0.0",
+    "reviewNotes": [
+      "Reviewed 2026-09-11 against the public README, root file listing (LICENSE), and release/contributor history.",
+      "Only README-level facts were used; no library source code was copied into Hydraulic."
+    ]
+  }
+}

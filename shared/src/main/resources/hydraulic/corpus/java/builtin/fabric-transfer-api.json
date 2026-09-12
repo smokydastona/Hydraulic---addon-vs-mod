@@ -1,0 +1,80 @@
+{
+  "identity": {
+    "corpusId": "fabric-transfer-api",
+    "displayName": "Fabric Transfer API (fabric-transfer-api-v1)",
+    "description": "Fabric API's transactional transfer abstraction (Storage, StorageView, ItemVariant/FluidVariant, ItemStorage/FluidStorage/EnergyStorage lookups) used for item, fluid, and energy movement between Fabric mods."
+  },
+  "source": {
+    "sourceType": "GITHUB",
+    "sourceUrl": "https://github.com/FabricMC/fabric-api",
+    "repositoryUrl": "https://github.com/FabricMC/fabric-api",
+    "documentationUrl": "https://github.com/FabricMC/fabric-api/tree/26.3/fabric-transfer-api-v1"
+  },
+  "license": {
+    "licenseType": "Apache-2.0",
+    "licenseUrl": "https://github.com/FabricMC/fabric-api/blob/26.3/LICENSE",
+    "allowsRedistribution": true,
+    "allowsModification": true,
+    "allowsCommercialUse": true,
+    "requiresAttribution": true
+  },
+  "admissibility": {
+    "isAdmissible": true,
+    "reason": "FULLY_PERMISSIVE",
+    "denialReason": null,
+    "constraints": ["Requires attribution: Apache-2.0 requires retaining the copyright/license notice and a NOTICE file where applicable"]
+  },
+  "capability": "ITEM_TRANSFER",
+  "javaApiReferences": [
+    "net.fabricmc.fabric.api.transfer.v1.storage.Storage",
+    "net.fabricmc.fabric.api.transfer.v1.storage.StorageView",
+    "net.fabricmc.fabric.api.transfer.v1.transaction.Transaction",
+    "net.fabricmc.fabric.api.transfer.v1.item.ItemStorage",
+    "net.fabricmc.fabric.api.transfer.v1.fluid.FluidStorage",
+    "net.fabricmc.fabric.api.transfer.v1.item.ItemVariant",
+    "net.fabricmc.fabric.api.transfer.v1.fluid.FluidVariant"
+  ],
+  "semanticFacts": {
+    "requiredState": [
+      "a Storage<T> exposed per block face via BlockApiLookup (ItemStorage.SIDED / FluidStorage.SIDED)",
+      "StorageView<T> exposing resource identity (ItemVariant/FluidVariant) and amount per slot/tank",
+      "an open Transaction wrapping every insert/extract call so multiple operations commit or roll back atomically"
+    ],
+    "inputSemantics": [
+      "insert(resource, maxAmount, transaction) returns the amount actually accepted",
+      "nested/child transactions allow speculative simulation via transaction.openNested() then abort() instead of commit()"
+    ],
+    "outputSemantics": [
+      "extract(resource, maxAmount, transaction) returns the amount actually removed",
+      "StorageView iteration exposes current per-slot resource and amount without mutating state"
+    ],
+    "simulationSupport": true,
+    "sidedAccess": true,
+    "filteringSupport": true
+  },
+  "implementationPattern": "Transaction-scoped Storage<T> lookups resolved per block and side through BlockApiLookup; every insert/extract takes an open Transaction so callers can simulate by opening a nested transaction and aborting it instead of committing, giving atomic multi-step operations across item, fluid, and (via companion Team Reborn Energy API) energy resources",
+  "limitations": [
+    "Energy transfer is not part of fabric-transfer-api-v1 itself; it is commonly layered on via the separate community Team Reborn Energy API using the same transaction pattern",
+    "Storage<T> providers must be registered per block via BlockApiLookup; there is no single universal capability registry like Forge's"
+  ],
+  "bedrockFeasibilityHint": "The transaction-scoped simulate/commit pattern is the key semantic a Bedrock adapter must preserve; Hydraulic's own MultiResourceTransaction substrate already mirrors this open/commit/rollback shape for item, fluid, and energy operations",
+  "confidence": {
+    "overallScore": 0.9,
+    "assessmentMethod": "official_documentation_and_license_review",
+    "strongIndicators": [
+      "Fabric API is a first-party, extensively used Fabric library (3.2k stars, 1,198 releases, 216 contributors)",
+      "Transfer API module is a well-defined, isolated Gradle module (fabric-transfer-api-v1) with a clear transaction-based contract"
+    ],
+    "weakIndicators": ["Energy transfer semantics are documented via the companion community Energy API rather than fabric-transfer-api-v1 itself"],
+    "gaps": ["This entry documents the public interface contract only; it does not inspect any specific mod's implementation"]
+  },
+  "provenance": {
+    "addedBy": "hydraulic-corpus-bootstrap",
+    "addedEpochMillis": 1799600000000,
+    "corpusVersion": "v1.0.0",
+    "reviewNotes": [
+      "Reviewed 2026-09-11 against the public repository file listing (fabric-transfer-api-v1 module) and its Apache-2.0 license badge/LICENSE file.",
+      "No Fabric API source code was copied into Hydraulic; only the documented public transaction/storage contract was recorded."
+    ]
+  }
+}

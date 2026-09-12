@@ -1,0 +1,121 @@
+{
+  "identity": {
+    "corpusId": "bedrock-oss-regolith",
+    "bedrockIdentifier": "bedrock_oss:regolith",
+    "author": "Bedrock-OSS (Nusiq, stirante, SirLich, and contributors)",
+    "displayName": "Regolith",
+    "description": "An Add-on Compiler for Minecraft: Bedrock Edition. Copies a project's RP/BP into com.mojang while running a configurable chain of filters that transform files non-destructively."
+  },
+  "source": {
+    "sourceType": "GITHUB",
+    "sourceUrl": "https://github.com/Bedrock-OSS/regolith",
+    "repositoryUrl": "https://github.com/Bedrock-OSS/regolith",
+    "homepageUrl": "https://regolith-docs.readthedocs.io/en/latest/",
+    "documentationUrl": "https://regolith-docs.readthedocs.io/en/latest/"
+  },
+  "license": {
+    "licenseType": "MIT",
+    "licenseUrl": "https://github.com/Bedrock-OSS/regolith/blob/main/LICENSE",
+    "licenseText": null,
+    "allowsRedistribution": true,
+    "allowsModification": true,
+    "allowsCommercialUse": true,
+    "requiresAttribution": true
+  },
+  "admissibility": {
+    "isAdmissible": true,
+    "reason": "FULLY_PERMISSIVE",
+    "denialReason": null,
+    "constraints": [
+      "Requires attribution: MIT requires retaining the copyright notice",
+      "Repository also ships a second LICENSE.rtf; both were treated as consistent MIT grants per GitHub's own license detection"
+    ]
+  },
+  "versions": {
+    "latestVersion": "1.8.0",
+    "supportedBedrockVersions": ["1.21"],
+    "minBedrockVersion": "1.21.0",
+    "maxBedrockVersion": "1.21.0",
+    "allVersions": ["1.8.0"]
+  },
+  "behaviorPack": {
+    "hasBehaviorPack": false,
+    "behaviorPackFormat": null,
+    "entities": [],
+    "blocks": [],
+    "items": [],
+    "recipes": [],
+    "functions": [],
+    "scripts": ["Go CLI compiler; filters are external processes/scripts run per project profile"],
+    "customComponents": {}
+  },
+  "resourcePack": {
+    "hasResourcePack": false,
+    "resourcePackFormat": null,
+    "textures": [],
+    "models": [],
+    "animations": [],
+    "particles": [],
+    "sounds": [],
+    "uiElements": [],
+    "renderControllers": {}
+  },
+  "capabilities": {
+    "storageTypes": [],
+    "machineTypes": [],
+    "transferTypes": [],
+    "fluidTypes": [],
+    "energyTypes": [],
+    "automationTypes": ["build_pipeline_codegen", "non_destructive_file_transform_pipeline"],
+    "networkingTypes": [],
+    "customCapabilities": {
+      "project_structure": "single project folder holding RP/BP/config outside of com.mojang, compiled by a filter chain",
+      "ecosystem": "standard-library filters (Bedrock-OSS/regolith-filters) plus custom/proprietary filters in any language"
+    }
+  },
+  "evidence": {
+    "manifestEvidence": ["README: Add-on Compiler for Minecraft Bedrock Edition; project-folder plus filter-chain compilation model"],
+    "scriptEvidence": ["Go CLI (main.go) driving filter execution; documented `go test ./test` suite"],
+    "functionEvidence": [],
+    "componentEvidence": [],
+    "uiEvidence": [],
+    "heuristicScores": {
+      "documentation": "1.00",
+      "ecosystem_evidence": "1.00"
+    }
+  },
+  "confidence": {
+    "overallScore": 0.9,
+    "assessmentMethod": "readme_and_release_history_review",
+    "strongIndicators": [
+      "37 tagged releases, 106 stars, 22 forks, and 23 contributors",
+      "Dedicated documentation site plus a companion standard-library filter repository",
+      "Explicit CI/test suite (go test ./test) described in the README"
+    ],
+    "weakIndicators": [],
+    "gaps": ["Source was not opened or copied; facts are README/documentation-level only"]
+  },
+  "implementationFacts": {
+    "implementationPattern": "Add-on compiler: a versioned project folder (source of truth outside com.mojang) is compiled by running a configurable, ordered chain of filters (any language/process) that non-destructively transform RP/BP files as they are copied into the world's development packs",
+    "limitations": ["Distinct build/runtime concern from in-game gameplay capabilities; it is a development-time pipeline tool, not a runtime API"],
+    "performanceCharacteristics": [],
+    "persistenceMethods": [],
+    "runtimeHooks": ["Regolith filter chain (any language, external process per filter)"],
+    "transferSemantics": [],
+    "uiMethods": [],
+    "dependencies": [],
+    "reusability": "high",
+    "adapterCandidate": "generic-build-pipeline-reference"
+  },
+  "provenance": {
+    "addedBy": "hydraulic-corpus-bootstrap",
+    "addedEpochMillis": 1799600000000,
+    "lastUpdatedBy": null,
+    "lastUpdatedEpochMillis": null,
+    "corpusVersion": "v2.0.0",
+    "reviewNotes": [
+      "Reviewed 2026-09-11 against the public README, root file listing (LICENSE, LICENSE.rtf), and release/contributor history.",
+      "Only README-level facts were used; no compiler source code was copied into Hydraulic."
+    ]
+  }
+}

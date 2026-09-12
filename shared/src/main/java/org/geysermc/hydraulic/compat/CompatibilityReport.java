@@ -18,6 +18,7 @@ public final class CompatibilityReport {
     private final List<CompatibilityFinding> metadataFindings;
     private final Map<String, CompatibilityProfile> mods;
     private final Map<String, List<CorpusMatch>> corpusEvidence;
+    private final Map<String, List<CorpusMatch>> objectCorpusEvidence;
     private final Map<String, PackValidationSummary> packValidation;
 
     public CompatibilityReport(
@@ -47,6 +48,18 @@ public final class CompatibilityReport {
         @NotNull Map<String, PackValidationSummary> packValidation,
         @NotNull Map<String, List<CorpusMatch>> corpusEvidence
     ) {
+        this(generatedAt, metadata, metadataFindings, mods, packValidation, corpusEvidence, Map.of());
+    }
+
+    public CompatibilityReport(
+        @NotNull String generatedAt,
+        @NotNull MetadataIndex.Summary metadata,
+        @NotNull List<CompatibilityFinding> metadataFindings,
+        @NotNull Map<String, CompatibilityProfile> mods,
+        @NotNull Map<String, PackValidationSummary> packValidation,
+        @NotNull Map<String, List<CorpusMatch>> corpusEvidence,
+        @NotNull Map<String, List<CorpusMatch>> objectCorpusEvidence
+    ) {
         this.generatedAt = generatedAt;
         this.metadata = metadata;
         this.metadataFindings = List.copyOf(metadataFindings);
@@ -56,6 +69,11 @@ public final class CompatibilityReport {
             copiedEvidence.put(entry.getKey(), List.copyOf(entry.getValue()));
         }
         this.corpusEvidence = Collections.unmodifiableMap(copiedEvidence);
+        Map<String, List<CorpusMatch>> copiedObjectEvidence = new LinkedHashMap<>();
+        for (Map.Entry<String, List<CorpusMatch>> entry : objectCorpusEvidence.entrySet()) {
+            copiedObjectEvidence.put(entry.getKey(), List.copyOf(entry.getValue()));
+        }
+        this.objectCorpusEvidence = Collections.unmodifiableMap(copiedObjectEvidence);
         this.packValidation = Collections.unmodifiableMap(new LinkedHashMap<>(packValidation));
     }
 
@@ -89,6 +107,19 @@ public final class CompatibilityReport {
         return this.corpusEvidence;
     }
 
+    /**
+     * Per-object corpus evidence, keyed by {@code contentType + ":" + javaIdentifier}. Unlike the
+     * coarser mod-level {@link #corpusEvidence()}, matches here are ranked against capabilities
+     * inferred from that specific object's own inventory facts (for example, a machine-processing
+     * contract, a fluid source link, or sided automation facts), not the whole mod's registry counts.
+     *
+     * @return per-object corpus evidence; empty when no object-level capability could be inferred
+     */
+    @NotNull
+    public Map<String, List<CorpusMatch>> objectCorpusEvidence() {
+        return this.objectCorpusEvidence;
+    }
+
     @Nullable
     public CompatibilityProfile profile(@NotNull String modId) {
         return this.mods.get(modId);
@@ -113,7 +144,7 @@ public final class CompatibilityReport {
 
     @NotNull
     public CompatibilityReport withPackValidation(@NotNull Map<String, PackValidationSummary> packValidation) {
-        return new CompatibilityReport(this.generatedAt, this.metadata, this.metadataFindings, this.mods, packValidation, this.corpusEvidence);
+        return new CompatibilityReport(this.generatedAt, this.metadata, this.metadataFindings, this.mods, packValidation, this.corpusEvidence, this.objectCorpusEvidence);
     }
 
     public record CorpusMatch(

@@ -318,6 +318,65 @@ class RuntimeDispatchTableTest {
         assertFalse(plainPlan.hasCorpusEvidence());
     }
 
+    @Test
+    void prefersPerObjectCorpusEvidenceOverModLevelDefaultWhenBothArePresent() {
+        Identifier machineBlock = Identifier.fromNamespaceAndPath("example", "test_machine");
+
+        CompatibilityObject machineObject = new CompatibilityObject(
+            machineBlock.toString(),
+            "block",
+            "testmod",
+            Map.of(),
+            new CapabilityProfile(machineBlock.toString(), List.of(), List.of()),
+            List.of(),
+            List.of("machine_behavior_bridge"),
+            supportResults(SupportLevel.ADAPTED, SupportLevel.ADAPTED, SupportLevel.ADAPTED),
+            SupportLevel.ADAPTED,
+            CompatibilityStatus.COMPLETE,
+            90,
+            new Confidence(0.9, "high"),
+            List.of(new Provenance("analyzer", "generated", "synthetic", false)),
+            List.of()
+        );
+
+        CompatibilityReport report = new CompatibilityReport(
+            "2026-09-11T00:00:00Z",
+            MetadataIndex.empty().summary(),
+            List.of(),
+            Map.of(
+                "testmod",
+                new CompatibilityProfile(
+                    "testmod",
+                    fingerprint(),
+                    SupportLevel.ADAPTED,
+                    CompatibilityStatus.COMPLETE,
+                    90,
+                    Map.of(),
+                    Map.of(),
+                    List.of(machineObject),
+                    List.of(),
+                    List.of()
+                )
+            ),
+            Map.of(),
+            Map.of(
+                "testmod",
+                List.of(new CompatibilityReport.CorpusMatch("machine", "mod-level-corpus", 0.5, 1, 0, org.geysermc.hydraulic.compat.corpus.CorpusEvidenceTier.REVIEWED_DOCUMENTATION))
+            ),
+            Map.of(
+                "block|" + machineBlock,
+                List.of(new CompatibilityReport.CorpusMatch("machine", "object-level-corpus", 0.9, 1, 1, org.geysermc.hydraulic.compat.corpus.CorpusEvidenceTier.LICENSED_IMPLEMENTATION))
+            )
+        );
+
+        RuntimeDispatchTable table = RuntimeDispatchTable.compile(report, new MappingResolver(MetadataIndex.empty()));
+
+        var machinePlan = table.block(machineBlock);
+        assertNotNull(machinePlan);
+        assertEquals(1, machinePlan.corpusEvidenceForBridgeKind(RuntimeBridgeKind.MACHINE_BEHAVIOR).size());
+        assertEquals("object-level-corpus", machinePlan.corpusEvidenceForBridgeKind(RuntimeBridgeKind.MACHINE_BEHAVIOR).getFirst().corpusId());
+    }
+
     private static CompatibilityObject object(
         String contentType,
         String javaIdentifier,

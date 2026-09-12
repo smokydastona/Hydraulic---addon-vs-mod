@@ -1,0 +1,116 @@
+{
+  "identity": {
+    "corpusId": "bedrock-oss-add-on-registry",
+    "bedrockIdentifier": "bedrock_oss:add_on_registry",
+    "author": "Bedrock-OSS (JannisX11 and contributors)",
+    "displayName": "Add-On Registry",
+    "description": "A community-maintained registry mapping Minecraft Bedrock Add-On namespaces to creator/display metadata, published as an npm package for other add-ons (e.g., WAILA-style tools) to consume."
+  },
+  "source": {
+    "sourceType": "GITHUB",
+    "sourceUrl": "https://github.com/Bedrock-OSS/add-on-registry",
+    "repositoryUrl": "https://github.com/Bedrock-OSS/add-on-registry",
+    "homepageUrl": null,
+    "documentationUrl": "https://github.com/Bedrock-OSS/add-on-registry/blob/main/README.md"
+  },
+  "license": {
+    "licenseType": "MIT",
+    "licenseUrl": "https://github.com/Bedrock-OSS/add-on-registry/blob/main/LICENSE",
+    "licenseText": null,
+    "allowsRedistribution": true,
+    "allowsModification": true,
+    "allowsCommercialUse": true,
+    "requiresAttribution": true
+  },
+  "admissibility": {
+    "isAdmissible": true,
+    "reason": "FULLY_PERMISSIVE",
+    "denialReason": null,
+    "constraints": ["Requires attribution: MIT requires retaining the copyright notice"]
+  },
+  "versions": {
+    "latestVersion": "1.0.29",
+    "supportedBedrockVersions": ["1.21"],
+    "minBedrockVersion": "1.21.0",
+    "maxBedrockVersion": "1.21.0",
+    "allVersions": ["1.0.29"]
+  },
+  "behaviorPack": {
+    "hasBehaviorPack": false,
+    "behaviorPackFormat": null,
+    "entities": [],
+    "blocks": [],
+    "items": [],
+    "recipes": [],
+    "functions": [],
+    "scripts": ["Registry lookup helper (`Registry[namespace]`) consumed from @minecraft/server scripts"],
+    "customComponents": {}
+  },
+  "resourcePack": {
+    "hasResourcePack": false,
+    "resourcePackFormat": null,
+    "textures": [],
+    "models": [],
+    "animations": [],
+    "particles": [],
+    "sounds": [],
+    "uiElements": [],
+    "renderControllers": {}
+  },
+  "capabilities": {
+    "storageTypes": ["namespace_metadata_registry"],
+    "machineTypes": [],
+    "transferTypes": [],
+    "fluidTypes": [],
+    "energyTypes": [],
+    "automationTypes": [],
+    "networkingTypes": ["cross_addon_metadata_lookup"],
+    "customCapabilities": {
+      "discovery": "community pull-request-curated namespace-to-creator/display-name mapping, merged into one published registry.js"
+    }
+  },
+  "evidence": {
+    "manifestEvidence": ["README: community registry mapping Add-On namespaces to basic metadata, intended for WAILA-style consumers"],
+    "scriptEvidence": ["Documented `import { Registry } from \"@bedrock-oss/add-on-registry\"` usage resolving a namespace to a display name"],
+    "functionEvidence": [],
+    "componentEvidence": [],
+    "uiEvidence": [],
+    "heuristicScores": {
+      "documentation": "1.00",
+      "npm_package_evidence": "1.00"
+    }
+  },
+  "confidence": {
+    "overallScore": 0.8,
+    "assessmentMethod": "readme_and_release_history_review",
+    "strongIndicators": [
+      "42 contributors and 39 forks, indicating active community namespace registration",
+      "Clear contribution workflow (per-creator JSON files merged into one registry.js) and npm distribution"
+    ],
+    "weakIndicators": ["Registry is metadata-only (namespace to display name/creator); it carries no capability implementation of its own"],
+    "gaps": ["Source was not opened or copied; facts are README-level only"]
+  },
+  "implementationFacts": {
+    "implementationPattern": "Cross-addon metadata registry: creators contribute a namespace-keyed JSON file via pull request; a build step merges all entries into one published registry.js, and consuming add-ons resolve a namespace to a display name/creator at runtime",
+    "limitations": ["Metadata only; not a capability or behavior implementation reference"],
+    "performanceCharacteristics": [],
+    "persistenceMethods": ["Static, build-time-merged registry consumed as a plain object lookup"],
+    "runtimeHooks": ["Plain object import (`Registry[namespace]`) inside @minecraft/server scripts"],
+    "transferSemantics": [],
+    "uiMethods": [],
+    "dependencies": [],
+    "reusability": "medium",
+    "adapterCandidate": "generic-namespace-metadata-registry-reference"
+  },
+  "provenance": {
+    "addedBy": "hydraulic-corpus-bootstrap",
+    "addedEpochMillis": 1799600000000,
+    "lastUpdatedBy": null,
+    "lastUpdatedEpochMillis": null,
+    "corpusVersion": "v2.0.0",
+    "reviewNotes": [
+      "Reviewed 2026-09-11 against the public README, root file listing (LICENSE), and release/contributor history.",
+      "Only README-level facts were used; no registry source or third-party creator metadata was copied into Hydraulic."
+    ]
+  }
+}

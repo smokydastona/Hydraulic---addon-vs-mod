@@ -1,0 +1,83 @@
+{
+  "identity": {
+    "corpusId": "forge-capabilities",
+    "displayName": "Forge Capabilities (IItemHandler / IFluidHandler / IEnergyStorage)",
+    "description": "Minecraft Forge's capability system exposing normalized item, fluid, and energy transfer contracts (IItemHandler, IFluidHandler, IEnergyStorage) that Java mods commonly implement for machine and storage behavior."
+  },
+  "source": {
+    "sourceType": "GITHUB",
+    "sourceUrl": "https://github.com/MinecraftForge/MinecraftForge",
+    "repositoryUrl": "https://github.com/MinecraftForge/MinecraftForge",
+    "documentationUrl": "https://docs.minecraftforge.net/en/latest/datastorage/capabilities/"
+  },
+  "license": {
+    "licenseType": "LGPL-2.1",
+    "licenseUrl": "https://github.com/MinecraftForge/MinecraftForge/blob/26.2/LICENSE.txt",
+    "allowsRedistribution": true,
+    "allowsModification": true,
+    "allowsCommercialUse": true,
+    "requiresAttribution": true
+  },
+  "admissibility": {
+    "isAdmissible": true,
+    "reason": "FULLY_PERMISSIVE",
+    "denialReason": null,
+    "constraints": [
+      "LGPL-2.1: requires attribution and that modifications to Forge itself remain LGPL-2.1",
+      "Forge's own LICENSE.txt explicitly states mods referencing Forge via ordinary Java linkage are not bound by Forge's license terms; this entry records only the public capability contract, not Forge source"
+    ]
+  },
+  "capability": "ITEM_TRANSFER",
+  "javaApiReferences": [
+    "net.minecraftforge.items.IItemHandler",
+    "net.minecraftforge.items.IItemHandlerModifiable",
+    "net.minecraftforge.fluids.capability.IFluidHandler",
+    "net.minecraftforge.energy.IEnergyStorage",
+    "net.minecraftforge.common.capabilities.ForgeCapabilities"
+  ],
+  "semanticFacts": {
+    "requiredState": [
+      "slot count and per-slot stack identity (IItemHandler#getSlots, #getStackInSlot)",
+      "tank count and per-tank fluid identity/capacity (IFluidHandler#getTanks, #getTankCapacity)",
+      "energy capacity, stored amount (IEnergyStorage#getEnergyStored, #getMaxEnergyStored)"
+    ],
+    "inputSemantics": [
+      "insertItem(slot, stack, simulate) returns the remainder that could not be inserted",
+      "fill(resource, action) with FluidAction.SIMULATE/EXECUTE",
+      "receiveEnergy(maxReceive, simulate) returns the amount actually accepted"
+    ],
+    "outputSemantics": [
+      "extractItem(slot, amount, simulate) returns the extracted stack",
+      "drain(resource/maxDrain, action) returns the drained fluid stack",
+      "extractEnergy(maxExtract, simulate) returns the amount actually extracted"
+    ],
+    "simulationSupport": true,
+    "sidedAccess": true,
+    "filteringSupport": true
+  },
+  "implementationPattern": "Capability-typed handler interfaces (IItemHandler/IFluidHandler/IEnergyStorage) queried per-side from a block entity, each supporting a simulate flag on every mutating call so callers can test an operation's outcome before committing it",
+  "limitations": [
+    "isItemValid(slot, stack) filtering is advisory; handlers may still accept invalid items unless the caller checks first",
+    "IFluidHandler tank identity does not guarantee same-index stability across ticks in all implementations"
+  ],
+  "bedrockFeasibilityHint": "Bedrock has no native equivalent capability system; a faithful adapter must expose the same simulate-before-commit semantics through Hydraulic's own transfer bridge rather than a single non-reversible mutation call",
+  "confidence": {
+    "overallScore": 0.9,
+    "assessmentMethod": "official_documentation_and_license_review",
+    "strongIndicators": [
+      "Forge capability contracts are stable, extensively documented, and used by the overwhelming majority of Forge tech mods",
+      "License file explicitly clarifies that referencing these interfaces does not bind mod code to Forge's LGPL-2.1 terms"
+    ],
+    "weakIndicators": [],
+    "gaps": ["This entry documents the public interface contract only; it does not inspect any specific mod's implementation"]
+  },
+  "provenance": {
+    "addedBy": "hydraulic-corpus-bootstrap",
+    "addedEpochMillis": 1799600000000,
+    "corpusVersion": "v1.0.0",
+    "reviewNotes": [
+      "Reviewed 2026-09-11 against the public Forge documentation site and the repository's own LICENSE.txt (confirmed LGPL-2.1 with an explicit non-infectivity clause for referencing mods).",
+      "No Forge source code was copied into Hydraulic; only the documented public capability contract was recorded."
+    ]
+  }
+}

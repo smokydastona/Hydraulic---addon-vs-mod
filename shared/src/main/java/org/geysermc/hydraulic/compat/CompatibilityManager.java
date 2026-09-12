@@ -214,6 +214,7 @@ public final class CompatibilityManager {
     CompatibilityReport buildReport(@NotNull ContentInventory inventory, @NotNull MetadataIndex metadataIndex) {
         Map<String, CompatibilityProfile> profiles = new LinkedHashMap<>();
         Map<String, List<CompatibilityReport.CorpusMatch>> corpusEvidence = new LinkedHashMap<>();
+        Map<String, List<CompatibilityReport.CorpusMatch>> objectCorpusEvidence = new LinkedHashMap<>();
         List<CompatibilityFinding> metadataFindings = metadataIndex.validationIssues().stream().map(this::toFinding).toList();
         for (ContentInventory.ModContentInventory modInventory : inventory.mods().values()) {
             List<CompatibilityObject> objects = this.analyzeObjects(modInventory, metadataIndex);
@@ -225,6 +226,12 @@ public final class CompatibilityManager {
             if (!evidence.isEmpty()) {
                 notes.add("Offline Bedrock corpus evidence was matched for reusable capability patterns; evidence is advisory and does not change runtime support decisions.");
                 corpusEvidence.put(modInventory.modId(), evidence);
+            }
+            for (CompatibilityObject object : objects) {
+                List<CompatibilityReport.CorpusMatch> objectEvidence = this.objectCorpusEvidence(object);
+                if (!objectEvidence.isEmpty()) {
+                    objectCorpusEvidence.put(object.contentType() + "|" + object.javaIdentifier(), objectEvidence);
+                }
             }
 
             List<CompatibilityFinding> findings = new ArrayList<>(objects.stream().flatMap(object -> object.findings().stream()).toList());
@@ -248,7 +255,7 @@ public final class CompatibilityManager {
             );
         }
 
-        return new CompatibilityReport(Instant.now().toString(), metadataIndex.summary(), metadataFindings, profiles, Map.of(), corpusEvidence);
+        return new CompatibilityReport(Instant.now().toString(), metadataIndex.summary(), metadataFindings, profiles, Map.of(), corpusEvidence, objectCorpusEvidence);
     }
 
     @NotNull
@@ -266,6 +273,53 @@ public final class CompatibilityManager {
         }
         if (inventory.registryCounts().getOrDefault("entities", 0) > 0) {
             capabilities.add("automation");
+        }
+
+        List<CompatibilityReport.CorpusMatch> matches = new ArrayList<>();
+        for (String capability : capabilities) {
+            Set<String> patterns = capability.equals("machine")
+                ? Set.of("generic-machine", "processing", "storage")
+                : Set.of(capability);
+            for (AddonCorpusMatcher.Match match : AddonCorpusMatcher.rank(this.corpusEntries, capability, patterns).stream().limit(3).toList()) {
+                matches.add(CompatibilityReport.CorpusMatch.from(capability, match));
+            }
+        }
+        return List.copyOf(matches);
+    }
+
+    /**
+     * Infers corpus-matchable capabilities directly from one object's own inventory facts (its
+     * actual machine/transfer/fluid/automation contract), rather than the whole mod's registry
+     * counts. This gives {@link org.geysermc.hydraulic.compat.runtime.RuntimeDispatchTable} a
+     * precise per-object evidence source instead of a mod-wide default applied to every object
+     * that happens to require a matching runtime bridge kind.
+     */
+    @NotNull
+    private List<CompatibilityReport.CorpusMatch> objectCorpusEvidence(@NotNull CompatibilityObject object) {
+        Set<String> capabilities = new LinkedHashSet<>();
+        Map<String, String> facts = object.inventoryFacts();
+
+        if ("item".equals(object.contentType())) {
+            capabilities.add("item");
+        }
+        if ("fluid".equals(object.contentType()) || facts.containsKey("fluid_source")) {
+            capabilities.add("fluid");
+        }
+        if ("block_entity".equals(object.contentType()) || "menu".equals(object.contentType())) {
+            capabilities.add("storage");
+        }
+        boolean hasMachineFacts = "true".equals(facts.get("has_processing")) || "true".equals(facts.get("has_inventory"))
+            || facts.keySet().stream().anyMatch(key -> key.startsWith("machine.") || key.startsWith("transfer."));
+        if (hasMachineFacts) {
+            capabilities.add("machine");
+        }
+        boolean hasAutomationFacts = facts.keySet().stream().anyMatch(key -> key.startsWith("sided_") || key.equals("filtering"));
+        if (hasAutomationFacts) {
+            capabilities.add("automation");
+        }
+
+        if (capabilities.isEmpty()) {
+            return List.of();
         }
 
         List<CompatibilityReport.CorpusMatch> matches = new ArrayList<>();

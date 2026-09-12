@@ -85,7 +85,11 @@ public final class RuntimeDispatchTable {
         for (CompatibilityProfile profile : report.mods().values()) {
             List<CorpusEvidenceRef> corpusEvidenceForMod = corpusEvidenceRefs(report.corpusEvidence().getOrDefault(profile.modId(), List.of()));
             for (CompatibilityObject object : profile.objects()) {
-                plansByIdentifier.put(key(object.contentType(), object.javaIdentifier()), compilePlan(object, mappingResolver, corpusEvidenceForMod));
+                List<CompatibilityReport.CorpusMatch> objectMatches = report.objectCorpusEvidence().get(key(object.contentType(), object.javaIdentifier()));
+                List<CorpusEvidenceRef> corpusEvidenceForObject = objectMatches != null && !objectMatches.isEmpty()
+                    ? corpusEvidenceRefs(objectMatches)
+                    : corpusEvidenceForMod;
+                plansByIdentifier.put(key(object.contentType(), object.javaIdentifier()), compilePlan(object, mappingResolver, corpusEvidenceForObject));
                 compileBlockStatePlans(object, mappingResolver, blockDefinitionsByIdentifier, blockStatesByIdentifierAndState);
             }
         }
