@@ -93,9 +93,9 @@ class CorpusSnapshotImporterTest {
         return new CorpusSnapshotImporter.ImportRequest(
             corpusId,
             "demo:processor",
-            AddonCorpusEntry.SourceType.LOCAL_FILE,
-            "local:" + corpusId,
-            null,
+            AddonCorpusEntry.SourceType.GITHUB,
+            "https://github.com/demo/" + corpusId,
+            "https://github.com/demo/" + corpusId,
             null,
             null,
             "MIT",

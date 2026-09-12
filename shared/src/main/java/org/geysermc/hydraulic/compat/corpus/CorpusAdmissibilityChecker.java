@@ -26,9 +26,22 @@ public final class CorpusAdmissibilityChecker {
         @NotNull AddonCorpusEntry.AddonSource source,
         @NotNull AddonCorpusEntry.AddonLicense license
     ) {
-        // GitHub sources are always admissible if license permits
+        // Hydraulic keeps only GitHub-hosted corpus sources with explicit redistribution rights.
+        // Marketplace-only, direct-download, and proprietary sources are rejected by policy.
+        if (source.sourceType() != AddonCorpusEntry.SourceType.GITHUB) {
+            return new AddonCorpusEntry.AddonAdmissibility(
+                false,
+                AddonCorpusEntry.AdmissibilityReason.UNCLEAR_LICENSE,
+                "Only GitHub-hosted sources are admissible for the Hydraulic corpus",
+                List.of(
+                    "Marketplace entries, direct-download archives, and local-only artifacts are rejected",
+                    "Provide a GitHub repository with a clear redistribution license"
+                )
+            );
+        }
+
         if (source.sourceType() == AddonCorpusEntry.SourceType.GITHUB) {
-            if (license.allowsRedistribution() && license.allowsModification()) {
+            if (license.allowsRedistribution() && license.allowsModification() && license.allowsCommercialUse()) {
                 return new AddonCorpusEntry.AddonAdmissibility(
                     true,
                     AddonCorpusEntry.AdmissibilityReason.FULLY_PERMISSIVE,
@@ -39,58 +52,16 @@ public final class CorpusAdmissibilityChecker {
             return new AddonCorpusEntry.AddonAdmissibility(
                 false,
                 AddonCorpusEntry.AdmissibilityReason.NO_REDISTRIBUTION,
-                "GitHub source exists but license does not permit redistribution",
+                "GitHub source exists but license does not permit redistribution, modification, or commercial reuse",
                 List.of()
             );
         }
 
-        // CurseForge is admissible only if linked to a repository
-        if (source.sourceType() == AddonCorpusEntry.SourceType.CURSEFORGE) {
-            if (source.repositoryUrl() != null && !source.repositoryUrl().isBlank()) {
-                return checkRepositoryAdmissibility(source.repositoryUrl(), license);
-            }
-            return new AddonCorpusEntry.AddonAdmissibility(
-                false,
-                AddonCorpusEntry.AdmissibilityReason.UNCLEAR_LICENSE,
-                "CurseForge source has no linked repository for license verification",
-                List.of("Add repository link to enable corpus inclusion")
-            );
-        }
-
-        // Direct downloads are not admissible without explicit permission
-        if (source.sourceType() == AddonCorpusEntry.SourceType.DIRECT_DOWNLOAD) {
-            return new AddonCorpusEntry.AddonAdmissibility(
-                false,
-                AddonCorpusEntry.AdmissibilityReason.UNCLEAR_LICENSE,
-                "Direct download source has no inspectable license or repository",
-                List.of("Link to a GitHub repository with clear license terms")
-            );
-        }
-
-        // Local files are admissible if license permits
-        if (source.sourceType() == AddonCorpusEntry.SourceType.LOCAL_FILE) {
-            if (license.allowsRedistribution() && license.allowsModification()) {
-                return new AddonCorpusEntry.AddonAdmissibility(
-                    true,
-                    AddonCorpusEntry.AdmissibilityReason.FULLY_PERMISSIVE,
-                    null,
-                    List.of("Requires attribution: " + license.requiresAttribution())
-                );
-            }
-            return new AddonCorpusEntry.AddonAdmissibility(
-                false,
-                AddonCorpusEntry.AdmissibilityReason.NO_REDISTRIBUTION,
-                "Local file source has no redistribution permission",
-                List.of()
-            );
-        }
-
-        // Unknown sources are not admissible
         return new AddonCorpusEntry.AddonAdmissibility(
             false,
             AddonCorpusEntry.AdmissibilityReason.UNCLEAR_LICENSE,
-            "Unknown source type: " + source.sourceType(),
-            List.of("Provide a GitHub repository link with clear license terms")
+            "Unsupported source type: " + source.sourceType(),
+            List.of("Only GitHub-hosted sources are allowed in the corpus")
         );
     }
 
@@ -154,7 +125,8 @@ public final class CorpusAdmissibilityChecker {
         @NotNull AddonCorpusEntry.AddonEvidence evidence,
         @NotNull AddonCorpusEntry.AddonSource source
     ) {
-        // GitHub sources always have inspectable evidence
+        // GitHub sources always have inspectable evidence, but legality is still gated by the
+        // source admissibility check and the GitHub repository requirement.
         if (source.sourceType() == AddonCorpusEntry.SourceType.GITHUB) {
             return new AddonCorpusEntry.AddonAdmissibility(
                 true,
@@ -164,25 +136,11 @@ public final class CorpusAdmissibilityChecker {
             );
         }
 
-        // Check if there's sufficient evidence for assessment
-        boolean hasManifestEvidence = !evidence.manifestEvidence().isEmpty();
-        boolean hasScriptEvidence = !evidence.scriptEvidence().isEmpty();
-        boolean hasComponentEvidence = !evidence.componentEvidence().isEmpty();
-
-        if (hasManifestEvidence || hasScriptEvidence || hasComponentEvidence) {
-            return new AddonCorpusEntry.AddonAdmissibility(
-                true,
-                AddonCorpusEntry.AdmissibilityReason.ATTRIBUTION_REQUIRED,
-                null,
-                List.of("Evidence is inspectable but source repository is recommended")
-            );
-        }
-
         return new AddonCorpusEntry.AddonAdmissibility(
             false,
             AddonCorpusEntry.AdmissibilityReason.UNCLEAR_LICENSE,
-            "Insufficient evidence for capability assessment",
-            List.of("Provide GitHub repository or detailed manifest/script evidence")
+            "Marketplace or direct-download evidence is not admissible for Hydraulic corpus use",
+            List.of("Provide a GitHub repository with inspectable source and clear redistribution rights")
         );
     }
 }

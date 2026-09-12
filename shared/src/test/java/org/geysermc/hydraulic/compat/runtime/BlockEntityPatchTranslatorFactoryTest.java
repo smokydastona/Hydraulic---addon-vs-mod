@@ -129,6 +129,28 @@ class BlockEntityPatchTranslatorFactoryTest {
     }
 
     @Test
+    void translatesChestBlockEntityTagsForAnimation() {
+        NbtMap javaTag = NbtMap.builder()
+            .putString("CustomName", "Lootr Chest")
+            .putString("Lock", "key_1")
+            .build();
+
+        NbtMapBuilder tag = NbtMap.builder();
+        tag.putString("id", "Chest");
+        tag.put("CustomName", javaTag.get("CustomName"));
+        tag.put("Lock", javaTag.get("Lock"));
+        tag.putInt("pairlead", 0);
+        tag.putByte("isMovable", (byte) 1);
+
+        NbtMap built = tag.build();
+        assertEquals("Chest", built.getString("id"));
+        assertEquals("Lootr Chest", built.getString("CustomName"));
+        assertEquals("key_1", built.getString("Lock"));
+        assertEquals(0, built.getInt("pairlead"));
+        assertEquals((byte) 1, built.getByte("isMovable"));
+    }
+
+    @Test
     void writesIndexedBedrockListPaths() {
         Map<String, String> operations = new java.util.LinkedHashMap<>();
         operations.put("bedrock.block_entity.data.Items.0.Name", "$java.messages.0");

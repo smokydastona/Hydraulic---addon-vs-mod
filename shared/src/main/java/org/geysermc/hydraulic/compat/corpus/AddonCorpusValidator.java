@@ -20,6 +20,23 @@ public final class AddonCorpusValidator {
             || entry.admissibility() == null || entry.confidence() == null || entry.implementationFacts() == null) {
             return List.of("required corpus sections must not be null");
         }
+
+        if (entry.source().sourceType() != AddonCorpusEntry.SourceType.GITHUB && entry.source().sourceType() != AddonCorpusEntry.SourceType.LOCAL_FILE) {
+            errors.add("source.sourceType must be GITHUB or LOCAL_FILE; marketplace and direct-download sources are rejected");
+        }
+
+        if (entry.source().sourceType() == AddonCorpusEntry.SourceType.GITHUB) {
+            String sourceUrl = entry.source().sourceUrl();
+            if (sourceUrl == null || sourceUrl.isBlank() || !sourceUrl.contains("github.com")) {
+                errors.add("source.sourceUrl must be a GitHub HTTPS URL");
+            }
+
+            String repositoryUrl = entry.source().repositoryUrl();
+            if (repositoryUrl == null || repositoryUrl.isBlank() || !repositoryUrl.contains("github.com")) {
+                errors.add("source.repositoryUrl must be a GitHub HTTPS URL for admissible corpus entries");
+            }
+        }
+
         requireNonBlank(errors, "identity.corpusId", entry.identity().corpusId());
         requireIdentifier(errors, "identity.bedrockIdentifier", entry.identity().bedrockIdentifier());
         if (entry.source().sourceType() == AddonCorpusEntry.SourceType.LOCAL_FILE) {
