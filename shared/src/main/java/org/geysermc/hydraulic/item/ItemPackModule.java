@@ -146,6 +146,24 @@ public class ItemPackModule extends TexturePackModule<ItemPackModule> {
             if (itemDefinition != null) {
                 handleModel(context, itemDefinition.model(), itemLocation);
                 return;
+            } else {
+                try (Reader reader = Files.newBufferedReader(itemAssetPath, StandardCharsets.UTF_8)) {
+                    JsonElement json = JsonParser.parseReader(reader);
+                    Key fallbackModelKey = extractModelKeyFromItemJson(json, itemLocation.getNamespace());
+                    if (fallbackModelKey != null) {
+                        Model fallbackModel = context.modelProvider().model(fallbackModelKey);
+                        if (fallbackModel != null) {
+                            List<Key> parents = PackUtil.modelParents(context.modelProvider(), fallbackModel);
+                            if (parents.contains(Model.ITEM_HANDHELD)) {
+                                itemsWith2dIcon.add(itemLocation);
+                                handheldItems.add(itemLocation);
+                            } else if (parents.contains(Model.ITEM_GENERATED) || parents.contains(Model.BUILT_IN_GENERATED)) {
+                                itemsWith2dIcon.add(itemLocation);
+                            }
+                        }
+                    }
+                } catch (Exception ignored) {
+                }
             }
         }
 
@@ -205,6 +223,81 @@ public class ItemPackModule extends TexturePackModule<ItemPackModule> {
         }
     }
 
+    public static @Nullable Key extractModelKeyFromItemJson(@Nullable JsonElement json, @NotNull String defaultNamespace) {
+        if (json == null || json.isJsonNull()) {
+            return null;
+        }
+        if (json.isJsonPrimitive() && json.getAsJsonPrimitive().isString()) {
+            String str = json.getAsString();
+            return str.contains(":") ? Key.key(str) : Key.key(defaultNamespace, str);
+        }
+        if (json.isJsonObject()) {
+            com.google.gson.JsonObject obj = json.getAsJsonObject();
+            if (obj.has("model")) {
+                Key modelKey = extractModelKeyFromItemJson(obj.get("model"), defaultNamespace);
+                if (modelKey != null) {
+                    return modelKey;
+                }
+            }
+            if (obj.has("base")) {
+                Key baseKey = extractModelKeyFromItemJson(obj.get("base"), defaultNamespace);
+                if (baseKey != null) {
+                    return baseKey;
+                }
+            }
+            if (obj.has("fallback")) {
+                Key fallbackKey = extractModelKeyFromItemJson(obj.get("fallback"), defaultNamespace);
+                if (fallbackKey != null) {
+                    return fallbackKey;
+                }
+            }
+            if (obj.has("on_false")) {
+                Key onFalseKey = extractModelKeyFromItemJson(obj.get("on_false"), defaultNamespace);
+                if (onFalseKey != null) {
+                    return onFalseKey;
+                }
+            }
+            if (obj.has("on_true")) {
+                Key onTrueKey = extractModelKeyFromItemJson(obj.get("on_true"), defaultNamespace);
+                if (onTrueKey != null) {
+                    return onTrueKey;
+                }
+            }
+            if (obj.has("cases") && obj.get("cases").isJsonArray()) {
+                com.google.gson.JsonArray cases = obj.getAsJsonArray("cases");
+                for (JsonElement c : cases) {
+                    Key caseKey = extractModelKeyFromItemJson(c, defaultNamespace);
+                    if (caseKey != null) {
+                        return caseKey;
+                    }
+                }
+            }
+            if (obj.has("entries") && obj.get("entries").isJsonArray()) {
+                com.google.gson.JsonArray entries = obj.getAsJsonArray("entries");
+                for (JsonElement entry : entries) {
+                    Key entryKey = extractModelKeyFromItemJson(entry, defaultNamespace);
+                    if (entryKey != null) {
+                        return entryKey;
+                    }
+                }
+            }
+            if (obj.has("models") && obj.get("models").isJsonArray()) {
+                com.google.gson.JsonArray models = obj.getAsJsonArray("models");
+                for (JsonElement m : models) {
+                    Key mKey = extractModelKeyFromItemJson(m, defaultNamespace);
+                    if (mKey != null) {
+                        return mKey;
+                    }
+                }
+            }
+            if (obj.has("parent") && obj.get("parent").isJsonPrimitive()) {
+                String parentStr = obj.get("parent").getAsString();
+                return parentStr.contains(":") ? Key.key(parentStr) : Key.key(defaultNamespace, parentStr);
+            }
+        }
+        return null;
+    }
+
     private static boolean isModernItemDefinitionPath(@NotNull Path itemAssetPath, @NotNull Identifier itemLocation) {
         String normalizedPath = itemAssetPath.toString().replace('\\', '/');
         return normalizedPath.contains("/assets/" + itemLocation.getNamespace() + "/items/");
@@ -232,22 +325,57 @@ public class ItemPackModule extends TexturePackModule<ItemPackModule> {
             if (resolvedTextureBinding == null) {
                 resolvedTextureBinding = this.resolveTextureBinding(context, modelProvider, item, itemLocation, packLogListener);
             }
-            if (resolvedTextureBinding == null) {
-                continue;
+            if (resolvedTextureBinding != null) {
+                ItemTextureBinding binding = new ItemTextureBinding(
+                    resolvedTextureBinding.sourceIdentifier(),
+                    getOutputFromModel(context, resolvedTextureBinding.textureKey()),
+                    resolvedTextureBinding.derivedFromBlockModel()
+                );
+
+                if (binding.derivedFromBlockModel()) {
+                    context.logger().info("Using compatibility-backed block item texture fallback for {} via {}", itemLocation, binding.sourceIdentifier());
+                }
+
+                bedrockPack.addItemTexture(itemLocation.toString(), binding.outputLocation().replace(".png", ""));
+            } else {
+                String fallbackTexture = resolveFallbackItemTexturePath(itemLocation.getPath());
+                bedrockPack.addItemTexture(itemLocation.toString(), fallbackTexture);
             }
-
-            ItemTextureBinding binding = new ItemTextureBinding(
-                resolvedTextureBinding.sourceIdentifier(),
-                getOutputFromModel(context, resolvedTextureBinding.textureKey()),
-                resolvedTextureBinding.derivedFromBlockModel()
-            );
-
-            if (binding.derivedFromBlockModel()) {
-                context.logger().info("Using compatibility-backed block item texture fallback for {} via {}", itemLocation, binding.sourceIdentifier());
-            }
-
-            bedrockPack.addItemTexture(itemLocation.toString(), binding.outputLocation().replace(".png", ""));
         }
+    }
+
+    private static String resolveFallbackItemTexturePath(String itemPath) {
+        String lower = itemPath.toLowerCase();
+        if (lower.contains("chest")) {
+            return "textures/items/chest";
+        } else if (lower.contains("barrel")) {
+            return "textures/items/barrel";
+        } else if (lower.contains("shulker")) {
+            return "textures/items/shulker_box";
+        } else if (lower.contains("bucket")) {
+            return "textures/items/bucket";
+        } else if (lower.contains("sword")) {
+            return "textures/items/iron_sword";
+        } else if (lower.contains("pickaxe")) {
+            return "textures/items/iron_pickaxe";
+        } else if (lower.contains("axe")) {
+            return "textures/items/iron_axe";
+        } else if (lower.contains("shovel")) {
+            return "textures/items/iron_shovel";
+        } else if (lower.contains("hoe")) {
+            return "textures/items/iron_hoe";
+        } else if (lower.contains("helmet")) {
+            return "textures/items/iron_helmet";
+        } else if (lower.contains("chestplate")) {
+            return "textures/items/iron_chestplate";
+        } else if (lower.contains("leggings")) {
+            return "textures/items/iron_leggings";
+        } else if (lower.contains("boots")) {
+            return "textures/items/iron_boots";
+        } else if (lower.contains("ingot")) {
+            return "textures/items/iron_ingot";
+        }
+        return "textures/items/apple";
     }
 
     @Override
@@ -421,6 +549,38 @@ public class ItemPackModule extends TexturePackModule<ItemPackModule> {
         ResolvedItemTextureBinding resolvedBinding = resolveTextureBindingCandidate(modelProvider, packLogListener, item, itemLocation, allowBlockItemTextureFallback);
         if (resolvedBinding != null) {
             return resolvedBinding;
+        }
+
+        ModResourceIndex resourceIndex = context.hydraulic().getPackManager().modResourceIndex(context.mod().id());
+        if (resourceIndex != null) {
+            Path itemAssetPath = resourceIndex.resolveItemAssetPath(itemLocation);
+            if (itemAssetPath != null && Files.isRegularFile(itemAssetPath)) {
+                try (Reader reader = Files.newBufferedReader(itemAssetPath, StandardCharsets.UTF_8)) {
+                    JsonElement json = JsonParser.parseReader(reader);
+                    Key extractedModelKey = extractModelKeyFromItemJson(json, itemLocation.getNamespace());
+                    if (extractedModelKey != null) {
+                        Model extractedModel = modelProvider.model(extractedModelKey);
+                        if (extractedModel != null) {
+                            ResolvedItemTextureBinding binding = resolveModelTextureBinding(modelProvider, extractedModel, itemLocation.toString(), false, packLogListener);
+                            if (binding != null) {
+                                return binding;
+                            }
+                        }
+                    }
+                } catch (Exception ignored) {
+                }
+            }
+
+            Path directTexture = resourceIndex.resolveTexturePath(Key.key(itemLocation.getNamespace(), "item/" + itemLocation.getPath()));
+            if (directTexture == null) {
+                directTexture = resourceIndex.resolveTexturePath(Key.key(itemLocation.getNamespace(), "block/" + itemLocation.getPath()));
+            }
+            if (directTexture == null) {
+                directTexture = resourceIndex.resolveTexturePath(Key.key(itemLocation.getNamespace(), itemLocation.getPath()));
+            }
+            if (directTexture != null) {
+                return new ResolvedItemTextureBinding(itemLocation.toString(), Key.key(itemLocation.getNamespace(), "item/" + itemLocation.getPath()), false, true);
+            }
         }
 
         Model baseModel = modelProvider.model(Key.key(itemLocation.getNamespace(), "item/" + itemLocation.getPath()));

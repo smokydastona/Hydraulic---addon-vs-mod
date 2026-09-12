@@ -14,6 +14,15 @@ class MinecraftResourcePackReaderImplMixinTest {
         assertTrue(invokeIsUnsupportedItemModelSchema(
             new IllegalArgumentException("Unknown item model type: citadel:custom_item_model")
         ));
+        assertTrue(invokeIsUnsupportedItemModelSchema(
+            new IllegalArgumentException("Unknown select property type: travelersbackpack:hose_modes")
+        ));
+        assertTrue(invokeIsUnsupportedItemModelSchema(
+            new IllegalArgumentException("Unknown condition property: farmersdelight:skillet/is_cooking")
+        ));
+        assertTrue(invokeIsUnsupportedItemModelSchema(
+            new IllegalArgumentException("Unknown special render type: lootr:chest")
+        ));
     }
 
     @Test

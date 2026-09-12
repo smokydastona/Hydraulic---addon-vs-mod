@@ -74,6 +74,60 @@ class ItemPackModuleTest {
         assertTrue(parsed.failureReason().contains("Unknown item model type: citadel:custom_item_model"));
     }
 
+    @Test
+    void extractsModelKeyFromModernItemJsonVariants() {
+        // Special schema (Lootr chest)
+        Key specialKey = ItemPackModule.extractModelKeyFromItemJson(
+            JsonParser.parseString("""
+                {
+                  "model": {
+                    "type": "minecraft:special",
+                    "base": "minecraft:chest",
+                    "model": {
+                      "type": "lootr:chest"
+                    }
+                  }
+                }
+                """),
+            "lootr"
+        );
+        assertEquals(Key.key("minecraft", "chest"), specialKey);
+
+        // Select schema (Lootr barrel / hose)
+        Key selectKey = ItemPackModule.extractModelKeyFromItemJson(
+            JsonParser.parseString("""
+                {
+                  "model": {
+                    "type": "minecraft:select",
+                    "property": "lootr:config_type",
+                    "fallback": {
+                      "type": "minecraft:model",
+                      "model": "lootr:item/barrel"
+                    }
+                  }
+                }
+                """),
+            "lootr"
+        );
+        assertEquals(Key.key("lootr", "item/barrel"), selectKey);
+
+        // Condition schema (Farmer's Delight skillet)
+        Key conditionKey = ItemPackModule.extractModelKeyFromItemJson(
+            JsonParser.parseString("""
+                {
+                  "model": {
+                    "type": "minecraft:condition",
+                    "property": "farmersdelight:skillet/is_cooking",
+                    "on_true": { "type": "minecraft:model", "model": "farmersdelight:item/skillet_cooking" },
+                    "on_false": { "type": "minecraft:model", "model": "farmersdelight:item/skillet" }
+                  }
+                }
+                """),
+            "farmersdelight"
+        );
+        assertEquals(Key.key("farmersdelight", "item/skillet"), conditionKey);
+    }
+
       @Test
       void resolvesDirectItemTextureBindingFromIndexedModel() throws IOException {
         Identifier itemLocation = Identifier.fromNamespaceAndPath("example", "test_item");

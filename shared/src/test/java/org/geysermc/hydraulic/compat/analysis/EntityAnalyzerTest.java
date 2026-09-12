@@ -86,6 +86,28 @@ class EntityAnalyzerTest {
         assertTrue(object.adapterBindings().stream().anyMatch(binding -> binding.feature() == org.geysermc.hydraulic.compat.adapter.AdapterFeature.ENTITY_INTERACTION_PROMPT));
     }
 
+    @Test
+    void automaticallyMapsRegisteredEntityWithoutManualMetadata() {
+        MetadataIndex metadataIndex = new MetadataIndex(
+            Map.of(),
+            Map.of(),
+            Map.of(),
+            Map.of(),
+            Map.of(),
+            Map.of(),
+            List.of(),
+            MetadataIndex.Summary.empty()
+        );
+        ContentInventory.ContentDescriptor descriptor = new ContentInventory.ContentDescriptor("entity", "citadel", "citadel:citadel_entity", true, false, List.of());
+
+        CompatibilityObject object = new EntityAnalyzer().analyze(descriptor, emptyInventory(), metadataIndex);
+
+        assertEquals("visual_only_runtime", object.inventoryFacts().get("behavior_tag"));
+        assertEquals(SupportLevel.ADAPTED, object.supportResults().get("presentation").level());
+        assertEquals(SupportLevel.AUTOMATIC, object.supportResults().get("content").level());
+        assertTrue(org.geysermc.hydraulic.compat.runtime.CompatibilityDecisions.allowsCustomEntityRegistration(object));
+    }
+
     private static ContentInventory.ModContentInventory emptyInventory() {
         return new ContentInventory.ModContentInventory(
             "example",

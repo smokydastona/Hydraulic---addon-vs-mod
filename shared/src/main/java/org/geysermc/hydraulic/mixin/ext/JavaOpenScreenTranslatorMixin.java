@@ -15,8 +15,21 @@ import org.geysermc.mcprotocollib.protocol.packet.ingame.clientbound.inventory.C
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+
 @Mixin(value = JavaOpenScreenTranslator.class, remap = false)
 public abstract class JavaOpenScreenTranslatorMixin {
+    @Inject(
+        method = "translate(Lorg/geysermc/geyser/session/GeyserSession;Lorg/geysermc/mcprotocollib/protocol/packet/ingame/clientbound/inventory/ClientboundOpenScreenPacket;)V",
+        at = @At("HEAD")
+    )
+    private void hydraulic$onOpenScreenHead(GeyserSession session, ClientboundOpenScreenPacket packet, CallbackInfo ci) {
+        if (session.isClosingInventory()) {
+            session.setClosingInventory(false);
+        }
+    }
+
     @WrapOperation(
         method = "translate(Lorg/geysermc/geyser/session/GeyserSession;Lorg/geysermc/mcprotocollib/protocol/packet/ingame/clientbound/inventory/ClientboundOpenScreenPacket;)V",
         at = @At(

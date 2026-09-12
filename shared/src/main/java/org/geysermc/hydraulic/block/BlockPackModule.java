@@ -201,6 +201,47 @@ public class BlockPackModule extends TexturePackModule<BlockPackModule> {
                 }
             }
         }
+
+        // Ensure all registered blocks for this mod have a mapping in terrain_texture so no missing/dirt texture occurs
+        for (Block block : context.registryValues(BuiltInRegistries.BLOCK)) {
+            Identifier blockLocation = BuiltInRegistries.BLOCK.getKey(block);
+            String blockId = blockLocation.toString();
+            String cleanPath = blockLocation.getPath();
+
+            Path matchingTexture = resourceIndex.resolveTexturePath(Key.key(blockLocation.getNamespace(), "block/" + cleanPath));
+            if (matchingTexture == null) {
+                matchingTexture = resourceIndex.resolveTexturePath(Key.key(blockLocation.getNamespace(), cleanPath));
+            }
+            if (matchingTexture != null) {
+                String outputLoc = getOutputFromBlockTexture(context, Key.key(blockLocation.getNamespace(), "block/" + cleanPath)).replace(".png", "");
+                bedrockPack.addBlockTexture(blockId, outputLoc);
+                bedrockPack.addBlockTexture(cleanPath, outputLoc);
+            } else {
+                String fallbackTexturePath = resolveFallbackTerrainTexturePath(cleanPath);
+                bedrockPack.addBlockTexture(blockId, fallbackTexturePath);
+                bedrockPack.addBlockTexture(cleanPath, fallbackTexturePath);
+            }
+        }
+    }
+
+    private static String resolveFallbackTerrainTexturePath(String blockPath) {
+        String lower = blockPath.toLowerCase();
+        if (lower.contains("chest")) {
+            return "textures/blocks/chest_top";
+        } else if (lower.contains("barrel")) {
+            return "textures/blocks/barrel_top";
+        } else if (lower.contains("shulker")) {
+            return "textures/blocks/shulker_top_purple";
+        } else if (lower.contains("pot")) {
+            return "textures/blocks/terracotta";
+        } else if (lower.contains("wood") || lower.contains("plank") || lower.contains("log")) {
+            return "textures/blocks/oak_planks";
+        } else if (lower.contains("metal") || lower.contains("iron") || lower.contains("copper")) {
+            return "textures/blocks/iron_block";
+        } else if (lower.contains("sand") || lower.contains("gravel")) {
+            return "textures/blocks/sand";
+        }
+        return "textures/blocks/stone";
     }
 
     @NotNull
@@ -312,8 +353,8 @@ public class BlockPackModule extends TexturePackModule<BlockPackModule> {
                     String geoName = "geometry." + (namespace.equals(Key.MINECRAFT_NAMESPACE) ? "" : namespace + ".") + geoKey;
 
                     if (emptyModels.contains(key.toString())) {
-                        context.logger().warn("Missing block model for block {}", blockLocation);
-                        geoName = "geometry." + Constants.MOD_ID + ".empty";
+                        context.logger().info("Using fallback full block geometry for block {} with dynamic/empty model", blockLocation);
+                        geoName = "minecraft:geometry.full_block";
                     }
 
                     if (resolvedMetadata.geometryId() != null) {
@@ -413,14 +454,15 @@ public class BlockPackModule extends TexturePackModule<BlockPackModule> {
                         }
                     }
                 } else {
+                    String fallbackTextureName = blockLocation.toString();
                     componentsBuilder.materialInstance("*", MaterialInstance.builder()
-                            .texture(PackUtil.getTextureName(key.toString()))
+                            .texture(fallbackTextureName)
                             .renderMethod(renderMethod)
                             .faceDimming(true)
                             .ambientOcclusion(model.ambientOcclusion())
                             .tintMethod(tintMethod)
                             .build());
-                        context.logger().warn("Could not find material for block {}", materialKey);
+                    context.logger().info("Applied mapped fallback texture {} for block {}", fallbackTextureName, blockLocation);
                 }
 
                 // No properties exist on this state, so there's only one

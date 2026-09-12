@@ -74,9 +74,14 @@ public abstract class MinecraftResourcePackReaderImplMixin {
     }
 
     private static boolean isUnsupportedItemModelSchema(Exception exception) {
-        return exception instanceof IllegalArgumentException
-            && exception.getMessage() != null
-            && exception.getMessage().startsWith(UNKNOWN_ITEM_MODEL_TYPE_PREFIX);
+        if (!(exception instanceof IllegalArgumentException) || exception.getMessage() == null) {
+            return false;
+        }
+        String msg = exception.getMessage();
+        return msg.startsWith(UNKNOWN_ITEM_MODEL_TYPE_PREFIX)
+            || msg.startsWith("Unknown select property type:")
+            || msg.startsWith("Unknown condition property:")
+            || msg.startsWith("Unknown special render type:");
     }
 
     @Redirect(
