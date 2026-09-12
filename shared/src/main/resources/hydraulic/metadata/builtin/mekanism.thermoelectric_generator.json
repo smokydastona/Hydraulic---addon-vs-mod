@@ -1,0 +1,66 @@
+{
+  "patches": [
+    {
+      "target": "mekanismgenerators:thermoelectric_generator",
+      "content_type": "block",
+      "patch": {
+        "machine": {
+          "inventory": {
+            "enabled": true,
+            "type": "generator",
+            "input_slot": 0,
+            "output_slot": 0
+          },
+          "processing": {
+            "enabled": true,
+            "type": "mixed",
+            "recipe": {
+              "0": {
+                "fluid_input": {
+                  "0": { "fluid": "minecraft:lava", "amount": 100, "tank": 0 },
+                  "1": { "fluid": "minecraft:water", "amount": 100, "tank": 1 }
+                },
+                "energy_output": 500,
+                "multiblock": {
+                  "required": true
+                },
+                "duration": 20
+              }
+            }
+          }
+        },
+        "transfer": {
+          "fluid": {
+            "can_insert": true,
+            "can_extract": false,
+            "tank_type": "dual",
+            "capacity": 32000
+          },
+          "energy": {
+            "can_receive": false,
+            "can_provide": true,
+            "type": "joules",
+            "capacity": 10000000
+          }
+        },
+        "multiblock": {
+          "formed_tag": "multiblock.formed",
+          "length": 3,
+          "width": 3,
+          "height": 4
+        }
+      }
+    }
+  ],
+  "blocks": [
+    {
+      "java_id": "mekanismgenerators:thermoelectric_generator",
+      "rules": [
+        {
+          "geometry": "minecraft:geometry.full_block",
+          "material": "minecraft:iron_block"
+        }
+      ]
+    }
+  ]
+}

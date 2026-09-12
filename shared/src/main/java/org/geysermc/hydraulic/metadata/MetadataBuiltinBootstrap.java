@@ -19,7 +19,10 @@ public final class MetadataBuiltinBootstrap {
         "immersiveengineering.crusher.json",
         "immersiveengineering.diesel_generator.json",
         "immersiveengineering.arc_furnace.json",
-        "create.mechanical_mixer.json"
+        "create.mechanical_mixer.json",
+        "mekanism.digital_miner.json",
+        "mekanism.thermoelectric_generator.json",
+        "mekanism.chemical_crystallizer.json"
     };
 
     private MetadataBuiltinBootstrap() {
