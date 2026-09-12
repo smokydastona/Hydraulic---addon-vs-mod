@@ -206,13 +206,19 @@ public class PackManager {
         long resourcePackReadStarted = System.nanoTime();
         final Map<String, List<ResourcePack>> modPacks = Maps.newHashMapWithExpectedSize(mods.size());
         for (final ModInfo mod : mods) {
-            modPacks.put(
-                mod.id(),
-                mod.roots()
-                    .stream()
-                    .map(path -> MinecraftResourcePackReader.minecraft().read(NioDirectoryFileTreeReader.read(path)))
-                    .toList()
-            );
+            List<ResourcePack> packs = new ArrayList<>();
+            for (Path root : mod.roots()) {
+                try {
+                    ResourcePack pack = MinecraftResourcePackReader.minecraft().read(NioDirectoryFileTreeReader.read(root));
+                    packs.add(pack);
+                } catch (Exception e) {
+                    LOGGER.warn("Failed to read resource pack from mod '{}' at path '{}': {}", 
+                        mod.id(), root, e.getMessage());
+                }
+            }
+            if (!packs.isEmpty()) {
+                modPacks.put(mod.id(), packs);
+            }
         }
         long resourcePackReadMillis = nanosToMillis(System.nanoTime() - resourcePackReadStarted);
 
