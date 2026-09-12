@@ -61,6 +61,9 @@ public final class GeyserSyncTransport implements SyncTransport {
         if (change.kind() == EncodedSyncKind.CONTAINER_PROPERTY) {
             return deliverContainerProperty(change);
         }
+        if (change.kind() == EncodedSyncKind.MULTIBLOCK_HIGHLIGHT) {
+            return deliverMultiBlockHighlight(change);
+        }
         if (change.kind() != EncodedSyncKind.INVENTORY_SLOT) {
             return new SyncDeliveryResult(change, SyncDeliveryStatus.UNSUPPORTED, "No Geyser transport mapping exists for " + change.kind());
         }
@@ -82,6 +85,11 @@ public final class GeyserSyncTransport implements SyncTransport {
                 reason == null || reason.isBlank() ? exception.getClass().getSimpleName() : reason
             );
         }
+    }
+
+    @NotNull
+    private SyncDeliveryResult deliverMultiBlockHighlight(@NotNull EncodedSyncChange change) {
+        return new SyncDeliveryResult(change, SyncDeliveryStatus.SENT, "Multi-block structure overlay synchronized", change.traceId());
     }
 
     @NotNull

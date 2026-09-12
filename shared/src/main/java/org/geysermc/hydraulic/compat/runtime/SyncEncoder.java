@@ -57,6 +57,22 @@ public final class SyncEncoder {
                     change.field(),
                     change.traceId()
                 ));
+            } else if (change.field().startsWith("multiblock.highlight") || change.field().startsWith("multiblock.overlay")) {
+                encoded.add(new EncodedSyncChange(
+                    change.blockIdentifier(),
+                    change.field(),
+                    EncodedSyncKind.MULTIBLOCK_HIGHLIGHT,
+                    -1,
+                    null,
+                    0,
+                    null,
+                    0,
+                    change.before(),
+                    change.after(),
+                    change.priority(),
+                    change.field(),
+                    change.traceId()
+                ));
             } else {
                 encoded.add(new EncodedSyncChange(
                     change.blockIdentifier(),
