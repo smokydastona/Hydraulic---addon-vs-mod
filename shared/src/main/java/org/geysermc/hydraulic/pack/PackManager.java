@@ -165,7 +165,7 @@ public class PackManager {
         CorpusBuiltinBootstrap.installBuiltinEntries(LOGGER, this.hydraulic.dataFolder(Constants.MOD_ID).resolve("corpus"));
         this.corpusLoader.loadIndex();
         this.corpusLoader.refreshIndexFromSnapshots();
-        this.corpusReportWriter.writeReports(this.corpusLoader.index(), this.corpusLoader.loadAdmissibleEntries());
+        this.corpusReportWriter.writeReports(this.corpusLoader.index(), this.corpusLoader.loadAdmissibleEntries(), this.corpusLoader.loadAllEntries());
         long resourceIndexStarted = System.nanoTime();
         LookupSummary lookupSummary = initializeModLookups();
         long indexedResourcesMillis = nanosToMillis(System.nanoTime() - resourceIndexStarted);

@@ -9,8 +9,11 @@ import java.nio.file.Path;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Stream;
 
 /**
  * Loads and manages the Bedrock addon corpus.
@@ -21,6 +24,7 @@ import java.util.Map;
 public final class AddonCorpusLoader {
     private static final String CORPUS_MANIFEST = "corpus-manifest.json";
     private static final String CORPUS_INDEX = "corpus-index.json";
+    private static final String SOURCES_DIR = "sources";
     private static final String CURATED_DIR = "curated";
     private static final String GENERATED_DIR = "generated";
 
@@ -37,11 +41,126 @@ public final class AddonCorpusLoader {
     public void ensureLayout() {
         try {
             Files.createDirectories(this.corpusRoot);
+            Files.createDirectories(this.corpusRoot.resolve(SOURCES_DIR));
             Files.createDirectories(this.corpusRoot.resolve(CURATED_DIR));
             Files.createDirectories(this.corpusRoot.resolve(GENERATED_DIR));
         } catch (Exception e) {
             this.logger.error("Failed to initialize corpus layout at {}", this.corpusRoot, e);
         }
+    }
+
+    /**
+     * Rebuilds the local index when normalized corpus snapshots are present.
+     * Curated records take precedence over generated records, which take
+     * precedence over source records. An empty snapshot tree leaves an
+     * existing cached index untouched.
+     */
+    @NotNull
+    public AddonCorpusIndex refreshIndexFromSnapshots() {
+        Map<String, Snapshot> snapshots = new LinkedHashMap<>();
+        for (String storageLocation : List.of(SOURCES_DIR, GENERATED_DIR, CURATED_DIR)) {
+            Path directory = this.corpusRoot.resolve(storageLocation);
+            if (!Files.isDirectory(directory)) {
+                continue;
+            }
+
+            try (Stream<Path> paths = Files.walk(directory)) {
+                for (Path path : paths
+                    .filter(Files::isRegularFile)
+                    .filter(candidate -> candidate.getFileName().toString().endsWith(".json"))
+                    .sorted()
+                    .toList()) {
+                    this.readSnapshot(path, storageLocation, snapshots);
+                }
+            } catch (Exception e) {
+                this.logger.error("Failed to scan corpus snapshot directory {}", directory, e);
+            }
+        }
+
+        if (snapshots.isEmpty()) {
+            return this.index;
+        }
+
+        Map<String, AddonCorpusIndex.IndexedEntry> entries = new LinkedHashMap<>();
+        int admissibleEntries = 0;
+        for (Snapshot snapshot : snapshots.values().stream()
+            .sorted(Comparator.comparing(snapshot -> snapshot.entry().identity().corpusId()))
+            .toList()) {
+            AddonCorpusEntry entry = snapshot.entry();
+            boolean admissible = entry.admissibility().isAdmissible();
+            if (admissible) {
+                admissibleEntries++;
+            }
+            entries.put(entry.identity().corpusId(), new AddonCorpusIndex.IndexedEntry(
+                entry.identity().corpusId(),
+                entry.identity().bedrockIdentifier(),
+                snapshot.storageLocation(),
+                admissible,
+                entry.admissibility().reason().name(),
+                entry.confidence().overallScore(),
+                snapshot.lastModifiedEpochMillis()
+            ));
+        }
+
+        AddonCorpusIndex template = AddonCorpusIndex.empty();
+        AddonCorpusIndex refreshed = new AddonCorpusIndex(
+            template.corpusVersion(),
+            template.algorithm(),
+            entries,
+            new AddonCorpusIndex.CorpusMetadata(
+                entries.size(),
+                admissibleEntries,
+                entries.size() - admissibleEntries,
+                System.currentTimeMillis()
+            )
+        );
+        this.storeIndex(refreshed);
+        return refreshed;
+    }
+
+    private void readSnapshot(
+        @NotNull Path path,
+        @NotNull String rootStorageLocation,
+        @NotNull Map<String, Snapshot> snapshots
+    ) {
+        String fileName = path.getFileName().toString();
+        if (CORPUS_INDEX.equals(fileName) || CORPUS_MANIFEST.equals(fileName)) {
+            return;
+        }
+
+        try (var reader = Files.newBufferedReader(path)) {
+            AddonCorpusEntry entry = org.geysermc.hydraulic.Constants.GSON.fromJson(reader, AddonCorpusEntry.class);
+            List<String> validationErrors = entry == null ? List.of("entry is null") : AddonCorpusValidator.validate(entry);
+            String corpusId = entry == null || entry.identity() == null ? "" : entry.identity().corpusId();
+            String expectedFileName = corpusId + ".json";
+            if (!validationErrors.isEmpty() || !fileName.equals(expectedFileName)) {
+                this.logger.warn("Rejected corpus snapshot {}: validation={}, expectedFileName={}", path, validationErrors, expectedFileName);
+                return;
+            }
+
+            String storageLocation = this.corpusRoot.relativize(path.getParent()).toString().replace('\\', '/');
+            Snapshot candidate = new Snapshot(
+                entry,
+                storageLocation,
+                Files.getLastModifiedTime(path).toMillis(),
+                storagePriority(rootStorageLocation)
+            );
+            Snapshot previous = snapshots.get(corpusId);
+            if (previous == null || candidate.priority() >= previous.priority()) {
+                snapshots.put(corpusId, candidate);
+            }
+        } catch (Exception e) {
+            this.logger.warn("Rejected unreadable corpus snapshot {}", path, e);
+        }
+    }
+
+    private static int storagePriority(@NotNull String storageLocation) {
+        return switch (storageLocation) {
+            case SOURCES_DIR -> 1;
+            case GENERATED_DIR -> 2;
+            case CURATED_DIR -> 3;
+            default -> 0;
+        };
     }
 
     /**
@@ -123,6 +242,23 @@ public final class AddonCorpusLoader {
                 if (loaded != null) {
                     entries.add(loaded);
                 }
+            }
+        }
+        return entries;
+    }
+
+    /**
+     * Loads every indexed corpus entry regardless of admissibility, for reporting purposes such
+     * as capability-coverage measurement across implementation and documentation-tier evidence.
+     * Never used to feed the matcher or any compiled runtime plan.
+     */
+    @NotNull
+    public List<AddonCorpusEntry> loadAllEntries() {
+        List<AddonCorpusEntry> entries = new ArrayList<>();
+        for (String corpusId : this.index.entries().keySet()) {
+            AddonCorpusEntry loaded = this.loadEntry(corpusId);
+            if (loaded != null) {
+                entries.add(loaded);
             }
         }
         return entries;
@@ -227,5 +363,13 @@ public final class AddonCorpusLoader {
                 && this.entryCount == index.entries().size()
                 && this.indexSha256.equals(sha256(serializedIndex));
         }
+    }
+
+    private record Snapshot(
+        @NotNull AddonCorpusEntry entry,
+        @NotNull String storageLocation,
+        long lastModifiedEpochMillis,
+        int priority
+    ) {
     }
 }

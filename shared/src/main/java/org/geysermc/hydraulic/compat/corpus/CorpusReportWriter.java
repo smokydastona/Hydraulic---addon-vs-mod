@@ -26,9 +26,17 @@ public final class CorpusReportWriter {
     }
 
     public void writeReports(@NotNull AddonCorpusIndex index, @NotNull List<AddonCorpusEntry> admissibleEntries) {
+        this.writeReports(index, admissibleEntries, admissibleEntries);
+    }
+
+    public void writeReports(
+        @NotNull AddonCorpusIndex index,
+        @NotNull List<AddonCorpusEntry> admissibleEntries,
+        @NotNull List<AddonCorpusEntry> allEntries
+    ) {
         try {
             Files.createDirectories(this.reportsPath);
-            this.writeJson(this.reportsPath.resolve("corpus-summary.json"), buildSummary(index, admissibleEntries));
+            this.writeJson(this.reportsPath.resolve("corpus-summary.json"), buildSummary(index, admissibleEntries, allEntries));
             this.writeJson(this.reportsPath.resolve("corpus-admissibility-report.json"), buildAdmissibilityReport(index));
             this.logger.info(
                 "Wrote corpus reports (entries={}, admissible={})",
@@ -41,7 +49,11 @@ public final class CorpusReportWriter {
     }
 
     @NotNull
-    private static Map<String, Object> buildSummary(@NotNull AddonCorpusIndex index, @NotNull List<AddonCorpusEntry> admissibleEntries) {
+    private static Map<String, Object> buildSummary(
+        @NotNull AddonCorpusIndex index,
+        @NotNull List<AddonCorpusEntry> admissibleEntries,
+        @NotNull List<AddonCorpusEntry> allEntries
+    ) {
         Map<String, Object> summary = new LinkedHashMap<>();
         summary.put("corpusVersion", index.corpusVersion());
         summary.put("algorithm", index.algorithm());
@@ -51,13 +63,32 @@ public final class CorpusReportWriter {
         summary.put("loadedAdmissibleEntries", admissibleEntries.size());
         summary.put("lastUpdatedEpochMillis", index.metadata().lastUpdatedEpochMillis());
 
+        CorpusCapabilityCoverage.Result coverage = CorpusCapabilityCoverage.compute(admissibleEntries, allEntries);
+        Map<String, Object> capabilityCoverage = new LinkedHashMap<>();
+        capabilityCoverage.put("implementationCoverage", coverage.implementationCoverage());
+        capabilityCoverage.put("documentationCoverage", coverage.documentationCoverage());
+        capabilityCoverage.put("gapCapabilities", coverage.gapCapabilities());
+        summary.put("capabilityCoverage", capabilityCoverage);
+
         List<Map<String, Object>> entries = new ArrayList<>();
         for (AddonCorpusEntry entry : admissibleEntries) {
             Map<String, Object> record = new LinkedHashMap<>();
             record.put("corpusId", entry.identity().corpusId());
             record.put("bedrockIdentifier", entry.identity().bedrockIdentifier());
             record.put("sourceType", entry.source().sourceType().name());
+            record.put("sourceUrl", entry.source().sourceUrl());
+            record.put("repositoryUrl", entry.source().repositoryUrl());
+            record.put("license", entry.license().licenseType());
+            record.put("requiresAttribution", entry.license().requiresAttribution());
+            record.put("evidenceTier", CorpusEvidenceTier.classify(entry).name());
             record.put("confidence", entry.confidence().overallScore());
+            record.put("assessmentMethod", entry.confidence().assessmentMethod());
+            record.put("strongIndicators", entry.confidence().strongIndicators());
+            record.put("weakIndicators", entry.confidence().weakIndicators());
+            record.put("gaps", entry.confidence().gaps());
+            record.put("manifestEvidence", entry.evidence().manifestEvidence());
+            record.put("scriptEvidence", entry.evidence().scriptEvidence());
+            record.put("componentEvidence", entry.evidence().componentEvidence());
             record.put("machineTypes", entry.capabilities().machineTypes());
             record.put("transferTypes", entry.capabilities().transferTypes());
             record.put("implementationPattern", entry.implementationFacts().implementationPattern());

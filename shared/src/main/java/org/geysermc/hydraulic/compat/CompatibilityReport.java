@@ -121,10 +121,11 @@ public final class CompatibilityReport {
         @NotNull String corpusId,
         double score,
         int capabilityMatches,
-        int patternMatches
+        int patternMatches,
+        @NotNull org.geysermc.hydraulic.compat.corpus.CorpusEvidenceTier tier
     ) {
         public static CorpusMatch from(@NotNull String capability, @NotNull AddonCorpusMatcher.Match match) {
-            return new CorpusMatch(capability, match.entry().identity().corpusId(), match.score(), match.capabilityMatches(), match.patternMatches());
+            return new CorpusMatch(capability, match.entry().identity().corpusId(), match.score(), match.capabilityMatches(), match.patternMatches(), match.tier());
         }
     }
 

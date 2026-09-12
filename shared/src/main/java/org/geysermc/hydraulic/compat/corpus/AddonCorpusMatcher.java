@@ -35,11 +35,13 @@ public final class AddonCorpusMatcher {
             if (capabilityMatches == 0 && patternMatches == 0) {
                 continue;
             }
-            double score = (capabilityMatches > 0 ? 0.55D : 0.0D)
+            CorpusEvidenceTier tier = CorpusEvidenceTier.classify(entry);
+            double score = ((capabilityMatches > 0 ? 0.55D : 0.0D)
                 + (patternMatches > 0 ? 0.20D : 0.0D)
                 + (entry.confidence().overallScore() * 0.20D)
-                + reusabilityScore(entry.implementationFacts().reusability()) * 0.05D;
-            matches.add(new Match(entry, score, capabilityMatches, patternMatches));
+                + reusabilityScore(entry.implementationFacts().reusability()) * 0.05D)
+                * tier.confidenceWeight();
+            matches.add(new Match(entry, score, capabilityMatches, patternMatches, tier));
         }
         matches.sort(Comparator
             .comparingDouble(Match::score).reversed()
@@ -98,7 +100,8 @@ public final class AddonCorpusMatcher {
         @NotNull AddonCorpusEntry entry,
         double score,
         int capabilityMatches,
-        int patternMatches
+        int patternMatches,
+        @NotNull CorpusEvidenceTier tier
     ) {
     }
 }
