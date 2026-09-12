@@ -26,6 +26,8 @@ import org.geysermc.hydraulic.compat.MappingResolver;
 import org.geysermc.hydraulic.compat.adapter.AdapterCatalog;
 import org.geysermc.hydraulic.compat.adapter.AdapterCatalogCache;
 import org.geysermc.hydraulic.compat.corpus.AddonCorpusLoader;
+import org.geysermc.hydraulic.compat.corpus.CorpusBuiltinBootstrap;
+import org.geysermc.hydraulic.compat.corpus.CorpusSnapshotImporter;
 import org.geysermc.hydraulic.compat.corpus.CorpusReportWriter;
 import org.geysermc.hydraulic.compat.handoff.CompatibilityHandoffExporter;
 import org.geysermc.hydraulic.compat.handoff.CompatibilityHandoffQueue;
@@ -104,6 +106,7 @@ public class PackManager {
     private final CompatibilityHandoffQueue handoffQueue;
     private final CompatibilityHandoffExporter handoffExporter;
     private final AddonCorpusLoader corpusLoader;
+    private final CorpusSnapshotImporter corpusImporter;
     private final CorpusReportWriter corpusReportWriter;
     private final TextureResolutionCache textureResolutionCache = new TextureResolutionCache();
     private final PackValidator packValidator = new PackValidator();
@@ -145,6 +148,7 @@ public class PackManager {
         this.handoffExporter = new CompatibilityHandoffExporter(LOGGER, this.handoffQueue, cachePath);
         Path dataPath = hydraulic.dataFolder(Constants.MOD_ID);
         this.corpusLoader = new AddonCorpusLoader(LOGGER, dataPath);
+        this.corpusImporter = new CorpusSnapshotImporter(LOGGER, this.corpusLoader);
         this.corpusReportWriter = new CorpusReportWriter(LOGGER, dataPath);
     }
 
@@ -158,7 +162,9 @@ public class PackManager {
         this.handoffQueue.loadQueueState();
         this.handoffExporter.scheduleRetryProcessing();
         this.corpusLoader.ensureLayout();
+        CorpusBuiltinBootstrap.installBuiltinEntries(LOGGER, this.hydraulic.dataFolder(Constants.MOD_ID).resolve("corpus"));
         this.corpusLoader.loadIndex();
+        this.corpusLoader.refreshIndexFromSnapshots();
         this.corpusReportWriter.writeReports(this.corpusLoader.index(), this.corpusLoader.loadAdmissibleEntries());
         long resourceIndexStarted = System.nanoTime();
         LookupSummary lookupSummary = initializeModLookups();
@@ -916,6 +922,11 @@ public class PackManager {
     @NotNull
     public AddonCorpusLoader corpusLoader() {
         return this.corpusLoader;
+    }
+
+    @NotNull
+    public CorpusSnapshotImporter corpusImporter() {
+        return this.corpusImporter;
     }
 
     public void recordLazyResourceProviderMetrics() {

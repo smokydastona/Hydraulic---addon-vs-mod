@@ -1,0 +1,128 @@
+{
+  "identity": {
+    "corpusId": "utilitycraft",
+    "bedrockIdentifier": "doriosstudios:utilitycraft",
+    "author": "DoriosStudios (RealMilo504)",
+    "displayName": "UtilityCraft",
+    "description": "Production Bedrock tech add-on providing machines, energy, item/fluid/gas transport, upgrades, crops, and multiblocks, with a public DoriosCore/DoriosLib extension API used by companion expansions and the Addon Template."
+  },
+  "source": {
+    "sourceType": "GITHUB",
+    "sourceUrl": "https://github.com/DoriosStudios/UtilityCraft",
+    "repositoryUrl": "https://github.com/DoriosStudios/UtilityCraft",
+    "homepageUrl": "https://doriosstudios.com/projects/utilitycraft/",
+    "documentationUrl": "https://github.com/DoriosStudios/UtilityCraft/tree/main/docs"
+  },
+  "license": {
+    "licenseType": "UNSPECIFIED",
+    "licenseUrl": null,
+    "licenseText": null,
+    "allowsRedistribution": false,
+    "allowsModification": false,
+    "allowsCommercialUse": false,
+    "requiresAttribution": true
+  },
+  "admissibility": {
+    "isAdmissible": false,
+    "reason": "UNCLEAR_LICENSE",
+    "denialReason": "The repository root file listing has no LICENSE file.",
+    "constraints": [
+      "Treat as documentation-level reference evidence only",
+      "Do not copy or redistribute source, scripts, or assets",
+      "Re-check for a published LICENSE before allowing runtime reuse"
+    ]
+  },
+  "versions": {
+    "latestVersion": "3.5.4",
+    "supportedBedrockVersions": ["1.21"],
+    "minBedrockVersion": "1.21.0",
+    "maxBedrockVersion": "1.21.0",
+    "allVersions": ["3.5.4"]
+  },
+  "behaviorPack": {
+    "hasBehaviorPack": true,
+    "behaviorPackFormat": null,
+    "entities": [],
+    "blocks": [],
+    "items": [],
+    "recipes": [],
+    "functions": [],
+    "scripts": ["BP/ scripted machines and generators (per README and changelog)"],
+    "customComponents": {}
+  },
+  "resourcePack": {
+    "hasResourcePack": true,
+    "resourcePackFormat": null,
+    "textures": [],
+    "models": [],
+    "animations": [],
+    "particles": [],
+    "sounds": [],
+    "uiElements": [],
+    "renderControllers": {}
+  },
+  "capabilities": {
+    "storageTypes": ["item_storage", "fluid_storage"],
+    "machineTypes": ["crusher", "hammer", "infuser", "electro_press", "furnace", "magmatic_chamber", "autosieve", "autofisher", "furnator"],
+    "transferTypes": ["item_transport", "fluid_transport", "gas_transport"],
+    "fluidTypes": ["fluid_tanks", "fluid_generation"],
+    "energyTypes": ["energy_generation", "energy_storage"],
+    "automationTypes": ["upgrades", "crops", "multiblocks", "machine_ports", "cross_addon_compatibility"],
+    "networkingTypes": ["shared_link_node_io_registration"],
+    "customCapabilities": {
+      "expansions": "Ascendant Technology, Heavy Machinery (companion DoriosStudios projects)"
+    }
+  },
+  "evidence": {
+    "manifestEvidence": ["README: production add-on with 33 tagged releases and a linked changelog"],
+    "scriptEvidence": ["BP/ scripted machine and generator implementation referenced by the changelog"],
+    "functionEvidence": [],
+    "componentEvidence": ["Shared link-node I/O registration mentioned in recent release notes"],
+    "uiEvidence": [],
+    "heuristicScores": {
+      "documentation": "1.00",
+      "source_inspection": "0.00"
+    }
+  },
+  "confidence": {
+    "overallScore": 0.6,
+    "assessmentMethod": "readme_changelog_and_release_notes_only",
+    "strongIndicators": [
+      "33 tagged production releases with an actively maintained changelog",
+      "Named companion expansions (Ascendant Technology, Heavy Machinery)",
+      "Explicit shared link-node I/O registration and fluid/gas fixes noted in recent releases"
+    ],
+    "weakIndicators": [
+      "No LICENSE file present in the repository",
+      "Source was not opened or read line-by-line"
+    ],
+    "gaps": ["Capability facts are release-note/README level, not verified against source"]
+  },
+  "implementationFacts": {
+    "implementationPattern": "Production tech add-on ecosystem providing machines, energy, item/fluid/gas transport, upgrades, crops, and multiblocks with a public extension API (DoriosCore/DoriosLib) consumed by the companion Addon Template and expansions",
+    "limitations": [
+      "No LICENSE file, so reuse rights are unverified",
+      "Treat as documentation-level evidence only until a license is published"
+    ],
+    "performanceCharacteristics": [],
+    "persistenceMethods": [],
+    "runtimeHooks": ["@minecraft/server scripting"],
+    "transferSemantics": ["Machine-port and shared link-node based item/fluid/gas transfer per release notes"],
+    "uiMethods": [],
+    "dependencies": ["DoriosCore", "DoriosLib"],
+    "reusability": "medium",
+    "adapterCandidate": "generic-tech-machine-ecosystem-reference"
+  },
+  "provenance": {
+    "addedBy": "hydraulic-corpus-bootstrap",
+    "addedEpochMillis": 1799600000000,
+    "lastUpdatedBy": null,
+    "lastUpdatedEpochMillis": null,
+    "corpusVersion": "v2.0.0",
+    "reviewNotes": [
+      "Reviewed 2026-09-11 against the public README, root file listing, and release tag v3.5.4.",
+      "Marked inadmissible because no LICENSE file could be found; recorded as research/backlog evidence only per corpus admissibility rules.",
+      "No UtilityCraft source code or assets were copied into Hydraulic; only README/changelog-level capability descriptions were recorded."
+    ]
+  }
+}

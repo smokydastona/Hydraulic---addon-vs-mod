@@ -1,0 +1,124 @@
+{
+  "identity": {
+    "corpusId": "bedrock-energistics-core",
+    "bedrockIdentifier": "bedrock_energistics_core:api",
+    "author": "Fluffyalien1422",
+    "displayName": "Bedrock Energistics Core",
+    "description": "Dependency add-on providing shared network, storage, machine, and UI scripting APIs so tech add-ons from different authors can interoperate on Bedrock."
+  },
+  "source": {
+    "sourceType": "GITHUB",
+    "sourceUrl": "https://github.com/Fluffyalien1422/bedrock-energistics-core",
+    "repositoryUrl": "https://github.com/Fluffyalien1422/bedrock-energistics-core",
+    "homepageUrl": "https://fluffyalien1422.github.io/bedrock-energistics-core/",
+    "documentationUrl": "https://fluffyalien1422.github.io/bedrock-energistics-core/api/"
+  },
+  "license": {
+    "licenseType": "ISC",
+    "licenseUrl": "https://github.com/Fluffyalien1422/bedrock-energistics-core/blob/main/LICENSE",
+    "licenseText": null,
+    "allowsRedistribution": true,
+    "allowsModification": true,
+    "allowsCommercialUse": true,
+    "requiresAttribution": true
+  },
+  "admissibility": {
+    "isAdmissible": true,
+    "reason": "FULLY_PERMISSIVE",
+    "denialReason": null,
+    "constraints": [
+      "Requires attribution: ISC requires retaining the copyright and permission notice",
+      "API surface is marked @beta until v1.0; minor releases may contain breaking changes"
+    ]
+  },
+  "versions": {
+    "latestVersion": "0.12.0",
+    "supportedBedrockVersions": ["1.21"],
+    "minBedrockVersion": "1.21.0",
+    "maxBedrockVersion": "1.21.0",
+    "allVersions": ["0.12.0"]
+  },
+  "behaviorPack": {
+    "hasBehaviorPack": true,
+    "behaviorPackFormat": null,
+    "entities": [],
+    "blocks": [],
+    "items": [],
+    "recipes": [],
+    "functions": [],
+    "scripts": ["public_api (bedrock-energistics-core-api npm package)"],
+    "customComponents": {}
+  },
+  "resourcePack": {
+    "hasResourcePack": false,
+    "resourcePackFormat": null,
+    "textures": [],
+    "models": [],
+    "animations": [],
+    "particles": [],
+    "sounds": [],
+    "uiElements": ["documented machine UI helper APIs"],
+    "renderControllers": {}
+  },
+  "capabilities": {
+    "storageTypes": ["shared_network_storage", "custom_resource_type"],
+    "machineTypes": ["machine_api", "machine_ui"],
+    "transferTypes": ["item_storage_api"],
+    "fluidTypes": [],
+    "energyTypes": ["custom_resource_type"],
+    "automationTypes": [],
+    "networkingTypes": ["cross_addon_shared_network"],
+    "customCapabilities": {
+      "persistence": "item storage APIs without persistent entities"
+    }
+  },
+  "evidence": {
+    "manifestEvidence": ["README: dependency add-on providing scripting APIs, no player-facing content of its own"],
+    "scriptEvidence": ["bedrock-energistics-core-api npm package bundled by consuming add-ons"],
+    "functionEvidence": [],
+    "componentEvidence": [],
+    "uiEvidence": ["README: \"Easily create machine UI\" feature bullet"],
+    "heuristicScores": {
+      "documentation": "1.00"
+    }
+  },
+  "confidence": {
+    "overallScore": 0.85,
+    "assessmentMethod": "readme_and_release_history_review",
+    "strongIndicators": [
+      "Dedicated versioned npm API package consumed by other add-ons",
+      "23 tagged GitHub releases with per-release Minecraft/@minecraft-server compatibility notes",
+      "Explicit cross-add-on shared network claim in README"
+    ],
+    "weakIndicators": ["Beta API surface, pre-1.0, breaking changes possible"],
+    "gaps": ["Source was not opened or copied; facts are README/documentation-level only"]
+  },
+  "implementationFacts": {
+    "implementationPattern": "Shared network, storage, machine, and UI scripting API consumed by dependent add-ons through a versioned npm script package, letting machines from separate add-ons interoperate",
+    "limitations": [
+      "Beta API: breaking changes possible before v1.0",
+      "Requires the core add-on installed alongside consuming add-ons"
+    ],
+    "performanceCharacteristics": [
+      "Designed so many machines from different add-ons can interoperate without each add-on reimplementing storage/network code"
+    ],
+    "persistenceMethods": ["Item storage APIs without persistent entities"],
+    "runtimeHooks": ["@minecraft/server scripting", "bedrock-energistics-core-api npm package"],
+    "transferSemantics": ["Custom shared resource/storage types, not limited to energy"],
+    "uiMethods": ["Machine UI helper APIs"],
+    "dependencies": ["@minecraft/server"],
+    "reusability": "high",
+    "adapterCandidate": "generic-network-storage-machine-api"
+  },
+  "provenance": {
+    "addedBy": "hydraulic-corpus-bootstrap",
+    "addedEpochMillis": 1799600000000,
+    "lastUpdatedBy": null,
+    "lastUpdatedEpochMillis": null,
+    "corpusVersion": "v2.0.0",
+    "reviewNotes": [
+      "Reviewed 2026-09-11 against the public README, root file listing, and release history.",
+      "Only README/repository-listing level facts were used; no third-party source code was copied or inspected line-by-line."
+    ]
+  }
+}

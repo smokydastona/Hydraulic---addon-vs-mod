@@ -1,0 +1,138 @@
+{
+  "identity": {
+    "corpusId": "utilitycraft-addon-template",
+    "bedrockIdentifier": "doriosstudios:utilitycraft_addon_template",
+    "author": "DoriosStudios (RealMilo504)",
+    "displayName": "UtilityCraft Addon Template",
+    "description": "Regolith-built extension template exposing scripted machine, generator, upgrade, resource, and multiblock registration patterns against the public UtilityCraft DoriosCore/DoriosLib API."
+  },
+  "source": {
+    "sourceType": "GITHUB",
+    "sourceUrl": "https://github.com/DoriosStudios/UtilityCraft-Addon-Template",
+    "repositoryUrl": "https://github.com/DoriosStudios/UtilityCraft-Addon-Template",
+    "homepageUrl": null,
+    "documentationUrl": "https://github.com/DoriosStudios/UtilityCraft-Addon-Template/blob/main/docs/EXAMPLES.md"
+  },
+  "license": {
+    "licenseType": "UNSPECIFIED",
+    "licenseUrl": null,
+    "licenseText": null,
+    "allowsRedistribution": false,
+    "allowsModification": false,
+    "allowsCommercialUse": false,
+    "requiresAttribution": true
+  },
+  "admissibility": {
+    "isAdmissible": false,
+    "reason": "UNCLEAR_LICENSE",
+    "denialReason": "The repository root file listing has no LICENSE file, and its README explicitly warns to review asset licensing before distributing a derived template because some teaching textures/scripts are copied from UtilityCraft and Heavy Machinery.",
+    "constraints": [
+      "Treat as documentation-level reference evidence only",
+      "Do not copy or redistribute template scripts or assets",
+      "Re-check for a published LICENSE before allowing runtime reuse"
+    ]
+  },
+  "versions": {
+    "latestVersion": "1.0.0",
+    "supportedBedrockVersions": ["1.21"],
+    "minBedrockVersion": "1.21.0",
+    "maxBedrockVersion": "1.21.0",
+    "allVersions": ["1.0.0"]
+  },
+  "behaviorPack": {
+    "hasBehaviorPack": true,
+    "behaviorPackFormat": null,
+    "entities": ["example bonsai entity (documented)"],
+    "blocks": [],
+    "items": [],
+    "recipes": [],
+    "functions": ["example/kit"],
+    "scripts": ["BP/scripts/main.js", "BP/scripts/ExampleCore", "BP/scripts/examples/machines/thermalCrusher.js", "BP/scripts/config/recipes"],
+    "customComponents": {}
+  },
+  "resourcePack": {
+    "hasResourcePack": true,
+    "resourcePackFormat": null,
+    "textures": [],
+    "models": [],
+    "animations": [],
+    "particles": [],
+    "sounds": [],
+    "uiElements": ["docs/UI.md documented standard screen layout, slot map, tabs, and outline colors"],
+    "renderControllers": {}
+  },
+  "capabilities": {
+    "storageTypes": ["resource_container"],
+    "machineTypes": [
+      "thermalCrusher",
+      "infuser",
+      "liquidWasher",
+      "gasReactor",
+      "solarGenerator",
+      "biofuelGenerator",
+      "gasTurbine",
+      "cobblestone_generator",
+      "deepslate_generator"
+    ],
+    "transferTypes": ["item_processing", "liquid_processing", "gas_processing"],
+    "fluidTypes": ["example_coolant", "example_biofuel", "example_hydrogen", "example_exhaust"],
+    "energyTypes": ["speed_energy_cost_upgrade", "energy_efficiency_upgrade"],
+    "automationTypes": ["multiblock_ports", "link_node_registration", "process_batch_upgrade"],
+    "networkingTypes": ["utilitycraft_shared_component"],
+    "customCapabilities": {
+      "multiblocks": "Factory Crusher (item-processing) and Biofuel Dynamo (liquid) with components and ports"
+    }
+  },
+  "evidence": {
+    "manifestEvidence": ["README requirements section: depends on UtilityCraft 3.5.0+ enabled in the same world"],
+    "scriptEvidence": ["BP/scripts/config/recipes", "BP/scripts/examples/machines/thermalCrusher.js", "BP/scripts/ExampleCore"],
+    "functionEvidence": ["example/kit"],
+    "componentEvidence": ["Shared UtilityCraft component reused for buffered Cobblestone/Deepslate Generators"],
+    "uiEvidence": ["docs/UI.md"],
+    "heuristicScores": {
+      "documentation": "1.00",
+      "source_inspection": "0.00"
+    }
+  },
+  "confidence": {
+    "overallScore": 0.55,
+    "assessmentMethod": "readme_and_file_listing_only",
+    "strongIndicators": [
+      "Explicit recommended-learning-order documentation covering load order, config, and examples",
+      "Named machine/generator/multiblock examples with documented inputs (docs/EXAMPLES.md)"
+    ],
+    "weakIndicators": [
+      "No LICENSE file present in the repository",
+      "README explicitly cautions that some teaching textures/scripts are copied from other projects"
+    ],
+    "gaps": ["Scripts and assets were not opened or copied; capability facts are description-level only from the README and docs"]
+  },
+  "implementationFacts": {
+    "implementationPattern": "Regolith-built extension template exposing scripted machine, generator, upgrade, resource-container, and multiblock registration patterns against a public DoriosCore/DoriosLib API surface, with a documented public-root-import boundary rule",
+    "limitations": [
+      "Depends on the UtilityCraft base add-on installed in the same world",
+      "No LICENSE file, so reuse rights are unverified",
+      "Author notes some teaching textures/scripts are copied from UtilityCraft/Heavy Machinery for demonstration only"
+    ],
+    "performanceCharacteristics": ["Documents both a readable dev build and a single-bundled production build via Regolith filters"],
+    "persistenceMethods": ["Not independently verified beyond documentation"],
+    "runtimeHooks": ["@minecraft/server scripting", "Regolith build pipeline", "public DoriosCore/DoriosLib root imports (verify:imports enforcement)"],
+    "transferSemantics": ["Documents two-input, liquid, and gas processing variants (Infuser, Liquid Washer, Gas Reactor)"],
+    "uiMethods": ["Documented standard screen layout and slot map in docs/UI.md"],
+    "dependencies": ["UtilityCraft 3.5.0+", "DoriosCore", "DoriosLib", "Regolith 1.8.0", "Node.js/npm"],
+    "reusability": "medium",
+    "adapterCandidate": "generic-machine-multiblock-template-reference"
+  },
+  "provenance": {
+    "addedBy": "hydraulic-corpus-bootstrap",
+    "addedEpochMillis": 1799600000000,
+    "lastUpdatedBy": null,
+    "lastUpdatedEpochMillis": null,
+    "corpusVersion": "v2.0.0",
+    "reviewNotes": [
+      "Reviewed 2026-09-11 against the public README, root file/docs listing, and release tag v1.0.0.",
+      "Marked inadmissible because no LICENSE file could be found; recorded as research/backlog evidence only per corpus admissibility rules.",
+      "No template source code or assets were copied into Hydraulic; only README-level capability descriptions were recorded."
+    ]
+  }
+}

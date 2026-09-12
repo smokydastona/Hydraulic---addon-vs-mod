@@ -1,0 +1,116 @@
+{
+  "identity": {
+    "corpusId": "mojang-bedrock-samples",
+    "bedrockIdentifier": "mojang:bedrock_samples",
+    "author": "Mojang",
+    "displayName": "Mojang Bedrock Samples",
+    "description": "First-party, versioned reference resource_pack and behavior_pack sample trees published by Mojang for building Bedrock Edition add-ons."
+  },
+  "source": {
+    "sourceType": "GITHUB",
+    "sourceUrl": "https://github.com/Mojang/bedrock-samples",
+    "repositoryUrl": "https://github.com/Mojang/bedrock-samples",
+    "homepageUrl": "https://mojang.github.io/bedrock-samples/",
+    "documentationUrl": "https://learn.microsoft.com/minecraft/creator"
+  },
+  "license": {
+    "licenseType": "MIT",
+    "licenseUrl": "https://github.com/Mojang/bedrock-samples/blob/main/LICENSE.md",
+    "licenseText": null,
+    "allowsRedistribution": true,
+    "allowsModification": true,
+    "allowsCommercialUse": true,
+    "requiresAttribution": true
+  },
+  "admissibility": {
+    "isAdmissible": true,
+    "reason": "FULLY_PERMISSIVE",
+    "denialReason": null,
+    "constraints": ["Requires attribution: MIT requires retaining the copyright notice"]
+  },
+  "versions": {
+    "latestVersion": "1.26.40.05",
+    "supportedBedrockVersions": ["1.26"],
+    "minBedrockVersion": "1.26.40.05",
+    "maxBedrockVersion": "1.26.40.05",
+    "allVersions": ["1.26.40.05"]
+  },
+  "behaviorPack": {
+    "hasBehaviorPack": true,
+    "behaviorPackFormat": "vanilla_reference",
+    "entities": [],
+    "blocks": [],
+    "items": [],
+    "recipes": [],
+    "functions": [],
+    "scripts": [],
+    "customComponents": {}
+  },
+  "resourcePack": {
+    "hasResourcePack": true,
+    "resourcePackFormat": "vanilla_reference",
+    "textures": [],
+    "models": [],
+    "animations": [],
+    "particles": [],
+    "sounds": [],
+    "uiElements": [],
+    "renderControllers": {}
+  },
+  "capabilities": {
+    "storageTypes": [],
+    "machineTypes": [],
+    "transferTypes": [],
+    "fluidTypes": [],
+    "energyTypes": [],
+    "automationTypes": [],
+    "networkingTypes": [],
+    "customCapabilities": {
+      "role": "canonical_bedrock_pattern_reference"
+    }
+  },
+  "evidence": {
+    "manifestEvidence": ["README: vanilla behavior_pack/ and resource_pack/ reference trees maintained per Bedrock client release"],
+    "scriptEvidence": [],
+    "functionEvidence": [],
+    "componentEvidence": [],
+    "uiEvidence": [],
+    "heuristicScores": {
+      "authoritative": "1.00"
+    }
+  },
+  "confidence": {
+    "overallScore": 0.95,
+    "assessmentMethod": "official_first_party_release_review",
+    "strongIndicators": [
+      "First-party Mojang repository",
+      "214 tagged releases tracking each Bedrock client version",
+      "Explicit vanilla behavior_pack/ and resource_pack/ reference trees"
+    ],
+    "weakIndicators": [],
+    "gaps": ["Used only as a canonical vanilla-pattern reference; it is not a source of third-party capability evidence"]
+  },
+  "implementationFacts": {
+    "implementationPattern": "Canonical, versioned vanilla Bedrock resource_pack/behavior_pack structure and format documentation maintained by Mojang",
+    "limitations": ["Reference only; contains no third-party gameplay systems"],
+    "performanceCharacteristics": [],
+    "persistenceMethods": [],
+    "runtimeHooks": ["vanilla format_version-gated behavior_pack/resource_pack schema"],
+    "transferSemantics": [],
+    "uiMethods": [],
+    "dependencies": [],
+    "reusability": "high",
+    "adapterCandidate": "canonical-bedrock-pattern-reference"
+  },
+  "provenance": {
+    "addedBy": "hydraulic-corpus-bootstrap",
+    "addedEpochMillis": 1799600000000,
+    "lastUpdatedBy": null,
+    "lastUpdatedEpochMillis": null,
+    "corpusVersion": "v2.0.0",
+    "reviewNotes": [
+      "Reviewed 2026-09-11 against the public README and root file listing (behavior_pack/, resource_pack/, documentation/, LICENSE.md).",
+      "Used to establish CANONICAL_BEDROCK_PATTERN evidence, not to source community capability patterns."
+    ]
+  }
+}
