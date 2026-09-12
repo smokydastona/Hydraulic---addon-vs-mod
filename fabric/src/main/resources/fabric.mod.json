@@ -17,6 +17,9 @@
   "entrypoints": {
     "main": [
       "org.geysermc.hydraulic.fabric.HydraulicFabricMod"
+    ],
+    "client": [
+      "org.geysermc.hydraulic.fabric.HydraulicFabricClientMod"
     ]
   },
   "mixins": [

@@ -35,6 +35,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.zip.ZipFile;
 
@@ -55,18 +56,47 @@ public class PackListener {
             Math.max(1, Runtime.getRuntime().availableProcessors() * 3 / 8),
             new ThreadFactoryBuilder()
                 .setNameFormat(Constants.MOD_NAME + " Conversion Thread #%d")
+                .setDaemon(true)
                 .setUncaughtExceptionHandler((thread, throwable) -> LOGGER.error("Uncaught exception in thread {}", thread.getName(), throwable))
                 .build()
         );
+        
+        // Add a runtime shutdown hook to ensure proper cleanup
+        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+            LOGGER.info("Runtime shutdown hook: shutting down {} thread pool", Constants.MOD_NAME);
+            shutdownThreadPool();
+        }, Constants.MOD_NAME + " Shutdown Hook"));
     }
 
     public PackListener(HydraulicImpl hydraulic, PackManager manager) {
         this.hydraulic = hydraulic;
         this.manager = manager;
 
+        // Shutdown hook for server stop
         hydraulic.registerServerStop(server -> {
-            THREAD_POOL.shutdown(); // Prevents the server from locking up on stop
+            shutdownThreadPool();
         });
+    }
+
+    /**
+     * Gracefully shuts down the thread pool with a timeout.
+     * This is called from both server stop and client shutdown hooks.
+     */
+    public static void shutdownThreadPool() {
+        if (!THREAD_POOL.isShutdown()) {
+            LOGGER.info("Shutting down {} thread pool", Constants.MOD_NAME);
+            THREAD_POOL.shutdown();
+            try {
+                if (!THREAD_POOL.awaitTermination(10, TimeUnit.SECONDS)) {
+                    LOGGER.warn("Thread pool did not terminate within 10 seconds, forcing shutdown");
+                    THREAD_POOL.shutdownNow();
+                }
+            } catch (InterruptedException e) {
+                LOGGER.error("Thread pool shutdown was interrupted", e);
+                THREAD_POOL.shutdownNow();
+                Thread.currentThread().interrupt();
+            }
+        }
     }
 
     @Subscribe(postOrder = PostOrder.LATE)
