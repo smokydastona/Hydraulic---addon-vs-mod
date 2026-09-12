@@ -196,7 +196,9 @@ public class PackManager {
         this.lazyItemDefinitionProvider = new LazyItemDefinitionProvider(this.modResourceIndexes, LOGGER, 200);
 
         long metadataLoadStarted = System.nanoTime();
-        this.metadataIndex = new MetadataLoader(LOGGER).load(this.hydraulic.dataFolder(Constants.MOD_ID).resolve("metadata"));
+        Path metadataPath = this.hydraulic.dataFolder(Constants.MOD_ID).resolve("metadata");
+        org.geysermc.hydraulic.metadata.MetadataBuiltinBootstrap.installBuiltinMetadata(LOGGER, metadataPath);
+        this.metadataIndex = new MetadataLoader(LOGGER).load(metadataPath);
         long metadataLoadMillis = nanosToMillis(System.nanoTime() - metadataLoadStarted);
 
         long compatibilityStarted = System.nanoTime();

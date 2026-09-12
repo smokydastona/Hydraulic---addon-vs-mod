@@ -1,0 +1,87 @@
+{
+  "patches": [
+    {
+      "target": "immersiveengineering:crusher",
+      "content_type": "block",
+      "patch": {
+        "machine": {
+          "inventory": {
+            "enabled": true,
+            "type": "multiblock",
+            "input_slot": 0,
+            "output_slot": 1
+          },
+          "processing": {
+            "enabled": true,
+            "type": "mixed",
+            "recipe": {
+              "0": {
+                "input": "minecraft:raw_iron",
+                "input_count": 1,
+                "output": "minecraft:iron_ingot",
+                "output_count": 2,
+                "energy_input": 2048,
+                "multiblock": {
+                  "required": true
+                },
+                "duration": 60
+              },
+              "1": {
+                "input": "minecraft:raw_copper",
+                "input_count": 1,
+                "output": "minecraft:copper_ingot",
+                "output_count": 2,
+                "energy_input": 2048,
+                "multiblock": {
+                  "required": true
+                },
+                "duration": 60
+              },
+              "2": {
+                "input": "minecraft:raw_gold",
+                "input_count": 1,
+                "output": "minecraft:gold_ingot",
+                "output_count": 2,
+                "energy_input": 2048,
+                "multiblock": {
+                  "required": true
+                },
+                "duration": 60
+              }
+            }
+          }
+        },
+        "transfer": {
+          "item": {
+            "can_insert": true,
+            "can_extract": true,
+            "sided": true
+          },
+          "energy": {
+            "can_receive": true,
+            "can_provide": false,
+            "type": "fe",
+            "capacity": 32000
+          }
+        },
+        "multiblock": {
+          "formed_tag": "multiblock.formed",
+          "length": 3,
+          "width": 5,
+          "height": 3
+        }
+      }
+    }
+  ],
+  "blocks": [
+    {
+      "java_id": "immersiveengineering:crusher",
+      "rules": [
+        {
+          "geometry": "minecraft:geometry.full_block",
+          "material": "minecraft:stone"
+        }
+      ]
+    }
+  ]
+}

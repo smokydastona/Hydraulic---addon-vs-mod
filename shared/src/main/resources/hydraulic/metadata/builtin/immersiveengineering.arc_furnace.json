@@ -1,0 +1,65 @@
+{
+  "patches": [
+    {
+      "target": "immersiveengineering:arc_furnace",
+      "content_type": "block",
+      "patch": {
+        "machine": {
+          "inventory": {
+            "enabled": true,
+            "type": "multiblock",
+            "input_slot": 0,
+            "output_slot": 1
+          },
+          "processing": {
+            "enabled": true,
+            "type": "mixed",
+            "recipe": {
+              "0": {
+                "input": "minecraft:iron_ingot",
+                "input_count": 1,
+                "output": "minecraft:steel_ingot",
+                "output_count": 1,
+                "energy_input": 4096,
+                "multiblock": {
+                  "required": true
+                },
+                "duration": 100
+              }
+            }
+          }
+        },
+        "transfer": {
+          "item": {
+            "can_insert": true,
+            "can_extract": true,
+            "sided": true
+          },
+          "energy": {
+            "can_receive": true,
+            "can_provide": false,
+            "type": "fe",
+            "capacity": 64000
+          }
+        },
+        "multiblock": {
+          "formed_tag": "multiblock.formed",
+          "length": 5,
+          "width": 5,
+          "height": 5
+        }
+      }
+    }
+  ],
+  "blocks": [
+    {
+      "java_id": "immersiveengineering:arc_furnace",
+      "rules": [
+        {
+          "geometry": "minecraft:geometry.full_block",
+          "material": "minecraft:stone"
+        }
+      ]
+    }
+  ]
+}
