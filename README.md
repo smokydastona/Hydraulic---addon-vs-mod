@@ -357,6 +357,31 @@ Phlodgate will not claim that a machine is fully supported simply because its bl
 
 ---
 
+# Bedrock Addon Corpus
+
+Phlodgate can load normalized, locally reviewed Bedrock addon records as offline compatibility evidence. It does not crawl GitHub, CurseForge, or other remote sources during startup.
+
+Place normalized corpus entries under:
+
+```text
+config/hydraulic/corpus/
+       sources/
+       generated/
+       curated/
+```
+
+Entries use the typed `AddonCorpusEntry` schema already used by the compatibility subsystem. When the same corpus ID exists in more than one directory, precedence is `curated` over `generated` over `sources`. Invalid entries are rejected with warnings; valid inadmissible entries remain reportable but are excluded from compatibility evidence.
+
+The shared `CorpusSnapshotImporter` can ingest a local Bedrock addon source directory or ZIP archive into `generated/`. It deterministically extracts manifest versions/dependencies, behavior and resource-pack structure, textures, models, recipes, functions, scripts, UI files, custom-component evidence, GameTest usage, and capability-pattern hints. It is bounded to 50,000 files and 64 MiB, rejects symbolic links and unsafe ZIP paths, and never executes scripts or copies source assets into Hydraulic.
+
+Import requests must provide explicit source and license facts. Local files use `LOCAL_FILE` provenance; GitHub and other remote identities may be recorded only when the caller supplies the inspected source URL and permissions. Download availability alone never makes an entry admissible.
+
+Hydraulic persists the resulting versioned index and manifest as `corpus-index.json` and `corpus-manifest.json`, then writes `corpus-summary.json` and `corpus-admissibility-report.json` under `config/hydraulic/reports`.
+
+The corpus is advisory. It can enrich compatibility analysis and adapter ranking, but raw corpus records cannot directly advertise executable runtime bridges.
+
+---
+
 # Performance
 
 Compatibility scanning can become expensive on large modpacks, so Phlodgate tries to avoid repeatedly doing the same work.

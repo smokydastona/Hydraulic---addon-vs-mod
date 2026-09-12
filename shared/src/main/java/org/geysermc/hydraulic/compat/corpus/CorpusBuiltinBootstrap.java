@@ -39,7 +39,8 @@ public final class CorpusBuiltinBootstrap {
         "bedrock-core-regolith-filters.json",
         "bedrock-oss-regolith.json",
         "bedrock-oss-bedrock-boost.json",
-        "bedrock-oss-add-on-registry.json"
+        "bedrock-oss-add-on-registry.json",
+        "farmers-delight-bedrock.json"
     };
 
     private CorpusBuiltinBootstrap() {

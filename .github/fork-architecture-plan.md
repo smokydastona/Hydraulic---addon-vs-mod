@@ -460,6 +460,8 @@ of support or reuse rights.
 ### What is already implemented
 - Pack orchestration still centers correctly in `PackManager`.
 - A real `compat` foundation already exists under `shared/`.
+- The offline corpus storage slice is now live: `AddonCorpusLoader` creates `sources/`, `generated/`, and `curated/`, scans normalized local JSON snapshots, validates them, applies deterministic `curated > generated > sources` precedence, persists the existing versioned index and manifest, and leaves a cached index untouched when no local snapshots exist. Remote harvesting remains intentionally outside Hydraulic startup.
+- The offline corpus importer is now live: `CorpusSnapshotImporter` converts a local Bedrock addon directory or ZIP into a normalized generated entry by extracting manifests, pack structure, assets, recipes, functions, scripts, UI, custom-component evidence, GameTest usage, dependencies, and deterministic capability hints. It enforces bounded input size, rejects symlinks and unsafe archive paths, requires caller-provided source/license facts, and never executes or copies third-party source assets.
 - Deterministic metadata loading and precedence already exist.
 - The first universal-index seam is now live: `ModResourceIndex` indexes both asset and data inventory categories, and `CompatibilityManager` reuses that indexed data instead of doing its own second mod-root filesystem walk for content inventory generation.
 - Pack identity now also uses the shared indexed view: full-tree `PackUtil.getModUUID()` hashing has been replaced by a persisted `ConversionKey` derived from indexed mod resources plus loaded metadata state, so metadata-only changes now invalidate stale cached packs.
@@ -559,6 +561,7 @@ of support or reuse rights.
 - Fresh Java 25 validation after the transaction, synchronization, mixed-machine, automation, and compiled mixed-recipe slices now also confirms the full Gradle `build` succeeds and `:fabric:runServer` reaches Geyser ready state on UDP `19132`. The run converted eight packs with `failedPacks = 0`, registered 857 custom blocks, 989 custom items, and 1 custom entity, and `pack-validation-report.json` marked `create`, `travelersbackpack`, `lootr`, `apollib`, `citadel`, `farmersdelight`, `hydraulic`, and `hydraulic_test_mod` as valid. Create still emits fourteen `pack.path.long` warnings and one manual action for long Bedrock pack paths.
 
 ### What is still too narrow
+- The corpus schema, local importer, loader, admissibility checks, matcher, report writer, and compatibility evidence seam are implemented. The current runtime corpus is still empty until reviewed snapshots are supplied; live remote harvesting, CurseForge API ingestion, human license review, and populated research records remain intentionally external/offline inputs rather than startup behavior.
 - Discovery is still duplicated across multiple subsystems.
 - Fingerprinting and cache invalidation now carry resource-kind-aware boundaries inside a mod, while cross-mod conversion invalidation remains dependency-aware rather than per-mod-only.
 - Resource-pack reading and broader resource resolution are still too eager even though startup model lookup, custom model conversion, item and bow post-processing model resolution, and selective texture extraction now use indexed mod paths.

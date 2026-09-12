@@ -22,7 +22,11 @@ public final class AddonCorpusValidator {
         }
         requireNonBlank(errors, "identity.corpusId", entry.identity().corpusId());
         requireIdentifier(errors, "identity.bedrockIdentifier", entry.identity().bedrockIdentifier());
-        requireUrl(errors, "source.sourceUrl", entry.source().sourceUrl());
+        if (entry.source().sourceType() == AddonCorpusEntry.SourceType.LOCAL_FILE) {
+            requireNonBlank(errors, "source.sourceUrl", entry.source().sourceUrl());
+        } else {
+            requireUrl(errors, "source.sourceUrl", entry.source().sourceUrl());
+        }
         if (entry.source().repositoryUrl() != null && !entry.source().repositoryUrl().isBlank()) {
             requireUrl(errors, "source.repositoryUrl", entry.source().repositoryUrl());
         }

@@ -55,6 +55,24 @@ class AddonCorpusLoaderTest {
     }
 
     @Test
+    void refreshesIndexFromSnapshotsWithCuratedPrecedence() {
+        AddonCorpusLoader loader = new AddonCorpusLoader(LoggerFactory.getLogger("CorpusLoaderTest"), this.tempDir);
+        loader.ensureLayout();
+
+        loader.storeEntry(sampleEntry("example-addon"), "sources");
+        loader.storeEntry(sampleEntry("example-addon"), "generated");
+        loader.storeEntry(sampleEntry("example-addon"), "curated");
+
+        AddonCorpusIndex refreshed = loader.refreshIndexFromSnapshots();
+
+        assertEquals(1, refreshed.entries().size());
+        assertEquals("curated", refreshed.entries().get("example-addon").storageLocation());
+        assertNotNull(loader.loadEntry("example-addon"));
+        assertEquals(1, loader.loadAdmissibleEntries().size());
+        assertTrue(Files.isRegularFile(this.tempDir.resolve("corpus/corpus-manifest.json")));
+    }
+
+    @Test
     void rejectsCorpusEntryPathTraversal() throws Exception {
         AddonCorpusLoader loader = new AddonCorpusLoader(LoggerFactory.getLogger("CorpusLoaderTest"), this.tempDir);
         loader.ensureLayout();

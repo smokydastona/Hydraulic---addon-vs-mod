@@ -1,0 +1,127 @@
+{
+  "identity": {
+    "corpusId": "farmers-delight-bedrock",
+    "bedrockIdentifier": "shangguanxi:farmers_delight_bedrock",
+    "author": "ShangguanXi and contributors",
+    "displayName": "Farmer's Delight Bedrock",
+    "description": "An unofficial Bedrock Edition port of the Java mod Farmer's Delight (by Vectorwing), reproducing its cooking mechanics, crops, and kitchen blocks."
+  },
+  "source": {
+    "sourceType": "GITHUB",
+    "sourceUrl": "https://github.com/ShangguanXi/FarmersDelightBedrock",
+    "repositoryUrl": "https://github.com/ShangguanXi/FarmersDelightBedrock",
+    "homepageUrl": null,
+    "documentationUrl": "https://github.com/ShangguanXi/FarmersDelightBedrock/blob/26.0%2B/docs"
+  },
+  "license": {
+    "licenseType": "GPL-3.0",
+    "licenseUrl": "https://github.com/ShangguanXi/FarmersDelightBedrock/blob/26.0%2B/LICENSE.txt",
+    "licenseText": null,
+    "allowsRedistribution": true,
+    "allowsModification": true,
+    "allowsCommercialUse": true,
+    "requiresAttribution": true
+  },
+  "admissibility": {
+    "isAdmissible": true,
+    "reason": "FULLY_PERMISSIVE",
+    "denialReason": null,
+    "constraints": [
+      "GPL-3.0 is copyleft: redistributed derivatives of the licensed code must remain GPL-3.0 and disclose source",
+      "The port's own README states the original Java Farmer's Delight mod is MIT-licensed, which the author cites as permission to port it; this entry evaluates only the Bedrock port repository's own GPL-3.0 grant, not the upstream Java mod"
+    ]
+  },
+  "versions": {
+    "latestVersion": "3.2.0-1.21.70+",
+    "supportedBedrockVersions": ["1.21"],
+    "minBedrockVersion": "1.21.0",
+    "maxBedrockVersion": "1.21.70",
+    "allVersions": ["3.2.0-1.21.70+"]
+  },
+  "behaviorPack": {
+    "hasBehaviorPack": true,
+    "behaviorPackFormat": null,
+    "entities": [],
+    "blocks": [],
+    "items": [],
+    "recipes": [],
+    "functions": [],
+    "scripts": ["JavaScript/TypeScript addon scripts (repository is ~50% JavaScript, ~50% TypeScript)"],
+    "customComponents": {}
+  },
+  "resourcePack": {
+    "hasResourcePack": true,
+    "resourcePackFormat": null,
+    "textures": [],
+    "models": [],
+    "animations": [],
+    "particles": [],
+    "sounds": [],
+    "uiElements": [],
+    "renderControllers": {}
+  },
+  "capabilities": {
+    "storageTypes": ["kitchen_block_inventory"],
+    "machineTypes": ["cooking_pot", "cutting_board", "stove", "skillet"],
+    "transferTypes": ["manual_item_processing"],
+    "fluidTypes": [],
+    "energyTypes": [],
+    "automationTypes": ["cooking_process", "cutting_process"],
+    "networkingTypes": [],
+    "customCapabilities": {
+      "parity_goal": "reproduces the Java Farmer's Delight feature set (crops, cooking pot recipes, cutting board tool interactions) as closely as possible per the README"
+    }
+  },
+  "evidence": {
+    "manifestEvidence": ["README: unofficial Bedrock port of Farmer's Delight, MIT-licensed upstream cited as porting permission"],
+    "scriptEvidence": ["Repository language split: ~50% JavaScript, ~50% TypeScript (Script API addon)"],
+    "functionEvidence": [],
+    "componentEvidence": [],
+    "uiEvidence": [],
+    "heuristicScores": {
+      "documentation": "0.80",
+      "release_history": "1.00"
+    }
+  },
+  "confidence": {
+    "overallScore": 0.7,
+    "assessmentMethod": "readme_and_release_history_review",
+    "strongIndicators": [
+      "12 tagged GitHub releases, 21 stars, 7 forks, 6 contributors, actively updated (latest commit ~2 months old)",
+      "Published GPL-3.0 LICENSE.txt and explicit upstream MIT-license permission citation",
+      "Multi-language localization (6 languages) and public docs/ folder"
+    ],
+    "weakIndicators": [
+      "Unofficial, community-maintained port; behavior may diverge from the Java original",
+      "Specific block/item/recipe internals were not independently inspected in this review; only README/release-level facts were used"
+    ],
+    "gaps": ["No script- or component-level inspection was performed; capability list is derived from the mod's documented purpose, not verified pack internals"]
+  },
+  "implementationFacts": {
+    "implementationPattern": "Script API-driven kitchen/cooking machine set (cooking pot, cutting board, stove, skillet) plus farming crop additions, aiming for feature parity with the Java Farmer's Delight mod",
+    "limitations": [
+      "Unofficial port; some mechanics may be simplified or diverge from the Java version",
+      "Capability facts here are description-level; not verified against actual pack source"
+    ],
+    "performanceCharacteristics": [],
+    "persistenceMethods": [],
+    "runtimeHooks": ["Minecraft Bedrock Script API"],
+    "transferSemantics": ["Manual player-driven item insertion/interaction with kitchen blocks"],
+    "uiMethods": [],
+    "dependencies": [],
+    "reusability": "medium",
+    "adapterCandidate": "kitchen-machine-processing-pattern"
+  },
+  "provenance": {
+    "addedBy": "hydraulic-corpus-bootstrap",
+    "addedEpochMillis": 1799600000000,
+    "lastUpdatedBy": null,
+    "lastUpdatedEpochMillis": null,
+    "corpusVersion": "v2.0.0",
+    "reviewNotes": [
+      "Reviewed 2026-09-11 against the public README, root file listing (LICENSE.txt), and release/contributor history.",
+      "Replaces an earlier hand-crafted, non-GitHub 'Farmer's Delight Bedrock (Unofficial)' file a user supplied locally, which claimed CurseForge-only admissibility while simultaneously disallowing redistribution — that file was rejected, not ingested.",
+      "No FarmersDelightBedrock source code was copied into Hydraulic; only README/release-level capability descriptions were recorded."
+    ]
+  }
+}

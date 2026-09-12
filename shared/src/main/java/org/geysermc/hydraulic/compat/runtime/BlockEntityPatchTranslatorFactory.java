@@ -29,15 +29,25 @@ public final class BlockEntityPatchTranslatorFactory {
         @NotNull CompatibilityRegistry compatibilityRegistry
     ) {
         String javaIdentifier = CompatibilityRuntimeDiagnostics.resolveJavaBlockEntityIdentifier(session, position);
-        if (javaIdentifier == null) {
-            return null;
+        if (javaIdentifier != null) {
+            CompiledCompatibilityPlan plan = compatibilityRegistry.dispatchTable().blockEntity(Identifier.parse(javaIdentifier));
+            if (BridgeAdapterSupport.supportsBlockEntityPatch(plan)) {
+                return create(plan);
+            }
         }
 
-        CompiledCompatibilityPlan plan = compatibilityRegistry.dispatchTable().blockEntity(Identifier.parse(javaIdentifier));
-        if (!BridgeAdapterSupport.supportsBlockEntityPatch(plan)) {
-            return null;
+        // Automatic chest lid / dynamic block entity fallback:
+        // If the block is a chest/barrel or has chest semantics, provide Bedrock Chest block entity tags
+        // so that lid open/close animations and audio render smoothly
+        if (javaIdentifier != null && isChestBlockEntity(javaIdentifier)) {
+            return new ChestAnimationBlockEntityTranslator();
         }
-        return create(plan);
+        return null;
+    }
+
+    private static boolean isChestBlockEntity(@NotNull String javaIdentifier) {
+        String lower = javaIdentifier.toLowerCase();
+        return lower.contains("chest") || lower.contains("barrel") || lower.contains("lootr");
     }
 
     static boolean supports(@Nullable CompiledCompatibilityPlan plan) {
@@ -50,6 +60,22 @@ public final class BlockEntityPatchTranslatorFactory {
             return null;
         }
         return new MetadataBackedBlockEntityTranslator(plan.blockEntityPatchTemplate());
+    }
+
+    private static final class ChestAnimationBlockEntityTranslator extends BlockEntityTranslator {
+        @Override
+        public void translateTag(@NotNull GeyserSession session, @NotNull NbtMapBuilder bedrockTag, @Nullable NbtMap javaTag, @Nullable BlockState blockState) {
+            bedrockTag.putString("id", "Chest");
+            if (javaTag != null && javaTag.containsKey("CustomName")) {
+                bedrockTag.put("CustomName", javaTag.get("CustomName"));
+            }
+            if (javaTag != null && javaTag.containsKey("Lock")) {
+                bedrockTag.put("Lock", javaTag.get("Lock"));
+            }
+            // Populate pair lead & chest visual components so Bedrock lid animation plays
+            bedrockTag.putInt("pairlead", 0);
+            bedrockTag.putByte("isMovable", (byte) 1);
+        }
     }
 
     private static final class MetadataBackedBlockEntityTranslator extends BlockEntityTranslator {
