@@ -141,13 +141,26 @@ public final class MachineBridgeFactory {
         @Nullable TransferBridgeFactory.EnergyTransferBridge energy,
         @NotNull List<MixedResourceMachineProcessingBridge.MixedMachineRecipe> recipes
     ) {
+        return createMixedProcessing(plan, items, fluids, energy, null, null, recipes);
+    }
+
+    @Nullable
+    public static MixedResourceMachineProcessingBridge createMixedProcessing(
+        @Nullable CompiledCompatibilityPlan plan,
+        @Nullable TransferBridgeFactory.ItemTransferBridge items,
+        @Nullable TransferBridgeFactory.FluidTransferBridge fluids,
+        @Nullable TransferBridgeFactory.EnergyTransferBridge energy,
+        @Nullable MixedResourceMachineProcessingBridge.KineticBridge kinetic,
+        @Nullable MixedResourceMachineProcessingBridge.MultiBlockStructure multiBlock,
+        @NotNull List<MixedResourceMachineProcessingBridge.MixedMachineRecipe> recipes
+    ) {
         if (!BridgeAdapterSupport.supportsMachineBehavior(plan)
             || !BridgeAdapterSupport.supportsMachineInventory(plan)
             || recipes.isEmpty()
             || !supportsRecipeResources(items, fluids, energy, recipes)) {
             return null;
         }
-        return new MixedResourceMachineProcessingBridge(plan, items, fluids, energy, recipes);
+        return new MixedResourceMachineProcessingBridge(plan, items, fluids, energy, kinetic, multiBlock, recipes);
     }
 
     @Nullable
@@ -157,6 +170,18 @@ public final class MachineBridgeFactory {
         @Nullable TransferBridgeFactory.FluidTransferBridge fluids,
         @Nullable TransferBridgeFactory.EnergyTransferBridge energy
     ) {
+        return createMixedProcessing(plan, items, fluids, energy, null, null);
+    }
+
+    @Nullable
+    public static MixedResourceMachineProcessingBridge createMixedProcessing(
+        @Nullable CompiledCompatibilityPlan plan,
+        @Nullable TransferBridgeFactory.ItemTransferBridge items,
+        @Nullable TransferBridgeFactory.FluidTransferBridge fluids,
+        @Nullable TransferBridgeFactory.EnergyTransferBridge energy,
+        @Nullable MixedResourceMachineProcessingBridge.KineticBridge kinetic,
+        @Nullable MixedResourceMachineProcessingBridge.MultiBlockStructure multiBlock
+    ) {
         if (plan == null) {
             return null;
         }
@@ -164,7 +189,7 @@ public final class MachineBridgeFactory {
         if (recipes.isEmpty()) {
             return null;
         }
-        return createMixedProcessing(plan, items, fluids, energy, recipes);
+        return createMixedProcessing(plan, items, fluids, energy, kinetic, multiBlock, recipes);
     }
 
     @Nullable
@@ -202,7 +227,7 @@ public final class MachineBridgeFactory {
 
     private static boolean hasMixedResourceRecipeFacts(@NotNull Map<String, String> facts) {
         return facts.keySet().stream().anyMatch(key -> key.matches(
-            "machine\\.processing\\.recipe\\.\\d+\\.(item_input|item_output|fluid_input|fluid_output)\\..+"
+            "machine\\.processing\\.recipe\\.\\d+\\.(item_input|item_output|fluid_input|fluid_output|kinetic|multiblock)\\..+"
         ) || key.matches("machine\\.processing\\.recipe\\.\\d+\\.energy_(input|output)"));
     }
 
@@ -250,6 +275,20 @@ public final class MachineBridgeFactory {
         try {
             int parsed = Integer.parseInt(value);
             return parsed < 0 ? null : parsed;
+        } catch (NumberFormatException ignored) {
+            return null;
+        }
+    }
+
+    @Nullable
+    private static Float floatFact(@NotNull Map<String, String> facts, @NotNull String key) {
+        String value = facts.get(key);
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        try {
+            float parsed = Float.parseFloat(value);
+            return parsed < 0.0f ? null : parsed;
         } catch (NumberFormatException ignored) {
             return null;
         }
@@ -350,6 +389,10 @@ public final class MachineBridgeFactory {
 
         Integer energyInput = integerFact(facts, prefix + "energy_input");
         Integer energyOutput = integerFact(facts, prefix + "energy_output");
+        Float minKineticSpeed = floatFact(facts, prefix + "kinetic.min_speed");
+        Float stressImpact = floatFact(facts, prefix + "kinetic.stress_impact");
+        boolean requiresMultiBlock = Boolean.parseBoolean(facts.getOrDefault(prefix + "multiblock.required", "false"));
+
         return new MixedResourceMachineProcessingBridge.MixedMachineRecipe(
             itemInputs,
             fluidInputs,
@@ -358,6 +401,9 @@ public final class MachineBridgeFactory {
             fluidOutputs,
             energyOutput == null ? 0 : energyOutput,
             facts.get(prefix + "energy_side"),
+            minKineticSpeed == null ? 0.0f : minKineticSpeed,
+            stressImpact == null ? 0.0f : stressImpact,
+            requiresMultiBlock,
             duration
         );
     }

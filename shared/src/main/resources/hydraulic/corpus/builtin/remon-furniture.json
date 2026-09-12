@@ -1,0 +1,130 @@
+{
+  "identity": {
+    "corpusId": "remon-furniture",
+    "bedrockIdentifier": "remon:furniture_pack",
+    "author": "Remon",
+    "displayName": "Remon Furniture",
+    "description": "Large open-source Bedrock addon demonstrating custom block geometry, multi-part container interactions, and seat entities."
+  },
+  "source": {
+    "sourceType": "GITHUB",
+    "sourceUrl": "https://github.com/Remon-Dev/remon-furniture",
+    "repositoryUrl": "https://github.com/Remon-Dev/remon-furniture",
+    "homepageUrl": "https://github.com/Remon-Dev/remon-furniture",
+    "documentationUrl": "https://github.com/Remon-Dev/remon-furniture"
+  },
+  "license": {
+    "licenseType": "MIT",
+    "licenseUrl": "https://github.com/Remon-Dev/remon-furniture/blob/main/LICENSE",
+    "licenseText": null,
+    "allowsRedistribution": true,
+    "allowsModification": true,
+    "allowsCommercialUse": true,
+    "requiresAttribution": true
+  },
+  "admissibility": {
+    "isAdmissible": true,
+    "reason": "FULLY_PERMISSIVE",
+    "denialReason": null,
+    "constraints": [
+      "Requires attribution: MIT license requires preserving copyright notice",
+      "Demonstrates multi-block furniture placement, seat entity mounting, and container block entity patterns"
+    ]
+  },
+  "versions": {
+    "latestVersion": "2.1.0",
+    "supportedBedrockVersions": ["1.21"],
+    "minBedrockVersion": "1.21.0",
+    "maxBedrockVersion": "1.21.0",
+    "allVersions": ["2.1.0"]
+  },
+  "behaviorPack": {
+    "hasBehaviorPack": true,
+    "behaviorPackFormat": null,
+    "entities": ["remon:seat_entity"],
+    "blocks": ["remon:cabinet", "remon:table", "remon:chair"],
+    "items": ["remon:cabinet_item", "remon:chair_item"],
+    "recipes": ["recipes/cabinet.json"],
+    "functions": [],
+    "scripts": ["scripts/furniture_interact.js"],
+    "customComponents": {
+      "remon:furniture_sit": "spawns mountable seat entity on block use",
+      "remon:container_open": "opens mapped container screen"
+    }
+  },
+  "resourcePack": {
+    "hasResourcePack": true,
+    "resourcePackFormat": null,
+    "textures": ["textures/blocks/cabinet.png", "textures/blocks/oak_chair.png"],
+    "models": ["models/blocks/cabinet.json", "models/blocks/chair.json"],
+    "animations": [],
+    "particles": [],
+    "sounds": [],
+    "uiElements": ["furniture_custom_inventory"],
+    "renderControllers": {
+      "controller.render.furniture": "renders custom block geometry and textures"
+    }
+  },
+  "capabilities": {
+    "storageTypes": ["block_inventory", "cabinet_storage"],
+    "machineTypes": ["furniture_container"],
+    "transferTypes": ["item_transfer"],
+    "fluidTypes": [],
+    "energyTypes": [],
+    "automationTypes": ["hopper_insert"],
+    "networkingTypes": ["mount_sync"],
+    "customCapabilities": {
+      "seating": "invisible seat entity mounting and positioning on custom blocks"
+    }
+  },
+  "evidence": {
+    "manifestEvidence": ["manifest.json declares behavior and resource packs for modern Bedrock versions"],
+    "scriptEvidence": ["scripts/furniture_interact.js handles player seat mounting and cabinet inventory"],
+    "functionEvidence": [],
+    "componentEvidence": ["custom components used for sit-on-block and container-open triggers"],
+    "uiEvidence": ["custom container UI screens and layouts for storage furniture"],
+    "heuristicScores": {
+      "documentation": "1.00"
+    }
+  },
+  "confidence": {
+    "overallScore": 0.90,
+    "assessmentMethod": "readme_and_release_history_review",
+    "strongIndicators": [
+      "Open source GitHub repository with complete behavior and resource packs",
+      "Permissive MIT license",
+      "Proven Bedrock furniture and multi-part container implementation patterns"
+    ],
+    "weakIndicators": [],
+    "gaps": []
+  },
+  "implementationFacts": {
+    "implementationPattern": "Bedrock custom blocks + mountable seat entity + container interaction bridges",
+    "limitations": [
+      "Seat entities require server-side synchronization with Java player riding state"
+    ],
+    "performanceCharacteristics": [
+      "Efficient block permutation definitions with reusable seat entity definitions"
+    ],
+    "persistenceMethods": ["block_entity_data"],
+    "runtimeHooks": [
+      "world.beforeEvents.itemUseOn",
+      "system.runInterval"
+    ],
+    "transferSemantics": ["slot-based item storage"],
+    "uiMethods": ["ContainerUI / ModalForm"],
+    "dependencies": ["@minecraft/server"],
+    "reusability": "high",
+    "adapterCandidate": "furniture_and_seating_bridge"
+  },
+  "provenance": {
+    "addedBy": "hydraulic-corpus-bootstrap",
+    "addedEpochMillis": 1799600000000,
+    "lastUpdatedBy": null,
+    "lastUpdatedEpochMillis": null,
+    "corpusVersion": "v2.0.0",
+    "reviewNotes": [
+      "Reviewed 2026-09-12 against the public README and resource pack assets."
+    ]
+  }
+}

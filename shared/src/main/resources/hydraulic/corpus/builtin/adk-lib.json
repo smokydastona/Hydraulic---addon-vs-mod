@@ -1,0 +1,128 @@
+{
+  "identity": {
+    "corpusId": "adk-lib",
+    "bedrockIdentifier": "adk_lib:framework",
+    "author": "Bedrock-OSS",
+    "displayName": "ADK-LIB Custom Component Framework",
+    "description": "Component and Script API framework for complex Bedrock machines, multi-block topologies, and custom block state synchronization."
+  },
+  "source": {
+    "sourceType": "GITHUB",
+    "sourceUrl": "https://github.com/Bedrock-OSS/adk-lib",
+    "repositoryUrl": "https://github.com/Bedrock-OSS/adk-lib",
+    "homepageUrl": "https://github.com/Bedrock-OSS/adk-lib",
+    "documentationUrl": "https://github.com/Bedrock-OSS/adk-lib"
+  },
+  "license": {
+    "licenseType": "MIT",
+    "licenseUrl": "https://github.com/Bedrock-OSS/adk-lib/blob/main/LICENSE",
+    "licenseText": null,
+    "allowsRedistribution": true,
+    "allowsModification": true,
+    "allowsCommercialUse": true,
+    "requiresAttribution": true
+  },
+  "admissibility": {
+    "isAdmissible": true,
+    "reason": "FULLY_PERMISSIVE",
+    "denialReason": null,
+    "constraints": [
+      "Requires attribution: MIT license requires preserving copyright notice",
+      "Framework provides Script API components for dynamic block entities and multi-block state tracking"
+    ]
+  },
+  "versions": {
+    "latestVersion": "1.4.2",
+    "supportedBedrockVersions": ["1.21"],
+    "minBedrockVersion": "1.21.0",
+    "maxBedrockVersion": "1.21.0",
+    "allVersions": ["1.4.2"]
+  },
+  "behaviorPack": {
+    "hasBehaviorPack": true,
+    "behaviorPackFormat": null,
+    "entities": [],
+    "blocks": ["adk_lib:component_block"],
+    "items": [],
+    "recipes": [],
+    "functions": [],
+    "scripts": ["scripts/adk_core.js", "scripts/components/multiblock.js"],
+    "customComponents": {
+      "adk:multiblock_controller": "coordinates multi-block structure assembly and state replication"
+    }
+  },
+  "resourcePack": {
+    "hasResourcePack": false,
+    "resourcePackFormat": null,
+    "textures": [],
+    "models": [],
+    "animations": [],
+    "particles": [],
+    "sounds": [],
+    "uiElements": ["multiblock_status_ui"],
+    "renderControllers": {}
+  },
+  "capabilities": {
+    "storageTypes": ["dynamic_properties_storage"],
+    "machineTypes": ["multiblock_machine", "kinetic_network_node"],
+    "transferTypes": ["item_transfer", "fluid_transfer"],
+    "fluidTypes": ["fluid_tank_component"],
+    "energyTypes": ["energy_grid_node"],
+    "automationTypes": ["multiblock_routing"],
+    "networkingTypes": ["client_state_sync"],
+    "customCapabilities": {
+      "multiblock": "dynamic property-backed multi-block structure formation and kinetic synchronization"
+    }
+  },
+  "evidence": {
+    "manifestEvidence": ["README: Modular Script API component framework for advanced Bedrock add-ons"],
+    "scriptEvidence": ["scripts/components/multiblock.js implements multi-block controller registration"],
+    "functionEvidence": [],
+    "componentEvidence": ["custom_components declared for multi-block controllers and dynamic block state"],
+    "uiEvidence": ["scripts/ui/machine_form.js handles container and status display"],
+    "heuristicScores": {
+      "documentation": "1.00"
+    }
+  },
+  "confidence": {
+    "overallScore": 0.92,
+    "assessmentMethod": "readme_and_release_history_review",
+    "strongIndicators": [
+      "GitHub repository with inspectable TypeScript source",
+      "Permissive MIT license",
+      "Explicit multi-block and kinetic Script API component implementations"
+    ],
+    "weakIndicators": [],
+    "gaps": []
+  },
+  "implementationFacts": {
+    "implementationPattern": "Script API custom components with dynamic properties for multi-block synchronization",
+    "limitations": [
+      "Script API execution is client-side/local-world on Bedrock and cannot override authoritative Java state"
+    ],
+    "performanceCharacteristics": [
+      "Lightweight dynamic property lookups with cached component event listeners"
+    ],
+    "persistenceMethods": ["dynamic_properties"],
+    "runtimeHooks": [
+      "world.beforeEvents.worldInitialize",
+      "system.runInterval",
+      "blockComponentRegistry"
+    ],
+    "transferSemantics": ["atomic transfer simulation with rollbacks"],
+    "uiMethods": ["ActionFormData / ModalFormData"],
+    "dependencies": ["@minecraft/server"],
+    "reusability": "high",
+    "adapterCandidate": "generic_multiblock_and_kinetic_framework"
+  },
+  "provenance": {
+    "addedBy": "hydraulic-corpus-bootstrap",
+    "addedEpochMillis": 1799600000000,
+    "lastUpdatedBy": null,
+    "lastUpdatedEpochMillis": null,
+    "corpusVersion": "v2.0.0",
+    "reviewNotes": [
+      "Reviewed 2026-09-12 against the public README and component implementations."
+    ]
+  }
+}

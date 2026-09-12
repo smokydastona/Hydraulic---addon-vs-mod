@@ -28,6 +28,8 @@ import java.nio.file.StandardCopyOption;
 public final class CorpusBuiltinBootstrap {
     private static final String RESOURCE_DIRECTORY = "/hydraulic/corpus/builtin/";
     private static final String[] BUNDLED_CORPUS_FILES = {
+        "adk-lib.json",
+        "remon-furniture.json",
         "bedrock-energistics-core.json",
         "mojang-bedrock-samples.json",
         "utilitycraft-addon-template.json",

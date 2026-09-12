@@ -8,10 +8,28 @@ import org.jetbrains.annotations.Nullable;
 import java.util.List;
 
 public final class MixedResourceMachineProcessingBridge {
+    public interface KineticBridge {
+        float speed(@NotNull Identifier blockIdentifier);
+        float stressCapacity(@NotNull Identifier blockIdentifier);
+        float stressImpact(@NotNull Identifier blockIdentifier);
+        boolean isOverstressed(@NotNull Identifier blockIdentifier);
+        default boolean isOperational(@NotNull Identifier blockIdentifier) {
+            return Math.abs(speed(blockIdentifier)) > 0.001f && !isOverstressed(blockIdentifier);
+        }
+    }
+
+    public interface MultiBlockStructure {
+        boolean isFormed(@NotNull Identifier blockIdentifier);
+        @NotNull List<String> memberPositions(@NotNull Identifier blockIdentifier);
+        int memberCount(@NotNull Identifier blockIdentifier);
+    }
+
     private final CompiledCompatibilityPlan plan;
     private final TransferBridgeFactory.ItemTransferBridge items;
     private final TransferBridgeFactory.FluidTransferBridge fluids;
     private final TransferBridgeFactory.EnergyTransferBridge energy;
+    private final KineticBridge kinetic;
+    private final MultiBlockStructure multiBlock;
     private final List<MixedMachineRecipe> recipes;
     private MixedMachineRecipe activeRecipe;
     private int progress;
@@ -23,11 +41,40 @@ public final class MixedResourceMachineProcessingBridge {
         @Nullable TransferBridgeFactory.EnergyTransferBridge energy,
         @NotNull List<MixedMachineRecipe> recipes
     ) {
+        this(plan, items, fluids, energy, null, null, recipes);
+    }
+
+    MixedResourceMachineProcessingBridge(
+        @NotNull CompiledCompatibilityPlan plan,
+        @Nullable TransferBridgeFactory.ItemTransferBridge items,
+        @Nullable TransferBridgeFactory.FluidTransferBridge fluids,
+        @Nullable TransferBridgeFactory.EnergyTransferBridge energy,
+        @Nullable KineticBridge kinetic,
+        @Nullable MultiBlockStructure multiBlock,
+        @NotNull List<MixedMachineRecipe> recipes
+    ) {
         this.plan = plan;
         this.items = items;
         this.fluids = fluids;
         this.energy = energy;
+        this.kinetic = kinetic;
+        this.multiBlock = multiBlock;
         this.recipes = List.copyOf(recipes);
+    }
+
+    @Nullable
+    public KineticBridge kinetic() {
+        return this.kinetic;
+    }
+
+    @Nullable
+    public MultiBlockStructure multiBlock() {
+        return this.multiBlock;
+    }
+
+    @NotNull
+    public List<MixedMachineRecipe> recipes() {
+        return this.recipes;
     }
 
     public int progress() {
@@ -57,8 +104,16 @@ public final class MixedResourceMachineProcessingBridge {
             this.activeRecipe = recipe;
             this.progress = 0;
         }
+
         if (this.progress < recipe.duration()) {
-            this.progress++;
+            int step = 1;
+            if (this.kinetic != null && this.kinetic.isOperational(blockIdentifier)) {
+                float speed = Math.abs(this.kinetic.speed(blockIdentifier));
+                if (speed > 16.0f) {
+                    step = Math.max(1, Math.round(speed / 16.0f));
+                }
+            }
+            this.progress += step;
             return true;
         }
 
@@ -110,6 +165,14 @@ public final class MixedResourceMachineProcessingBridge {
         if (!hasRequiredBridges(recipe)) {
             return false;
         }
+        if (recipe.requiresMultiBlock() && (this.multiBlock == null || !this.multiBlock.isFormed(blockIdentifier))) {
+            return false;
+        }
+        if (recipe.minKineticSpeed() > 0.0f) {
+            if (this.kinetic == null || !this.kinetic.isOperational(blockIdentifier) || Math.abs(this.kinetic.speed(blockIdentifier)) < recipe.minKineticSpeed()) {
+                return false;
+            }
+        }
         for (ItemSlotStack input : recipe.itemInputs()) {
             TransferBridgeFactory.ItemStackView current = this.items.itemAt(blockIdentifier, input.slot());
             if (current == null || !current.matches(input.stack()) || current.count() < input.stack().count()) {
@@ -142,8 +205,24 @@ public final class MixedResourceMachineProcessingBridge {
         @NotNull List<FluidTankStack> fluidOutputs,
         int energyOutput,
         @Nullable String energySide,
+        float minKineticSpeed,
+        float stressImpact,
+        boolean requiresMultiBlock,
         int duration
     ) {
+        public MixedMachineRecipe(
+            @NotNull List<ItemSlotStack> itemInputs,
+            @NotNull List<FluidTankStack> fluidInputs,
+            int energyInput,
+            @NotNull List<ItemSlotStack> itemOutputs,
+            @NotNull List<FluidTankStack> fluidOutputs,
+            int energyOutput,
+            @Nullable String energySide,
+            int duration
+        ) {
+            this(itemInputs, fluidInputs, energyInput, itemOutputs, fluidOutputs, energyOutput, energySide, 0.0f, 0.0f, false, duration);
+        }
+
         public MixedMachineRecipe {
             itemInputs = List.copyOf(itemInputs);
             fluidInputs = List.copyOf(fluidInputs);
@@ -155,8 +234,11 @@ public final class MixedResourceMachineProcessingBridge {
             if (energyInput < 0 || energyOutput < 0) {
                 throw new IllegalArgumentException("Mixed machine recipe energy amounts must not be negative");
             }
-            if (itemInputs.isEmpty() && fluidInputs.isEmpty() && energyInput == 0) {
-                throw new IllegalArgumentException("Mixed machine recipes require at least one input");
+            if (minKineticSpeed < 0.0f || stressImpact < 0.0f) {
+                throw new IllegalArgumentException("Kinetic parameters must not be negative");
+            }
+            if (itemInputs.isEmpty() && fluidInputs.isEmpty() && energyInput == 0 && minKineticSpeed == 0.0f) {
+                throw new IllegalArgumentException("Mixed machine recipes require at least one input or kinetic requirement");
             }
             if (itemOutputs.isEmpty() && fluidOutputs.isEmpty() && energyOutput == 0) {
                 throw new IllegalArgumentException("Mixed machine recipes require at least one output");

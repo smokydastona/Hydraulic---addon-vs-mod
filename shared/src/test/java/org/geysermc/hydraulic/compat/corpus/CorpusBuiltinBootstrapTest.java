@@ -22,6 +22,8 @@ class CorpusBuiltinBootstrapTest {
         Path builtinDirectory = this.tempDir.resolve("curated").resolve("builtin");
         assertTrue(Files.isDirectory(builtinDirectory));
         for (String fileName : List.of(
+            "adk-lib.json",
+            "remon-furniture.json",
             "bedrock-energistics-core.json",
             "mojang-bedrock-samples.json",
             "utilitycraft-addon-template.json",
@@ -48,7 +50,9 @@ class CorpusBuiltinBootstrapTest {
 
         AddonCorpusIndex index = loader.refreshIndexFromSnapshots();
 
-        assertEquals(13, index.entries().size());
+        assertEquals(15, index.entries().size());
+        assertTrue(index.entries().get("adk-lib").isAdmissible());
+        assertTrue(index.entries().get("remon-furniture").isAdmissible());
         assertTrue(index.entries().get("bedrock-energistics-core").isAdmissible());
         assertTrue(index.entries().get("mojang-bedrock-samples").isAdmissible());
         assertTrue(!index.entries().get("utilitycraft-addon-template").isAdmissible());
@@ -62,6 +66,6 @@ class CorpusBuiltinBootstrapTest {
         assertTrue(index.entries().get("bedrock-oss-bedrock-boost").isAdmissible());
         assertTrue(index.entries().get("bedrock-oss-add-on-registry").isAdmissible());
         assertTrue(index.entries().get("farmers-delight-bedrock").isAdmissible());
-        assertEquals(10, loader.loadAdmissibleEntries().size());
+        assertEquals(12, loader.loadAdmissibleEntries().size());
     }
 }

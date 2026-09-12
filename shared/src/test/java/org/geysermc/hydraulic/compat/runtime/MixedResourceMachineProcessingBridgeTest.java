@@ -151,6 +151,146 @@ class MixedResourceMachineProcessingBridgeTest {
         ));
     }
 
+    @Test
+    void kineticNetworkRejectsWhenOverstressedOrInsufficientSpeed() {
+        TestItemBridge items = TestItemBridge.ready();
+        TestFluidBridge fluids = TestFluidBridge.ready();
+        TestEnergyBridge energy = new TestEnergyBridge(100, 1000);
+        MixedResourceMachineProcessingBridge.MixedMachineRecipe kineticRecipe = new MixedResourceMachineProcessingBridge.MixedMachineRecipe(
+            List.of(new MixedResourceMachineProcessingBridge.ItemSlotStack(0, new TransferBridgeFactory.ItemStackView("minecraft:stone", 1), null)),
+            List.of(),
+            0,
+            List.of(new MixedResourceMachineProcessingBridge.ItemSlotStack(2, new TransferBridgeFactory.ItemStackView("minecraft:iron_ingot", 1), null)),
+            List.of(),
+            0,
+            null,
+            32.0f, // min speed 32 RPM
+            64.0f, // stress impact
+            false,
+            2
+        );
+
+        // Slow kinetic network (16 RPM < 32 RPM required)
+        TestKineticBridge slowKinetic = new TestKineticBridge(16.0f, 128.0f, 32.0f, false);
+        MixedResourceMachineProcessingBridge slowBridge = MachineBridgeFactory.createMixedProcessing(
+            plan(),
+            items,
+            fluids,
+            energy,
+            slowKinetic,
+            null,
+            List.of(kineticRecipe)
+        );
+        assertFalse(slowBridge.tick(MACHINE));
+        assertEquals(0, slowBridge.progress());
+
+        // Overstressed kinetic network
+        TestKineticBridge overstressedKinetic = new TestKineticBridge(64.0f, 32.0f, 64.0f, true);
+        MixedResourceMachineProcessingBridge overstressedBridge = MachineBridgeFactory.createMixedProcessing(
+            plan(),
+            items,
+            fluids,
+            energy,
+            overstressedKinetic,
+            null,
+            List.of(kineticRecipe)
+        );
+        assertFalse(overstressedBridge.tick(MACHINE));
+        assertEquals(0, overstressedBridge.progress());
+
+        // Operational kinetic network (64 RPM >= 32 RPM)
+        TestKineticBridge operationalKinetic = new TestKineticBridge(64.0f, 256.0f, 64.0f, false);
+        MixedResourceMachineProcessingBridge operationalBridge = MachineBridgeFactory.createMixedProcessing(
+            plan(),
+            items,
+            fluids,
+            energy,
+            operationalKinetic,
+            null,
+            List.of(kineticRecipe)
+        );
+        assertTrue(operationalBridge.tick(MACHINE));
+        // Progress accelerates with 64 RPM (step = 4)
+        assertEquals(4, operationalBridge.progress());
+    }
+
+    @Test
+    void multiBlockStructureRequiresFormation() {
+        TestItemBridge items = TestItemBridge.ready();
+        TestFluidBridge fluids = TestFluidBridge.ready();
+        TestEnergyBridge energy = new TestEnergyBridge(100, 1000);
+        MixedResourceMachineProcessingBridge.MixedMachineRecipe multiBlockRecipe = new MixedResourceMachineProcessingBridge.MixedMachineRecipe(
+            List.of(new MixedResourceMachineProcessingBridge.ItemSlotStack(0, new TransferBridgeFactory.ItemStackView("minecraft:stone", 1), null)),
+            List.of(),
+            0,
+            List.of(new MixedResourceMachineProcessingBridge.ItemSlotStack(2, new TransferBridgeFactory.ItemStackView("minecraft:iron_ingot", 1), null)),
+            List.of(),
+            0,
+            null,
+            0.0f,
+            0.0f,
+            true, // requires multiblock formation
+            1
+        );
+
+        TestMultiBlock unformed = new TestMultiBlock(false, List.of());
+        MixedResourceMachineProcessingBridge unformedBridge = MachineBridgeFactory.createMixedProcessing(
+            plan(),
+            items,
+            fluids,
+            energy,
+            null,
+            unformed,
+            List.of(multiBlockRecipe)
+        );
+        assertFalse(unformedBridge.tick(MACHINE));
+
+        TestMultiBlock formed = new TestMultiBlock(true, List.of("0,0,0", "0,1,0", "0,2,0"));
+        MixedResourceMachineProcessingBridge formedBridge = MachineBridgeFactory.createMixedProcessing(
+            plan(),
+            items,
+            fluids,
+            energy,
+            null,
+            formed,
+            List.of(multiBlockRecipe)
+        );
+        assertTrue(formedBridge.tick(MACHINE));
+    }
+
+    private static final class TestKineticBridge implements MixedResourceMachineProcessingBridge.KineticBridge {
+        private final float speed;
+        private final float capacity;
+        private final float impact;
+        private final boolean overstressed;
+
+        TestKineticBridge(float speed, float capacity, float impact, boolean overstressed) {
+            this.speed = speed;
+            this.capacity = capacity;
+            this.impact = impact;
+            this.overstressed = overstressed;
+        }
+
+        @Override public float speed(Identifier id) { return this.speed; }
+        @Override public float stressCapacity(Identifier id) { return this.capacity; }
+        @Override public float stressImpact(Identifier id) { return this.impact; }
+        @Override public boolean isOverstressed(Identifier id) { return this.overstressed; }
+    }
+
+    private static final class TestMultiBlock implements MixedResourceMachineProcessingBridge.MultiBlockStructure {
+        private final boolean formed;
+        private final List<String> positions;
+
+        TestMultiBlock(boolean formed, List<String> positions) {
+            this.formed = formed;
+            this.positions = positions;
+        }
+
+        @Override public boolean isFormed(Identifier id) { return this.formed; }
+        @Override public List<String> memberPositions(Identifier id) { return this.positions; }
+        @Override public int memberCount(Identifier id) { return this.positions.size(); }
+    }
+
     private static MixedResourceMachineProcessingBridge.MixedMachineRecipe recipe() {
         return new MixedResourceMachineProcessingBridge.MixedMachineRecipe(
             List.of(
