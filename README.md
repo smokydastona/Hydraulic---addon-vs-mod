@@ -16,10 +16,6 @@ The canonical source tree is the nested `Hydraulic-mod/` repository that contain
 
 Runtime validation output stays under the canonical tree's ignored `fabric/run/` directory, especially `fabric/run/config/hydraulic/reports/` and `fabric/run/config/hydraulic/cache/`. Run `scripts/validate-repository-topology.ps1` before a release or after changing worktree setup to verify these boundaries without modifying any checkout.
 
-## Documentation Currency
-
-Keep this README and `.github/fork-architecture-plan.md` in the same change set as any user-visible capability, runtime boundary, report, validation result, or supported-workflow change. Before committing, verify each statement against the implementation, focused tests, or a recorded runtime artifact; describe unverified client behavior as a remaining manual check rather than as supported behavior.
-
 ## What is Hydraulic?
 
 [Hydraulic](https://github.com/GeyserMC/Hydraulic) is a companion mod for [Geyser](https://github.com/GeyserMC/Geyser) that allows Bedrock players to connect to modded Minecraft: Java Edition servers.
