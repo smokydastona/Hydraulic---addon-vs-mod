@@ -26,7 +26,10 @@ public final class CapabilityAdapterRegistry {
         new BowItemAdapter(),
         new EntityDefinitionAdapter(),
         new EntityInteractionPromptAdapter(),
-        new FluidBucketTextureAdapter()
+        new FluidBucketTextureAdapter(),
+        new CreateKineticAdapter(),
+        new FarmersDelightAdapter(),
+        new MekanismAdapter()
     );
 
     private CapabilityAdapterRegistry() {

@@ -127,6 +127,25 @@ public record CompiledCompatibilityPlan(
     }
 
     @NotNull
+    public Map<Integer, String> synchronizedProperties() {
+        Map<Integer, String> properties = new LinkedHashMap<>();
+        for (Map.Entry<String, String> entry : this.inventoryFacts.entrySet()) {
+            String prefix = "container.property.";
+            if (!entry.getKey().startsWith(prefix) || entry.getValue().isBlank()) {
+                continue;
+            }
+            try {
+                int propertyId = Integer.parseInt(entry.getKey().substring(prefix.length()));
+                if (propertyId >= 0) {
+                    properties.put(propertyId, entry.getValue());
+                }
+            } catch (NumberFormatException ignored) {
+            }
+        }
+        return Map.copyOf(properties);
+    }
+
+    @NotNull
     public CompatibilityContract contract() {
         return CompatibilityContract.from(this);
     }

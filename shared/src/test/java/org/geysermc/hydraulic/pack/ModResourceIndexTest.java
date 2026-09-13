@@ -84,6 +84,7 @@ class ModResourceIndexTest {
         assertEquals(Set.of("machines/crusher.ogg"), index.assetEntries("sounds"));
         assertEquals(Set.of("en_us.json"), index.assetEntries("lang"));
         assertEquals(Set.of("examplemod:machines/crusher"), index.assetEntries("recipes"));
+        assertEquals(recipe, index.resolveRecipePath(Identifier.fromNamespaceAndPath("examplemod", "machines/crusher")));
         assertEquals(Set.of("blocks/machines.json"), index.assetEntries("tags"));
         assertEquals(Set.of("blocks/crusher.json"), index.assetEntries("loot_tables"));
                 assertEquals(Set.of(), index.dependencyNamespaces());

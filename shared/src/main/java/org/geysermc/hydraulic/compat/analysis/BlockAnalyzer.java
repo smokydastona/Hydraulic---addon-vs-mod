@@ -48,6 +48,9 @@ public final class BlockAnalyzer implements CompatibilityAnalyzer {
         // Computed before the support results so "behavior" can reflect real fact completeness,
         // not just the presence of a machine/transfer declaration.
         Map<String, String> behaviorFacts = BehaviorFactExtractor.extractFacts(patches);
+        org.geysermc.hydraulic.compat.discovery.SemanticDiscoveryEngine.DiscoveredSemanticProfile semanticProfile = org.geysermc.hydraulic.compat.discovery.SemanticDiscoveryEngine.discover(identifier, behaviorFacts, descriptor.registered());
+        behaviorFacts = semanticProfile.facts();
+
         AnalyzerSupport.MachineBehaviorReadiness machineReadiness = AnalyzerSupport.machineBehaviorReadiness(behaviorFacts);
         boolean machineExecutable = machineReadiness == AnalyzerSupport.MachineBehaviorReadiness.EXECUTABLE;
 

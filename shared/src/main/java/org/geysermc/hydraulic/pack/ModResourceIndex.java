@@ -37,6 +37,7 @@ public final class ModResourceIndex {
     private final Map<Identifier, Set<Key>> modelDependencies;
     private final Map<Identifier, Set<Key>> equipmentDependencies;
     private final Map<String, Set<String>> assetEntries;
+    private final Map<Identifier, Path> recipeFiles;
     private final ResourceFingerprint fingerprint;
     private final Map<String, ResourceFingerprint> fingerprintsByKind;
     private final boolean hasAssetFiles;
@@ -56,6 +57,7 @@ public final class ModResourceIndex {
         @NotNull Map<Identifier, Set<Key>> modelDependencies,
         @NotNull Map<Identifier, Set<Key>> equipmentDependencies,
         @NotNull Map<String, Set<String>> assetEntries,
+        @NotNull Map<Identifier, Path> recipeFiles,
         @NotNull ResourceFingerprint fingerprint,
         @NotNull Map<String, ResourceFingerprint> fingerprintsByKind,
         boolean hasAssetFiles,
@@ -73,6 +75,7 @@ public final class ModResourceIndex {
         this.modelDependencies = copyDependencyMap(modelDependencies);
         this.equipmentDependencies = copyDependencyMap(equipmentDependencies);
         this.assetEntries = copyAssetEntries(assetEntries);
+        this.recipeFiles = Map.copyOf(recipeFiles);
         this.fingerprint = fingerprint;
         this.fingerprintsByKind = Map.copyOf(new LinkedHashMap<>(fingerprintsByKind));
         this.hasAssetFiles = hasAssetFiles;
@@ -94,6 +97,7 @@ public final class ModResourceIndex {
         Map<Identifier, Set<Key>> modelDependencies = new LinkedHashMap<>();
         Map<Identifier, Set<Key>> equipmentDependencies = new LinkedHashMap<>();
         Map<String, Set<String>> assetEntries = new LinkedHashMap<>();
+        Map<Identifier, Path> recipeFiles = new LinkedHashMap<>();
         List<ScanRoot> scanRoots = new ArrayList<>();
         List<FileStamp> fileStamps = new ArrayList<>();
         List<DirectoryStamp> directoryStamps = new ArrayList<>();
@@ -164,7 +168,7 @@ public final class ModResourceIndex {
                     }
 
                     fileStamps.add(fileStamp(path, data, rootOrdinal, "data"));
-                    indexDataFile(path, data, assetEntries);
+                    indexDataFile(path, data, assetEntries, recipeFiles);
                     FileMetadata metadata = fileMetadata(path, data, rootOrdinal, "data");
                     fingerprintHasher.putString(metadata.stablePath(), java.nio.charset.StandardCharsets.UTF_8);
                     fingerprintHasher.putLong(metadata.size());
@@ -191,6 +195,7 @@ public final class ModResourceIndex {
             modelDependencies,
             equipmentDependencies,
             assetEntries,
+            recipeFiles,
             new ResourceFingerprint(FINGERPRINT_ALGORITHM, indexedFileCount, indexedTotalSizeBytes, latestModifiedEpochMillis, fingerprintHasher.hash().toString()),
             finishKindFingerprints(kindHashers, kindFileCounts, kindSizes, kindLatestModified),
             hasAssetFiles,
@@ -213,6 +218,7 @@ public final class ModResourceIndex {
             toIdentifierKeySetMap(snapshot.modelDependencies()),
             toIdentifierKeySetMap(snapshot.equipmentDependencies()),
             snapshot.assetEntries(),
+            Map.of(),
             snapshot.fingerprint(),
             snapshot.fingerprintsByKind(),
             snapshot.hasAssetFiles(),
@@ -315,6 +321,11 @@ public final class ModResourceIndex {
     @NotNull
     public Set<String> assetEntries(@NotNull String category) {
         return this.assetEntries.getOrDefault(category, Set.of());
+    }
+
+    @Nullable
+    public Path resolveRecipePath(@NotNull Identifier recipe) {
+        return this.recipeFiles.get(recipe);
     }
 
     @Nullable
@@ -462,7 +473,8 @@ public final class ModResourceIndex {
     private static void indexDataFile(
         @NotNull Path file,
         @NotNull Path dataRoot,
-        @NotNull Map<String, Set<String>> assetEntries
+        @NotNull Map<String, Set<String>> assetEntries,
+        @NotNull Map<Identifier, Path> recipeFiles
     ) {
         Path relative = dataRoot.relativize(file);
         if (relative.getNameCount() < 3) {
@@ -477,6 +489,7 @@ public final class ModResourceIndex {
             Identifier identifier = identifier(namespace, namespacedRelative);
             if (identifier != null) {
                 assetEntries.computeIfAbsent("recipes", ignored -> new LinkedHashSet<>()).add(identifier.toString());
+                recipeFiles.putIfAbsent(identifier, file);
             }
             return;
         }

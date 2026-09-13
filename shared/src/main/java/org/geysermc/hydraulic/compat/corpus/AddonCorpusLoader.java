@@ -328,6 +328,28 @@ public final class AddonCorpusLoader {
         return this.index;
     }
 
+    @NotNull
+    public String matchPatternStrategy(@NotNull Map<String, String> capabilityFacts) {
+        boolean item = Boolean.parseBoolean(capabilityFacts.getOrDefault("can_insert", "false")) || Boolean.parseBoolean(capabilityFacts.getOrDefault("can_extract", "false"));
+        boolean fluid = Boolean.parseBoolean(capabilityFacts.getOrDefault("can_insert_fluid", "false")) || Boolean.parseBoolean(capabilityFacts.getOrDefault("can_extract_fluid", "false"));
+        boolean energy = Boolean.parseBoolean(capabilityFacts.getOrDefault("can_receive_energy", "false")) || Boolean.parseBoolean(capabilityFacts.getOrDefault("can_provide_energy", "false"));
+        boolean processing = Boolean.parseBoolean(capabilityFacts.getOrDefault("has_processing", "false"));
+
+        if (item && fluid && energy && processing) {
+            return "BEDROCK_MIXED_RESOURCE_PROCESSING_STRATEGY";
+        }
+        if (item && processing) {
+            return "BEDROCK_ITEM_PROCESSING_STRATEGY";
+        }
+        if (fluid && processing) {
+            return "BEDROCK_FLUID_PROCESSING_STRATEGY";
+        }
+        if (item) {
+            return "BEDROCK_ITEM_CONTAINER_STRATEGY";
+        }
+        return "BEDROCK_GENERIC_VISUAL_STRATEGY";
+    }
+
     /**
      * Returns the manifest-equivalent identity of the loaded local corpus index.
      * The value changes whenever corpus entries, admissibility, or index metadata changes.

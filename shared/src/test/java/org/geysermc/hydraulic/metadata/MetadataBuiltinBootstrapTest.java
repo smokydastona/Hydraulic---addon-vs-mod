@@ -31,7 +31,10 @@ class MetadataBuiltinBootstrapTest {
             "create.mechanical_mixer.json",
             "mekanism.digital_miner.json",
             "mekanism.thermoelectric_generator.json",
-            "mekanism.chemical_crystallizer.json"
+            "mekanism.chemical_crystallizer.json",
+            "botania.mana_pool.json",
+            "ae2.inscriber.json",
+            "thermal.machine_pulverizer.json"
         )) {
             assertTrue(Files.isRegularFile(builtinDir.resolve(fileName)), "missing " + fileName);
         }
@@ -49,8 +52,11 @@ class MetadataBuiltinBootstrapTest {
         assertNotNull(index.blockMapping(Identifier.fromNamespaceAndPath("mekanism", "digital_miner")));
         assertNotNull(index.blockMapping(Identifier.fromNamespaceAndPath("mekanismgenerators", "thermoelectric_generator")));
         assertNotNull(index.blockMapping(Identifier.fromNamespaceAndPath("mekanism", "chemical_crystallizer")));
+        assertNotNull(index.blockMapping(Identifier.fromNamespaceAndPath("botania", "mana_pool")));
+        assertNotNull(index.blockMapping(Identifier.fromNamespaceAndPath("ae2", "inscriber")));
+        assertNotNull(index.blockMapping(Identifier.fromNamespaceAndPath("thermal", "machine_pulverizer")));
 
-        assertTrue(index.summary().patchCount() >= 7);
-        assertTrue(index.summary().blockMappingCount() >= 7);
+        assertTrue(index.summary().patchCount() >= 10);
+        assertTrue(index.summary().blockMappingCount() >= 10);
     }
 }

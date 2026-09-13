@@ -110,6 +110,16 @@ public class PackListener {
 
             event.register(ResourcePack.create(PackCodec.path(packPath)), PriorityOption.NORMAL);
         });
+
+        this.manager.companionManager().registerableResourcePacks().forEach((companionId, packPath) -> {
+            if (!Files.exists(packPath)) {
+                LOGGER.warn("Skipping companion pack registration for '{}' because {} no longer exists", companionId, packPath);
+                return;
+            }
+
+            event.register(ResourcePack.create(PackCodec.path(packPath)), PriorityOption.NORMAL);
+            LOGGER.info("Registered companion resource pack '{}' with Geyser", companionId);
+        });
     }
 
     synchronized PreparedPacks ensurePacksPrepared() {

@@ -557,6 +557,7 @@ public final class CompatibilityManager {
         private final Map<String, Set<String>> assetKeys = new LinkedHashMap<>();
         private final Map<String, Set<String>> metadataEntries = new LinkedHashMap<>();
         private final Map<String, Set<String>> patchEntries = new LinkedHashMap<>();
+        private final Map<String, String> recipePaths = new LinkedHashMap<>();
 
         private MutableInventory(@NotNull ModInfo mod) {
             this.mod = mod;
@@ -575,6 +576,12 @@ public final class CompatibilityManager {
             this.addIndexedAssets("sounds", resourceIndex.assetEntries("sounds"));
             this.addIndexedAssets("lang", resourceIndex.assetEntries("lang"));
             this.addIndexedAssets("recipes", resourceIndex.assetEntries("recipes"));
+            for (String recipe : resourceIndex.assetEntries("recipes")) {
+                Path path = resourceIndex.resolveRecipePath(Identifier.parse(recipe));
+                if (path != null) {
+                    this.recipePaths.putIfAbsent(recipe, path.toString());
+                }
+            }
             this.addIndexedAssets("tags", resourceIndex.assetEntries("tags"));
             this.addIndexedAssets("loot_tables", resourceIndex.assetEntries("loot_tables"));
         }
@@ -659,7 +666,8 @@ public final class CompatibilityManager {
                 metadataCounts,
                 metadataEntries,
                 patchCounts,
-                patchEntries
+                patchEntries,
+                this.recipePaths
             );
         }
     }

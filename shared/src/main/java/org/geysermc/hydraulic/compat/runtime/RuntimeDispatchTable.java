@@ -464,6 +464,11 @@ public final class RuntimeDispatchTable {
         List<String> menuRuntimeRequirements = bridgeRequirements(runtimeBridgeKinds, "menu");
         List<String> blockEntityRuntimeRequirements = bridgeRequirements(runtimeBridgeKinds, "block_entity");
         List<String> fluidRuntimeRequirements = bridgeRequirements(runtimeBridgeKinds, "fluid");
+        MenuPatchTemplate menuPatchTemplate = mappingResolver.menuPatchTemplate(javaIdentifier);
+        Map<String, String> inventoryFacts = new LinkedHashMap<>(object.inventoryFacts());
+        if (menuPatchTemplate != null) {
+            inventoryFacts.putAll(menuPatchTemplate.inventoryFacts());
+        }
         List<CorpusEvidenceRef> corpusEvidence = corpusEvidenceForMod.stream()
             .filter(ref -> ref.relatedBridgeKind() != null && runtimeBridgeKinds.contains(ref.relatedBridgeKind()))
             .toList();
@@ -480,7 +485,7 @@ public final class RuntimeDispatchTable {
             object.adapterBindings(),
             object.runtimeRequirements(),
             runtimeBridgeKinds,
-            object.inventoryFacts(),
+            inventoryFacts,
             allowsCreativeExposure,
             creativeExposureReason,
             allowsCustomRegistration,

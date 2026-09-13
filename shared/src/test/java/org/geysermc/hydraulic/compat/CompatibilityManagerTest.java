@@ -50,7 +50,14 @@ class CompatibilityManagerTest {
         Files.createDirectories(recipe.getParent());
         Files.writeString(blockstate, "{}");
         Files.writeString(texture, "png");
-        Files.writeString(recipe, "{}");
+                Files.writeString(recipe, """
+                        {
+                            "type": "minecraft:smelting",
+                            "ingredient": {"item": "minecraft:iron_ore"},
+                            "result": {"id": "minecraft:iron_ingot", "count": 1},
+                            "cookingtime": 200
+                        }
+                        """);
 
         ModInfo mod = new ModInfo("examplemod", "example", "Example Mod", "1.0.0", null, List.of(root));
         ModResourceIndex resourceIndex = ModResourceIndex.create(mod, LoggerFactory.getLogger("CompatibilityManagerTest"));
@@ -72,6 +79,18 @@ class CompatibilityManagerTest {
         assertTrue(inventory.assetEntries().get("blockstates").contains("machines/crusher.json"));
         assertTrue(inventory.assetEntries().get("textures").contains("block/crusher.png"));
         assertTrue(inventory.assetEntries().get("recipes").contains("example:machines/crusher"));
+        assertEquals(recipe.toString(), inventory.recipePaths().get("example:machines/crusher"));
+        assertEquals(recipe, inventory.recipePath("example:machines/crusher"));
+
+        CompatibilityObject recipeObject = registry.report().profile("examplemod").objects().stream()
+            .filter(object -> object.contentType().equals("recipe"))
+            .findFirst()
+            .orElseThrow();
+        assertEquals("valid", recipeObject.inventoryFacts().get("recipe.fact_status"));
+        assertEquals("minecraft:smelting", recipeObject.inventoryFacts().get("recipe.type"));
+        assertEquals("minecraft:iron_ore", recipeObject.inventoryFacts().get("recipe.input.item"));
+        assertEquals("minecraft:iron_ingot", recipeObject.inventoryFacts().get("recipe.output.item"));
+        assertEquals("200", recipeObject.inventoryFacts().get("recipe.duration"));
     }
 
     @Test

@@ -92,7 +92,12 @@ class RuntimeDispatchTableTest {
             Map.of(entity, new IdentifierMapping(entity, Identifier.fromNamespaceAndPath("example", "bedrock_entity"), MappingOwnership.USER, "entity.json", 1000, 0)),
             Map.of(menu, new IdentifierMapping(menu, Identifier.fromNamespaceAndPath("example", "bedrock_menu"), MappingOwnership.USER, "menu.json", 1000, 0)),
             Map.of(
-                menu, List.of(new ContentPatch(menu, "menu", Map.of("bedrock.menu.container_type", "generic_9x3"), MappingOwnership.USER, "menu.patch.json", 1000, 0)),
+                menu, List.of(new ContentPatch(menu, "menu", Map.of(
+                    "bedrock.menu.container_type", "generic_9x3",
+                    "container.slot.input", "2",
+                    "container.slot.output", "0",
+                    "container.property.0", "progress"
+                ), MappingOwnership.USER, "menu.patch.json", 1000, 0)),
                 blockEntity, List.of(new ContentPatch(blockEntity, "block_entity", Map.of("bedrock.block_entity.id", "BedrockChest", "bedrock.block_entity.data.CustomName", "demo"), MappingOwnership.USER, "block_entity.patch.json", 1000, 0))
             ),
             List.of(),
@@ -143,9 +148,7 @@ class RuntimeDispatchTableTest {
                             ),
                             object("entity", entity.toString(), Map.of("behavior_required", "true", "behavior_tag", "visual_only_runtime"), supportResults(SupportLevel.ADAPTED, SupportLevel.ADAPTED, SupportLevel.APPROXIMATED)),
                             object("menu", menu.toString(), Map.of(
-                                "container.archetype", "machine",
-                                "container.slot.input", "2",
-                                "container.slot.output", "0"
+                                "container.archetype", "machine"
                             ), supportResults(SupportLevel.AUTOMATIC, SupportLevel.AUTOMATIC, SupportLevel.AUTOMATIC)),
                             object("block_entity", blockEntity.toString(), Map.of(), supportResults(SupportLevel.AUTOMATIC, SupportLevel.AUTOMATIC, SupportLevel.AUTOMATIC)),
                             object("item", fluidBucket.toString(), Map.of("fluid_source", fluid.toString(), "bucket_texture", "example:bucket"), supportResults(SupportLevel.AUTOMATIC, SupportLevel.ADAPTED, SupportLevel.AUTOMATIC)),
@@ -208,6 +211,7 @@ class RuntimeDispatchTableTest {
         assertEquals(ContainerArchetype.MACHINE, menuPlan.containerArchetype());
         assertEquals(List.of(2), menuPlan.slotRoles().get(SlotRole.INPUT));
         assertEquals(List.of(0), menuPlan.slotRoles().get(SlotRole.OUTPUT));
+        assertEquals(Map.of(0, "progress"), menuPlan.synchronizedProperties());
 
         var blockEntityPlan = registry.dispatchTable().blockEntity(blockEntity);
         assertNotNull(blockEntityPlan);

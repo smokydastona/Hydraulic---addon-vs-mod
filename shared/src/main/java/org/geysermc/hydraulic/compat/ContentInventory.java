@@ -2,12 +2,15 @@ package org.geysermc.hydraulic.compat;
 
 import org.geysermc.hydraulic.compat.model.ModFingerprint;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.nio.file.Path;
+import java.nio.file.InvalidPathException;
 import java.util.Set;
 
 public final class ContentInventory {
@@ -41,8 +44,29 @@ public final class ContentInventory {
         @NotNull Map<String, Integer> metadataCounts,
         @NotNull Map<String, List<String>> metadataEntries,
         @NotNull Map<String, Integer> patchCounts,
-        @NotNull Map<String, List<String>> patchEntries
+        @NotNull Map<String, List<String>> patchEntries,
+        @NotNull Map<String, String> recipePaths
     ) {
+        public ModContentInventory(
+            @NotNull String modId,
+            @NotNull String namespace,
+            @NotNull String name,
+            @NotNull String version,
+            @NotNull List<String> roots,
+            @NotNull ModFingerprint fingerprint,
+            @NotNull Map<String, Integer> registryCounts,
+            @NotNull Map<String, List<String>> registryEntries,
+            @NotNull Map<String, Integer> assetCounts,
+            @NotNull Map<String, List<String>> assetEntries,
+            @NotNull Map<String, Integer> metadataCounts,
+            @NotNull Map<String, List<String>> metadataEntries,
+            @NotNull Map<String, Integer> patchCounts,
+            @NotNull Map<String, List<String>> patchEntries
+        ) {
+            this(modId, namespace, name, version, roots, fingerprint, registryCounts, registryEntries, assetCounts,
+                assetEntries, metadataCounts, metadataEntries, patchCounts, patchEntries, Map.of());
+        }
+
         public ModContentInventory {
             roots = List.copyOf(roots);
             registryCounts = Collections.unmodifiableMap(new LinkedHashMap<>(registryCounts));
@@ -53,6 +77,20 @@ public final class ContentInventory {
             metadataEntries = immutableCopy(metadataEntries);
             patchCounts = Collections.unmodifiableMap(new LinkedHashMap<>(patchCounts));
             patchEntries = immutableCopy(patchEntries);
+            recipePaths = Collections.unmodifiableMap(new LinkedHashMap<>(recipePaths));
+        }
+
+        @Nullable
+        public Path recipePath(@NotNull String recipeIdentifier) {
+            String path = this.recipePaths.get(recipeIdentifier);
+            if (path == null) {
+                return null;
+            }
+            try {
+                return Path.of(path);
+            } catch (InvalidPathException ignored) {
+                return null;
+            }
         }
 
         @NotNull

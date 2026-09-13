@@ -22,7 +22,10 @@ public final class MetadataBuiltinBootstrap {
         "create.mechanical_mixer.json",
         "mekanism.digital_miner.json",
         "mekanism.thermoelectric_generator.json",
-        "mekanism.chemical_crystallizer.json"
+        "mekanism.chemical_crystallizer.json",
+        "botania.mana_pool.json",
+        "ae2.inscriber.json",
+        "thermal.machine_pulverizer.json"
     };
 
     private MetadataBuiltinBootstrap() {

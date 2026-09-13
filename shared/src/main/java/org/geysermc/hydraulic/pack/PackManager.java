@@ -10,11 +10,13 @@ import net.minecraft.core.component.DataComponents;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.Identifier;
+import net.minecraft.server.MinecraftServer;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.equipment.Equippable;
 import org.geysermc.event.Event;
 import org.geysermc.geyser.api.GeyserApi;
 import org.geysermc.hydraulic.cache.ArtifactCache;
+import org.geysermc.hydraulic.companion.CompanionManager;
 import org.geysermc.hydraulic.cache.ConversionKey;
 import org.geysermc.hydraulic.Constants;
 import org.geysermc.hydraulic.HydraulicImpl;
@@ -108,6 +110,7 @@ public class PackManager {
     private final AdapterCatalogCache adapterCatalogCache;
     private final CompatibilityHandoffQueue handoffQueue;
     private final CompatibilityHandoffExporter handoffExporter;
+    private final CompanionManager companionManager;
     private final AddonCorpusLoader corpusLoader;
     private final CorpusSnapshotImporter corpusImporter;
     private final CorpusReportWriter corpusReportWriter;
@@ -116,6 +119,7 @@ public class PackManager {
     private final TextureResolutionCache textureResolutionCache = new TextureResolutionCache();
     private final PackValidator packValidator = new PackValidator();
     private final List<PackModule<?>> modules = new ArrayList<>();
+    private PackCdnServer cdnServer;
 
     private final ListMultimap<String, ModInfo> namespacesToMods = MultimapBuilder.hashKeys().arrayListValues(1).build();
     private final ListMultimap<String, Identifier> modsToBlocks = MultimapBuilder.hashKeys().arrayListValues().build();
@@ -152,6 +156,7 @@ public class PackManager {
         this.handoffQueue = new CompatibilityHandoffQueue(LOGGER, cachePath);
         this.handoffExporter = new CompatibilityHandoffExporter(LOGGER, this.handoffQueue, cachePath);
         Path dataPath = hydraulic.dataFolder(Constants.MOD_ID);
+        this.companionManager = new CompanionManager(LOGGER, dataPath);
         this.corpusLoader = new AddonCorpusLoader(LOGGER, dataPath);
         this.corpusImporter = new CorpusSnapshotImporter(LOGGER, this.corpusLoader);
         this.corpusReportWriter = new CorpusReportWriter(LOGGER, dataPath);
@@ -168,6 +173,7 @@ public class PackManager {
         this.handoffQueue.ensureLayout();
         this.handoffQueue.loadQueueState();
         this.handoffExporter.scheduleRetryProcessing();
+        this.companionManager.initialize();
         this.corpusLoader.ensureLayout();
         CorpusBuiltinBootstrap.installBuiltinEntries(LOGGER, this.hydraulic.dataFolder(Constants.MOD_ID).resolve("corpus"));
         this.corpusLoader.loadIndex();
@@ -178,6 +184,10 @@ public class PackManager {
         this.javaModCorpusLoader.loadIndex();
         this.javaModCorpusLoader.refreshIndexFromSnapshots();
         this.javaModCorpusReportWriter.writeReport(this.javaModCorpusLoader.index(), this.javaModCorpusLoader.loadAdmissibleEntries());
+
+        this.cdnServer = new PackCdnServer(LOGGER, hydraulic.dataFolder(Constants.MOD_ID).resolve("packs"), 8088);
+        this.cdnServer.start();
+
         long resourceIndexStarted = System.nanoTime();
         LookupSummary lookupSummary = initializeModLookups();
         long indexedResourcesMillis = nanosToMillis(System.nanoTime() - resourceIndexStarted);
@@ -906,6 +916,20 @@ public class PackManager {
     @NotNull
     public CompatibilityRegistry compatibilityRegistry() {
         return this.compatibilityRegistry;
+    }
+
+    @NotNull
+    public CompanionManager companionManager() {
+        return this.companionManager;
+    }
+
+    /**
+     * Installs the Java-side companion detection signal now that the server has
+     * started, and writes the final companion report. Must be called once from
+     * server-starting lifecycle code, after {@link #initialize()}.
+     */
+    public void installCompanionSignal(@NotNull MinecraftServer server) {
+        this.companionManager.installSignalBridge(server);
     }
 
     @NotNull

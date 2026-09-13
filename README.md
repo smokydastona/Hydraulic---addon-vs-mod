@@ -363,6 +363,84 @@ Phlodgate will not claim that a machine is fully supported simply because its bl
 
 ---
 
+# Bedrock Companion Packages
+
+Phlodgate can automatically deliver a custom Bedrock "companion" (a resource pack, optionally
+paired with a behavior pack) to every Bedrock player connecting through Geyser. This is a
+separate, first-class subsystem (`org.geysermc.hydraulic.companion`) from the Bedrock addon
+corpus below: corpus entries are advisory research evidence, while a companion package is an
+approved, locally installed artifact that Phlodgate is allowed to deploy.
+
+### The real Geyser boundary this respects
+
+Geyser supports pushing Bedrock **resource packs** to a connecting session. It does not install
+or execute Bedrock **behavior-pack** scripts on the client — there is no server-side Bedrock
+add-on execution model to hook into when the backing server is a Java server. Because of that:
+
+* The companion's **resource pack** is built, content-addressed, cached, and registered with
+  Geyser through the same `GeyserDefineResourcePacksEvent` mechanism used for mod-converted
+  packs, so it is delivered automatically to every Bedrock/Geyser session.
+* The companion's **behavior pack** is never sent over the network or executed by Geyser. If a
+  companion's behavior pack contains a Script API module meant to run everywhere, the player must
+  enable it themselves as a Bedrock "Global Resource" on their own client. Phlodgate only parses
+  and documents its declared capabilities for `companion-report.json`; it never pretends this
+  makes the behavior pack execute through Geyser.
+* The one genuine Java-to-Bedrock "behavior" signal Phlodgate implements is a real scoreboard
+  objective, `phlodgate_bridge`, created via the vanilla scoreboard API and translated to Bedrock
+  by Geyser like any other objective. Companions can detect a live Hydraulic-Phlodgate server by
+  checking for this objective (or for modded item/entity namespaces already visible through
+  Geyser's own custom content registration) instead of relying on anything Geyser cannot deliver.
+
+### Package layout
+
+```text
+config/hydraulic/companions/<companion-id>/
+  companion.json
+  resource_pack/
+    manifest.json
+    ...
+  behavior_pack/        (optional, documentation/capability-reporting only)
+    manifest.json
+    ...
+```
+
+`companion.json` fields:
+
+* `id` (required): stable companion identifier.
+* `name`, `version`: display metadata.
+* `resourcePack` / `behaviorPack`: directory names (defaults: `resource_pack`, none).
+* `executionMode`: `client_global_behavior_pack` (default) or `geyser_resource_pack_only`.
+* `capabilities`: array of `{ "id", "description", "requiresServerBridge" }` entries.
+
+### What Phlodgate actually does with a companion package
+
+1. Discover every subdirectory of `config/hydraulic/companions`.
+2. Validate `companion.json` plus the Bedrock `manifest.json` of the resource (and behavior, if
+   present) pack. One invalid companion is rejected without affecting the others.
+3. Compute a deterministic SHA-256 fingerprint of the resource pack directory and build a
+   content-addressed `.mcpack` under `config/hydraulic/cache/companions`, reusing the cached
+   archive on unchanged content.
+4. Register the built `.mcpack` with Geyser so it reaches every Bedrock session.
+5. Classify every declared capability: capabilities that don't need server involvement are
+   `CLIENT_LOCAL_SUPPORTED`; the scoreboard-signal capability is `SERVER_SIGNAL_SUPPORTED` once
+   the real bridge installs; anything else that claims `requiresServerBridge: true` without a real
+   implemented bridge is honestly reported `UNSUPPORTED_NO_BRIDGE` — it is never faked as working.
+6. Write `config/hydraulic/reports/companion-report.json` with every companion's build artifact,
+   validation issues, and per-capability support status.
+
+### Installing the bundled Phlodgate Add-On companion
+
+`scripts/deploy-companion-pack.ps1` builds the `Plodgate_Add-on` project (`npm run package`) and
+installs its `RP/`/`BP/` output plus a generated `companion.json` into
+`fabric/run/config/hydraulic/companions/phlodgate`. Run it once after cloning, and again whenever
+the add-on's version changes:
+
+```powershell
+scripts\deploy-companion-pack.ps1
+```
+
+---
+
 # Bedrock Addon Corpus
 
 Phlodgate can load normalized, locally reviewed Bedrock addon records as offline compatibility evidence. It does not crawl GitHub, CurseForge, or other remote sources during startup.

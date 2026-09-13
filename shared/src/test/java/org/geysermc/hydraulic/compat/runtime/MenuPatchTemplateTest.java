@@ -80,4 +80,50 @@ class MenuPatchTemplateTest {
         assertTrue(!MenuPatchTemplate.isSupportedContainerType(MenuPatchTemplate.normalizeContainerTypeName("not_a_real_container")));
         assertTrue(!MenuPatchTemplate.supports(List.of()));
     }
+
+    @Test
+    void compilesValidatedSlotRolesAndSynchronizedProperties() {
+        MenuPatchTemplate template = MenuPatchTemplate.resolve(List.of(new ContentPatch(
+            Identifier.fromNamespaceAndPath("test", "machine_menu"),
+            "menu",
+            Map.of(
+                "bedrock.menu.container_type", "generic_9x3",
+                "container.slot.input", "2, 3",
+                "container.slot.output", "0",
+                "container.property.0", "progress"
+            ),
+            MappingOwnership.USER,
+            "user/menus.json",
+            MappingOwnership.USER.priority(),
+            0
+        )));
+
+        assertNotNull(template);
+        assertEquals(List.of(2, 3), template.slotRoles().get(SlotRole.INPUT));
+        assertEquals(List.of(0), template.slotRoles().get(SlotRole.OUTPUT));
+        assertEquals(Map.of(0, "progress"), template.synchronizedProperties());
+    }
+
+    @Test
+    void dropsMalformedSlotAndPropertyFactsFailClosed() {
+        MenuPatchTemplate template = MenuPatchTemplate.resolve(List.of(new ContentPatch(
+            Identifier.fromNamespaceAndPath("test", "machine_menu"),
+            "menu",
+            Map.of(
+                "bedrock.menu.container_type", "generic_9x3",
+                "container.slot.input", "2, -1",
+                "container.slot.output", "0, 0",
+                "container.property.-1", "progress",
+                "container.property.bad", "energy"
+            ),
+            MappingOwnership.USER,
+            "user/menus.json",
+            MappingOwnership.USER.priority(),
+            0
+        )));
+
+        assertNotNull(template);
+        assertTrue(template.slotRoles().isEmpty());
+        assertTrue(template.synchronizedProperties().isEmpty());
+    }
 }

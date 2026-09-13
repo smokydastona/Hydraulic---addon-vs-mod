@@ -60,6 +60,7 @@ public class HydraulicImpl implements EventRegistrar {
         this.server = server;
 
         this.packManager.initialize();
+        this.packManager.installCompanionSignal(server);
     }
 
     /**

@@ -1,6 +1,10 @@
 # Created by https://www.toptal.com/developers/gitignore/api/git,java,gradle,eclipse,netbeans,jetbrains+all,visualstudiocode
 # Edit at https://www.toptal.com/developers/gitignore?templates=git,java,gradle,eclipse,netbeans,jetbrains+all,visualstudiocode
 
+# Local, redirected Gradle user home (see repo memory build-notes)
+.gradle-user-home/
+.tmp/
+
 ### Eclipse ###
 .metadata
 bin/
