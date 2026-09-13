@@ -16,6 +16,10 @@ The canonical source tree is the nested `Hydraulic-mod/` repository that contain
 
 Runtime validation output stays under the canonical tree's ignored `fabric/run/` directory, especially `fabric/run/config/hydraulic/reports/` and `fabric/run/config/hydraulic/cache/`. Run `scripts/validate-repository-topology.ps1` before a release or after changing worktree setup to verify these boundaries without modifying any checkout.
 
+## Documentation Currency
+
+Keep this README and `.github/fork-architecture-plan.md` in the same change set as any user-visible capability, runtime boundary, report, validation result, or supported-workflow change. Before committing, verify each statement against the implementation, focused tests, or a recorded runtime artifact; describe unverified client behavior as a remaining manual check rather than as supported behavior.
+
 ## What is Hydraulic?
 
 [Hydraulic](https://github.com/GeyserMC/Hydraulic) is a companion mod for [Geyser](https://github.com/GeyserMC/Geyser) that allows Bedrock players to connect to modded Minecraft: Java Edition servers.
@@ -452,15 +456,21 @@ config/hydraulic/corpus/
        sources/
        generated/
        curated/
+       java/
+         sources/
+         generated/
+         curated/
 ```
 
 Entries use the typed `AddonCorpusEntry` schema already used by the compatibility subsystem. When the same corpus ID exists in more than one directory, precedence is `curated` over `generated` over `sources`. Invalid entries are rejected with warnings; valid inadmissible entries remain reportable but are excluded from compatibility evidence.
+
+On startup, Hydraulic seeds its reviewed Bedrock addon snapshots into `curated/builtin/` and reviewed Java capability-semantics snapshots into `java/curated/builtin/`. The bundled Bedrock corpus currently contains 15 records, of which 12 are admissible; the Java corpus contains two admissible references for Forge Capabilities and the Fabric Transfer API. These built-in directories are Hydraulic-owned and overwritten when the bundled snapshot changes. Server owners should place their own curated records directly under `curated/` or `java/curated/`, outside `builtin/`.
 
 The shared `CorpusSnapshotImporter` can ingest a local Bedrock addon source directory or ZIP archive into `generated/`. It deterministically extracts manifest versions/dependencies, behavior and resource-pack structure, textures, models, recipes, functions, scripts, UI files, custom-component evidence, GameTest usage, and capability-pattern hints. It is bounded to 50,000 files and 64 MiB, rejects symbolic links and unsafe ZIP paths, and never executes scripts or copies source assets into Hydraulic.
 
 Import requests must provide explicit source and license facts. Local files use `LOCAL_FILE` provenance; GitHub and other remote identities may be recorded only when the caller supplies the inspected source URL and permissions. Download availability alone never makes an entry admissible.
 
-Hydraulic persists the resulting versioned index and manifest as `corpus-index.json` and `corpus-manifest.json`, then writes `corpus-summary.json` and `corpus-admissibility-report.json` under `config/hydraulic/reports`.
+Hydraulic persists the resulting versioned index and manifest as `corpus-index.json` and `corpus-manifest.json`, then writes `corpus-summary.json`, `corpus-admissibility-report.json`, and `java-corpus-summary.json` under `config/hydraulic/reports`.
 
 The corpus is advisory. It can enrich compatibility analysis and adapter ranking, but raw corpus records cannot directly advertise executable runtime bridges.
 

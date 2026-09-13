@@ -579,7 +579,7 @@ of support or reuse rights.
 - Fresh Java 25 validation after the transaction, synchronization, mixed-machine, automation, and compiled mixed-recipe slices now also confirms the full Gradle `build` succeeds and `:fabric:runServer` reaches Geyser ready state on UDP `19132`. The run converted eight packs with `failedPacks = 0`, registered 857 custom blocks, 989 custom items, and 1 custom entity, and `pack-validation-report.json` marked `create`, `travelersbackpack`, `lootr`, `apollib`, `citadel`, `farmersdelight`, `hydraulic`, and `hydraulic_test_mod` as valid. Create still emits fourteen `pack.path.long` warnings and one manual action for long Bedrock pack paths.
 
 ### What is still too narrow
-- The corpus schema, local importer, loader, admissibility checks, matcher, report writer, and compatibility evidence seam are implemented. The current runtime corpus is still empty until reviewed snapshots are supplied; live remote harvesting, CurseForge API ingestion, human license review, and populated research records remain intentionally external/offline inputs rather than startup behavior.
+- The corpus schema, local importer, loader, admissibility checks, matcher, report writer, and compatibility evidence seam are implemented. Startup seeds 15 reviewed Bedrock corpus records into `config/hydraulic/corpus/curated/builtin` (12 admissible) and two admissible Java capability references into `config/hydraulic/corpus/java/curated/builtin`; the bundled records remain offline evidence and do not become runtime bridge inputs. Live remote harvesting, CurseForge API ingestion, and human review of additional records remain intentionally external/offline inputs rather than startup behavior. Server-owned records belong outside the overwritten `builtin` directories.
 - Discovery is still duplicated across multiple subsystems.
 - Fingerprinting and cache invalidation now carry resource-kind-aware boundaries inside a mod, while cross-mod conversion invalidation remains dependency-aware rather than per-mod-only.
 - Resource-pack reading and broader resource resolution are still too eager even though startup model lookup, custom model conversion, item and bow post-processing model resolution, and selective texture extraction now use indexed mod paths.
@@ -2141,6 +2141,7 @@ The Bedrock addon corpus can begin earlier as an external schema and harvesting 
 ### Current execution rules
 - preserve compatibility semantics first, then optimize
 - use the live repo and runtime artifacts as truth over older prose
+- update `README.md` and this plan in the same change set as any user-visible capability, runtime boundary, report, validation result, or supported-workflow change; verify each claim against code, focused tests, or recorded runtime artifacts before commit
 - replace duplicated discovery before widening compatibility breadth
 - compile flexible metadata before using it in runtime paths
 - treat the Bedrock addon corpus as offline evidence, not as a live runtime dependency
