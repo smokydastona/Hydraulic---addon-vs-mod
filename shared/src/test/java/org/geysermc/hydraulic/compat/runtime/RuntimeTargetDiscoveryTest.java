@@ -1,6 +1,9 @@
 package org.geysermc.hydraulic.compat.runtime;
 
 import net.minecraft.resources.Identifier;
+import org.cloudburstmc.protocol.bedrock.data.inventory.ItemData;
+import org.cloudburstmc.protocol.bedrock.packet.BedrockPacket;
+import org.cloudburstmc.protocol.bedrock.packet.InventorySlotPacket;
 import org.geysermc.hydraulic.compat.CompatibilityStatus;
 import org.geysermc.hydraulic.compat.ir.CompiledCompatibilityPlan;
 import org.geysermc.hydraulic.compat.model.Confidence;
@@ -13,6 +16,7 @@ import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -25,25 +29,24 @@ class RuntimeTargetDiscoveryTest {
         TestItemBridge items = new TestItemBridge();
         RuntimeTargetDiscovery discovery = discovery(new RuntimeTargetDiscovery.Target(MACHINE, items, null, null));
         DirtyStateTracker dirty = new DirtyStateTracker();
-        List<EncodedSyncChange> delivered = new ArrayList<>();
+        RuntimeTraceId traceId = new RuntimeTraceId("integration-item-transfer");
+        List<BedrockPacket> packets = new ArrayList<>();
         SyncDispatcher dispatcher = new SyncDispatcher(
             dirty,
             new SyncPlanner(),
             new SyncEncoder(),
-            changes -> {
-                delivered.addAll(changes);
-                return changes.stream().map(change -> new SyncDeliveryResult(change, SyncDeliveryStatus.SENT, null)).toList();
-            }
+            new GeyserSyncTransport(null, packets::add, (session, itemId, count) -> ItemData.AIR, () -> 4)
         );
 
-        RuntimeTargetDiscovery.Resolution resolution = discovery.discover(POSITION);
+        RuntimeTargetDiscovery.Resolution resolution = discovery.discover(POSITION, traceId);
         TransferResult result = discovery.transferItem(
             POSITION,
             TransferDirection.INSERT,
             new TransferBridgeFactory.ItemStackView("minecraft:stone", 4),
             0,
             "north",
-            dirty
+            dirty,
+            traceId
         );
 
         assertTrue(resolution.resolved());
@@ -51,8 +54,13 @@ class RuntimeTargetDiscoveryTest {
         assertTrue(result.committed());
         assertEquals(4, items.stack.count());
         assertEquals("north", items.lastSide);
-        assertEquals(1, dispatcher.flush().size());
-        assertEquals(EncodedSyncKind.INVENTORY_SLOT, delivered.getFirst().kind());
+        List<SyncDeliveryResult> deliveries = dispatcher.flush();
+        assertEquals(1, deliveries.size());
+        assertEquals(traceId, deliveries.getFirst().traceId());
+        assertEquals(SyncDeliveryStatus.SENT, deliveries.getFirst().status());
+        InventorySlotPacket packet = assertInstanceOf(InventorySlotPacket.class, packets.getFirst());
+        assertEquals(4, packet.getContainerId());
+        assertEquals(0, packet.getSlot());
     }
 
     @Test

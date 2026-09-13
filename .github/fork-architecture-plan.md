@@ -225,6 +225,24 @@ Use the support vocabulary `NATIVE`, `AUTOMATIC`, `ADAPTED`, `APPROXIMATED`,
 `VISUAL_ONLY`, and `UNSUPPORTED`. A score must never override a missing
 critical capability, and visual conversion must never imply gameplay support.
 
+Global executable-state invariant:
+
+```text
+EXECUTABLE
+= every required capability
+  + every required operation
+  + failure semantics
+  + authoritative state mutation
+  + persistence
+  + synchronization
+  + verified transport handoff
+```
+
+These stages remain separate: visual support is not interaction support,
+interaction support is not behavior support, behavior support is not network
+support, and a verified transport handoff is not proof of Bedrock client
+observation. `CLIENT_OBSERVED` is only a manual, human-attested result.
+
 ## Java Normalization And Bedrock Feasibility
 
 Forge capabilities, Fabric Transfer APIs, and mod-specific APIs are inputs to
@@ -574,7 +592,7 @@ of support or reuse rights.
 - Compatibility analysis now has explicit kind-keyed analyzer dispatch, but it still reconstructs facts too often and still depends on repeated asset discovery.
 - Non-block compatibility remains shallower than the block path.
 - Live Bedrock-client synchronization verification, Bedrock action-to-mutation execution, richer menu behavior, block-entity behavior, deeper entity behavior, custom networking, custom rendering analysis, and broad automatic machine recipe discovery remain incomplete.
-- There is still no universal compiled runtime plan that removes compatibility reasoning from hot paths.
+- The compiled runtime-plan architecture exists for the currently shipped compatibility slices, but it is not yet universal across all capability domains; transfer-heavy and deeper behavior paths still perform flexible runtime reasoning.
 
 ## Primary Architectural Correction
 
@@ -1749,11 +1767,13 @@ tasks, the real compatibility runtime classes, and the real handoff/report artif
   workspace. `PackValidationTracker` already writes `config/hydraulic/reports/pack-validation-report.json`
   with a `perMod` map of `{valid, errors[], warnings[], manualActions[]}`. These are the real runtime
   artifacts the harness validates — no new report format is invented for compatibility data.
-- Existing unit tests (`SyncPlannerTest`, `GeyserSyncTransportTest`, `TransferBridgeRuntimeTest`,
-  `RuntimeDispatchTableTest`, `CompatibilityRuntimeDiagnosticsTest`, and neighboring classes under
-  `shared/src/test/java/org/geysermc/hydraulic/compat/runtime/`) already assert individual pipeline stages
-  with a mocked Geyser session boundary. They are component-level tests, not a live end-to-end Bedrock
-  client trace, and must never be reported as one.
+- Existing runtime tests (`SyncPlannerTest`, `GeyserSyncTransportTest`, `TransferBridgeRuntimeTest`,
+  `RuntimeDispatchTableTest`, `CompatibilityRuntimeDiagnosticsTest`, `RuntimeTargetDiscoveryTest`, and
+  neighboring classes under `shared/src/test/java/org/geysermc/hydraulic/compat/runtime/`) assert the
+  individual pipeline stages. `RuntimeTargetDiscoveryTest` now also exercises the production
+  `GeyserSyncTransport` from Java-side mutation through trace propagation and a concrete
+  `InventorySlotPacket` handoff. These tests still stop at the injected Geyser packet boundary; they are
+  not a live end-to-end Bedrock client trace and must never be reported as one.
 - `test/src/main/java/org/geysermc/hydraulic/fabric/test/` currently has one simple block (`ModBlocks`),
   nine tool/armor items (`ModItems`), one entity that opens a menu (`ModEntities`/`BarrelTestEntity`), one
   simple container (`ModMenus`/`BarrelMenu`), and one fluid plus bucket (`ModFluids`). It has no directional
@@ -1993,22 +2013,43 @@ Exit criteria:
 - conversion scales with required assets, not all assets
 - repeated runs produce stable identifiers and deterministic outputs
 
-## Phase 5: Behavior Fact Extraction And Generic Bridges
+## Phase 5A: Generic Execution Substrate
 Priority: very high
 
 Build:
-- behavior fact extractor
-- generic machine model
-- generic container model
 - item transfer bridge
 - fluid transfer bridge
 - energy transfer bridge
-- broader block-entity bridge
-- fluid bridge
-- richer menu bridge
+- mixed-resource transaction execution
+- machine processing execution
+- automation requests and runtime target discovery
+- dirty-state tracking, synchronization planning, encoding, and Geyser transport handoff
+- runtime tracing and explicit Bedrock-originated action routing
 
 Exit criteria:
-- common machine and container families work through generic bridges before mod-specific adapters
+- common machine and transfer families execute through generic bridges before mod-specific adapters
+- every claimed executable operation has concrete mutation, failure, persistence, synchronization, and transport semantics
+
+Current state:
+- The generic execution substrate is substantially implemented and covered by focused shared tests.
+- The current transport evidence stops at the Geyser/Hydraulic handoff boundary. A real Bedrock client observation remains a separate manual gate and must not be inferred from packet encoding or a `SENT`/`APPLIED` status.
+
+## Phase 5B: Universal Semantic Discovery
+Priority: very high
+
+Build:
+- behavior fact extraction from indexed Java resources, registries, capabilities, recipes, block entities, menus, networking, and dependencies
+- automatic Java recipe discovery and normalization into machine process facts
+- normalized Forge/Fabric/Botarium item, fluid, and energy capability variants
+- machine, container, fluid, menu, block-entity, and networking archetype inference
+- generic capability matching against concrete executable bridge operations
+- compilation of discovered facts into `Discovery IR`, `Compatibility IR`, and `CompiledCompatibilityPlan`
+
+Exit criteria:
+- supported semantics are discovered automatically where authoritative Java evidence exists, with provenance and confidence
+- discovered behavior never advertises an executable bridge without a concrete operation and validation result
+- unsupported or ambiguous semantics degrade explicitly to `APPROXIMATED`, `VISUAL_ONLY`, or `UNSUPPORTED`
+- raw discovery data is absent from hot runtime paths; runtime consumes only compiled plans and indexed references
 
 ## Phase 6: Knowledge And Pattern Classification
 Priority: high

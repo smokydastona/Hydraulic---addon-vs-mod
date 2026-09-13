@@ -67,9 +67,9 @@ class BridgeAdapterSupportTest {
     }
 
     @Test
-    void fluidBridgesRequireCompiledFactsAndRuntimeFlags() {
+    void fluidTranslatorCanUseFactsButRuntimeRequiresConcreteOperations() {
         assertTrue(BridgeAdapterSupport.supportsFluidTranslator(fluidPlan(true, false)));
-        assertTrue(BridgeAdapterSupport.supportsFluidRuntime(fluidPlan(false, true)));
+        assertFalse(BridgeAdapterSupport.supportsFluidRuntime(fluidPlan(false, true)));
         assertFalse(BridgeAdapterSupport.supportsFluidRuntime(fluidPlan(false, false)));
     }
 

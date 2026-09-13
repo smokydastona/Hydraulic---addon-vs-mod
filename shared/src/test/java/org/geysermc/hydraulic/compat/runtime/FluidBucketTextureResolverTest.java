@@ -13,6 +13,7 @@ import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
 class FluidBucketTextureResolverTest {
@@ -21,6 +22,11 @@ class FluidBucketTextureResolverTest {
         assertEquals("hydraulic_test_mod:barrel_pack", FluidBucketTextureResolver.resolve(plan(true, "hydraulic_test_mod:barrel_pack")));
         assertNull(FluidBucketTextureResolver.resolve(plan(false, "hydraulic_test_mod:barrel_pack")));
         assertNull(FluidBucketTextureResolver.resolve(plan(true, null)));
+    }
+
+    @Test
+    void metadataEvidenceDoesNotAdvertiseExecutableFluidRuntime() {
+        assertFalse(BridgeAdapterSupport.supportsFluidRuntime(plan(true, "hydraulic_test_mod:barrel_pack")));
     }
 
     private static CompiledCompatibilityPlan plan(boolean includeAdapter, String bucketTexture) {

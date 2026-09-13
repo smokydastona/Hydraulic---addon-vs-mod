@@ -10,6 +10,12 @@
 >
 > Phlodgate's goal is to push Hydraulic further toward automatic compatibility with modded Java servers, so Bedrock players can interact with as much of a modded server as possible without requiring the server owner to manually create a Bedrock compatibility layer for every mod.
 
+## Repository Authority
+
+The canonical source tree is the nested `Hydraulic-mod/` repository that contains this README. Keep active code, Gradle builds, and commits there. `_runtime_validation/` is a detached linked worktree for validation-only runs, and `_push_worktree/` is an independent export/push checkout; neither is an additional development source tree.
+
+Runtime validation output stays under the canonical tree's ignored `fabric/run/` directory, especially `fabric/run/config/hydraulic/reports/` and `fabric/run/config/hydraulic/cache/`. Run `scripts/validate-repository-topology.ps1` before a release or after changing worktree setup to verify these boundaries without modifying any checkout.
+
 ## What is Hydraulic?
 
 [Hydraulic](https://github.com/GeyserMC/Hydraulic) is a companion mod for [Geyser](https://github.com/GeyserMC/Geyser) that allows Bedrock players to connect to modded Minecraft: Java Edition servers.
@@ -598,6 +604,30 @@ If something cannot actually work yet, the compatibility system should say so.
 If something can be adapted, there should be a defined path for doing it.
 
 And when a new runtime bridge is added, it should become part of the same compatibility pipeline instead of another isolated special case.
+
+## Production Bedrock Pack Deployment
+
+After pack generation, validated archives are stored under:
+
+```text
+fabric/run/config/hydraulic/storage/<mod-id>/<mod-id>.mcpack
+```
+
+Deploy them to the resource-pack directory used by the production Geyser/Bedrock distribution with an explicit destination:
+
+```powershell
+.\scripts\deploy-generated-packs.ps1 `
+       -DestinationRoot 'C:\path\to\production\bedrock\resource_packs' `
+       -DryRun
+
+.\scripts\deploy-generated-packs.ps1 `
+       -DestinationRoot 'C:\path\to\production\bedrock\resource_packs' `
+       -Force
+```
+
+The dry run validates each archive as a `.mcpack` ZIP, checks `manifest.json`, and reports SHA-256 hashes without changing files. A real deployment stages and verifies each archive before promotion and writes `.hydraulic-deployment.json`; it does not delete unrelated files. `-Force` is required to replace an existing archive whose hash differs. Ensure the server account can write the destination and restart or reload Geyser according to its deployment procedure.
+
+Deployment success only proves that the files reached the destination. It does not prove that Geyser sent every runtime update or that a real Bedrock client rendered the result. Those remain separate transport and `CLIENT_OBSERVED` validation steps.
 
 ---
 

@@ -36,10 +36,7 @@ final class BridgeAdapterSupport {
     }
 
     static boolean supportsFluidRuntime(@Nullable CompiledCompatibilityPlan plan) {
-        return plan != null
-            && plan.requiresFluidRuntime()
-            && plan.behaviorTag() != null
-            && !plan.behaviorTag().isBlank();
+        return false;
     }
 
     static boolean supportsItemTransfer(@Nullable CompiledCompatibilityPlan plan) {
